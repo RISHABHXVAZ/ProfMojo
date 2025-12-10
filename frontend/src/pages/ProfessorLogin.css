@@ -1,0 +1,128 @@
+/* Make the entire page full screen */
+.login-page {
+  width: 100vw;
+  height: 100vh;
+  background: #f2f2f2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* The login box */
+.login-container {
+  width: 350px;
+  padding: 30px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  text-align: center;
+}
+
+.login-container input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.login-container button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: #00723f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.login-container button:hover {
+  background: #005c2f;
+}
+
+.login-container a {
+  color: #0077ff;
+  font-weight: bold;
+  text-decoration: none;
+}
+/* Full page center */
+.login-page {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f5f5f5;
+}
+
+/* Card container */
+.login-card {
+  width: 420px;
+  background: #fff;
+  padding: 35px 40px;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+
+/* Title */
+.title {
+  font-size: 26px;
+  margin-bottom: 25px;
+  color: #222;
+  font-weight: 700;
+}
+
+/* Input boxes */
+.input-box {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  border: 1px solid #d3d7de;
+  background: #d3d9e3;
+  font-size: 15px;
+  outline: none;
+  transition: 0.2s ease;
+}
+
+.input-box:focus {
+  border-color: #0b6b39;
+  background: #eef3f7;
+}
+
+/* Login Button */
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: #0b6b39;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.login-btn:hover {
+  background: #09552e;
+}
+
+/* Register text */
+.register-text {
+  margin-top: 18px;
+  font-size: 14px;
+  color: #444;
+}
+
+.register-link {
+  color: #0066ff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.register-link:hover {
+  text-decoration: underline;
+}
