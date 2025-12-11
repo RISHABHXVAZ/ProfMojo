@@ -8,4 +8,7 @@ public interface ProfessorService {
     Professor registerProfessor(Professor professor);
 
     String login(LoginRequest loginRequest);
+
+    boolean existsByProfId(String profId);
+
 }

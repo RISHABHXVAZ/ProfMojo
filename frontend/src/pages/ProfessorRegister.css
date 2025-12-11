@@ -63,6 +63,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
+  margin-left: 15px;
 }
 
 .register-btn:hover {
@@ -107,3 +108,47 @@
 .toggle-eye svg:hover {
   opacity: 1;
 }
+/* Wrapper must be relative for absolute icon positioning */
+.input-with-icon {
+  position: relative;
+  width: 100%;
+}
+
+/* Make space inside the input so icon doesn't overlap text */
+.input-with-icon .input-box {
+  padding-right: 14px;
+}
+
+/* Icons – perfectly centered vertically */
+.valid-icon,
+.invalid-icon {
+  position: absolute;
+  right: 10px;
+  bottom: 20%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.valid-icon {
+  color: #0a8a23;
+}
+
+.invalid-icon {
+  color: #d93025;
+}
+
+/* Eye icon wrapper */
+.password-wrapper {
+  position: relative;
+}
+
+.password-wrapper .toggle-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+

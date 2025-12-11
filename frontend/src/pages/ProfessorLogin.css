@@ -104,6 +104,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s ease;
+  margin-left: 15px;
 }
 
 .login-btn:hover {
@@ -126,3 +127,17 @@
 .register-link:hover {
   text-decoration: underline;
 }
+
+.password-wrapper {
+  position: relative;
+}
+
+.toggle-eye {
+  position: absolute;
+  right: 14px;
+  top: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+

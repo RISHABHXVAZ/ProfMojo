@@ -2,6 +2,8 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.Professor;
 import com.profmojo.models.dto.LoginRequest;
+import com.profmojo.repositories.ProfessorMasterRepository;
+import com.profmojo.repositories.ProfessorRepository;
 import com.profmojo.services.ProfessorService;
 
 import lombok.RequiredArgsConstructor;
@@ -14,10 +16,16 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/professors")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
+@CrossOrigin(
+        origins = "http://localhost:5173",
+        allowedHeaders = "*",
+        methods = {RequestMethod.GET, RequestMethod.POST}
+)
 public class ProfessorController {
 
     private final ProfessorService professorService;
+    private final ProfessorMasterRepository professorMasterRepository;
+    private final ProfessorRepository professorRepository;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Professor professor) {
@@ -34,5 +42,26 @@ public class ProfessorController {
     @GetMapping("/me")
     public ResponseEntity<?> getMyProfile() {
         return ResponseEntity.ok("You are authenticated!");
+    }
+
+    @GetMapping("/check-id/{profId}")
+    public ResponseEntity<?> checkProfId(@PathVariable String profId) {
+
+        // Check if professor exists in master table
+        boolean existsInMaster = professorMasterRepository.existsByProfId(profId);
+
+        if (!existsInMaster) {
+            return ResponseEntity.ok(Map.of("canRegister", false));
+        }
+
+        // Check if already registered in Professor table
+        boolean alreadyRegistered = professorRepository.existsById(profId);
+
+        if (alreadyRegistered) {
+            return ResponseEntity.ok(Map.of("canRegister", false));
+        }
+
+        // If exists in master AND not registered → can register ✔
+        return ResponseEntity.ok(Map.of("canRegister", true));
     }
 }
