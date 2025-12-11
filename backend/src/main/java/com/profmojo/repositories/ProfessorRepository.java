@@ -7,5 +7,8 @@ public interface ProfessorRepository extends JpaRepository<Professor, String> {
 
     boolean existsByEmail(String email);
 
-    Professor findByProfId(String profId); // for login using profId
+    Professor findByProfId(String profId);// for login using profId
+
+    boolean existsByProfId(String profId);
+
 }

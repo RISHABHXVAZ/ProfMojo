@@ -64,4 +64,9 @@ public class ProfessorServiceImpl implements ProfessorService {
                 prof.getRole()        // role
         );
     }
+
+    @Override
+    public boolean existsByProfId(String profId) {
+        return professorRepository.existsByProfId(profId);
+    }
 }
