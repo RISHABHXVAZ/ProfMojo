@@ -1,177 +1,107 @@
-/* Full white background */
+/* Background */
 .home-container {
   width: 100vw;
   height: 100vh;
-  background: #f5f5f5;
+
+  background: radial-gradient(circle at 10% 20%, #dbeafe 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, #fde68a 0%, transparent 45%),
+              radial-gradient(circle at 80% 10%, #fecaca 0%, transparent 45%),
+              #f8fafc;
+
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-/* Center card */
-.card {
-  width: 600px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-}
-
-/* Navbar inside card */
-.navbar-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #222;
-  padding: 18px 25px;
-  color: white;
-}
-
-.logo {
-  font-size: 22px;
-  font-weight: bold;
-}
-
-.nav-links a {
-  margin-left: 18px;
-  color: #ddd;
-  text-decoration: none;
-  font-size: 15px;
-}
-
-.nav-links a:hover {
-  color: #fff;
-}
-
-/* Content */
-.content {
-  padding: 60px 30px;
-  text-align: center;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  height: 150px; /* ensures true vertical centering */
-}
-
-.content h2 {
-  margin-bottom: 10px;
-  font-size: 26px;
-}
-
-.content p {
-  font-size: 16px;
-  color: #555;
-}
-
-.role-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  padding: 40px;
-}
-
-.role-card {
-  background: #fff;
-  padding: 25px;
-  border-radius: 12px;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 600;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.12);
-  text-decoration: none;
-  color: #222;
-
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.role-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
-}
-
-.home-container {
-  width: 100vw;
-  height: 100vh;
-  background: #f5f5f5;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
+/* Main Card – soft white glassmorphic */
 .home-card {
-  width: 900px;
-  background: #222;
-  border-radius: 16px;
-  padding: 50px;
+  width: 1100px;
+  padding: 50px 60px;
+
+  background: rgba(251, 249, 249, 0.75);
+  backdrop-filter: blur(12px);
+
+  border-radius: 22px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 40px;
 
-  color: white;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  transition: 0.3s ease;
+}
+
+.home-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 28px 55px rgba(0, 0, 0, 0.15);
 }
 
 /* LEFT SECTION */
 .left-section {
   width: 25%;
 }
+
 .logo {
-  font-size: 28px;
-  font-weight: bold;
+  font-size: 34px;
+  font-weight: 800;
+  color: #1e293b;
 }
+
 .tagline {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #aaa;
+  margin-top: 8px;
+  font-size: 15px;
+  color: #64748b;
 }
 
 /* CENTER SECTION */
 .center-section {
-  width: 40%;
+  width: 35%;
 }
 
 .role-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, 150px);
+  justify-content: center;
+  gap: 22px;
 }
 
+/* Role cards */
 .role-card {
-  background: #fff;
-  padding: 20px 0;
-  border-radius: 12px;
+  background: white;
+  padding: 18px 0;
+  border-radius: 14px;
   text-align: center;
-  font-size: 17px;
-  font-weight: 600;
-  color: #222;
 
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: 0.2s;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+
+  text-decoration: none;
+
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.10);
+  transition: all 0.25s ease;
 }
 
 .role-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: translateY(-6px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.20);
 }
 
 /* RIGHT SECTION */
 .right-section {
   width: 25%;
-  text-align: left;
 }
 
 .right-section h2 {
-  font-size: 28px;
-  line-height: 1.2;
-  margin-bottom: 15px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 10px;
 }
 
 .sub-text {
-  font-size: 15px;
-  color: #ccc;
+  font-size: 16px;
+  color: #64748b;
+  max-width: 250px;
 }
 

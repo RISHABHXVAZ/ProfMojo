@@ -1,5 +1,7 @@
 package com.profmojo.config;
 
+import com.profmojo.security.jwt.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,34 +15,46 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        // Permit PUBLIC endpoints (no auth required)
+
+                        // PUBLIC
                         .requestMatchers(
+                                "/api/students/login",
+                                "/api/students/register",
                                 "/api/professors/login",
-                                "/api/professors/register",
-                                "/api/professors/check-id/**"
+                                "/api/professors/register"
                         ).permitAll()
 
-                        // Everything else secured
+                        // PROTECTED
+                        .requestMatchers("/api/students/**").authenticated()
+                        .requestMatchers("/api/professors/**").authenticated()
+
                         .anyRequest().authenticated()
+                )
+
+                // 🔥 THIS IS THE MISSING LINE
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
                 );
 
         return http.build();
     }
 
-    // 🔥 MOST IMPORTANT FOR CORS 🔥
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
         config.setAllowedOrigins(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
@@ -48,7 +62,6 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 

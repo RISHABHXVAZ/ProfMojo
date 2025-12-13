@@ -3,6 +3,9 @@ import Home from "./pages/Home";
 import ProfessorLogin from "./pages/ProfessorLogin";
 import ProfessorRegister from "./pages/ProfessorRegister";
 import ProfessorDashboard from "./pages/ProfessorDashboard";
+import StudentLogin from "./pages/StudentLogin";
+import StudentRegister from "./pages/StudentRegister";
+import StudentDashboard from "./pages/StudentDashboard";
 
 function App() {
   return (
@@ -16,9 +19,12 @@ function App() {
         <Route path="/professor" element={<ProfessorLogin />} />
         <Route path="/professor/login" element={<ProfessorLogin />} />
         <Route path="/professor/register" element={<ProfessorRegister />} />
-
-        {/* Dashboard */}
         <Route path="/professor/dashboard" element={<ProfessorDashboard />} />
+
+      
+        <Route path="/student/login" element={<StudentLogin />} />
+        <Route path="/student/register" element={<StudentRegister />} />
+        <Route path="/student/dashboard" element={<StudentDashboard />} />
 
       </Routes>
     </BrowserRouter>
