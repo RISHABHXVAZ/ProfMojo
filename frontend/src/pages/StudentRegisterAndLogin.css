@@ -41,22 +41,22 @@
   position: relative;
 }
 
-.valid-icon {
+.invalid-icon, .valid-icon {
   position: absolute;
-  right: 12px;
-  top: 12px;
-  color: green;
+  right: 10px;
+  bottom: 20%;
+  transform: translateY(-50%);
   font-size: 20px;
   font-weight: bold;
+  pointer-events: none;
+}
+
+.valid-icon {
+  color: #0a8a23;
 }
 
 .invalid-icon {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  color: red;
-  font-size: 20px;
-  font-weight: bold;
+  color: #d93025;
 }
 
 /* Eye Icon */
