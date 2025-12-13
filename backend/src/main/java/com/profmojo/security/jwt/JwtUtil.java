@@ -12,10 +12,9 @@ public class JwtUtil {
     private final String SECRET_KEY = "THIS_IS_A_VERY_LONG_SECRET_KEY_FOR_PROFMOJO_123456789";
     private final long EXPIRATION = 1000 * 60 * 60 * 10; // 10 HOURS
 
-    public String generateToken(String profId, String role) {
-
+    public String generateToken(String username, String role) {
         return Jwts.builder()
-                .setSubject(profId)
+                .setSubject(username)
                 .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION))
@@ -23,7 +22,7 @@ public class JwtUtil {
                 .compact();
     }
 
-    public String extractProfId(String token) {
+    public String extractUsername(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
                 .build()
@@ -32,15 +31,27 @@ public class JwtUtil {
                 .getSubject();
     }
 
+    public String extractRole(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("role", String.class);
+    }
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
-                    .build()
-                    .parseClaimsJws(token);
+            parse(token);
             return true;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private Jws<Claims> parse(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
+                .build()
+                .parseClaimsJws(token);
     }
 }
