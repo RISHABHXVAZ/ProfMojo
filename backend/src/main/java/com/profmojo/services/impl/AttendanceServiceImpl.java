@@ -20,32 +20,61 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public void markAttendance(String classCode, String studentRegNo, boolean present) {
 
-        ClassRoom room = classRoomRepo.findByClassCode(classCode)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
-
-        Student student = studentRepo.findById(studentRegNo)
-                .orElseThrow(() -> new RuntimeException("Student not found"));
-
         LocalDate today = LocalDate.now();
 
         Attendance attendance = attendanceRepo
-                .findByClassRoomAndStudentAndDate(room, student, today)
-                .orElse(new Attendance());
+                .findByClassCodeAndStudentRegNoAndAttendanceDate(
+                        classCode, studentRegNo, today
+                )
+                .orElse(
+                        Attendance.builder()
+                                .classCode(classCode)
+                                .studentRegNo(studentRegNo)
+                                .attendanceDate(today)
+                                .build()
+                );
 
-        attendance.setClassRoom(room);
-        attendance.setStudent(student);
-        attendance.setDate(today);
         attendance.setPresent(present);
 
         attendanceRepo.save(attendance);
     }
 
+
+
+
     @Override
     public List<Attendance> getAttendanceForClassToday(String classCode) {
 
-        ClassRoom room = classRoomRepo.findByClassCode(classCode)
+        // optional safety check (recommended)
+        classRoomRepo.findByClassCode(classCode)
                 .orElseThrow(() -> new RuntimeException("Class not found"));
 
-        return attendanceRepo.findByClassRoomAndDate(room, LocalDate.now());
+        LocalDate today = LocalDate.now();
+
+        return attendanceRepo.findByClassCodeAndAttendanceDate(classCode, today);
     }
+
+    @Override
+    public List<Attendance> getAttendanceForClassByDate(String classCode, LocalDate date) {
+
+        classRoomRepo.findByClassCode(classCode)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        return attendanceRepo.findByClassCodeAndAttendanceDate(classCode, date);
+    }
+
+    @Override
+    public List<Attendance> getStudentAttendanceHistory(
+            String classCode,
+            String studentRegNo
+    ) {
+        return attendanceRepo
+                .findByClassCodeAndStudentRegNoOrderByAttendanceDateAsc(
+                        classCode,
+                        studentRegNo
+                );
+    }
+
+
+
 }

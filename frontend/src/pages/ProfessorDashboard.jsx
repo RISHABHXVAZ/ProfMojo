@@ -6,11 +6,16 @@ export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [loading, setLoading] = useState(false);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newClassName, setNewClassName] = useState("");
 
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
 
   /* 🔹 Load professor classes */
   useEffect(() => {
@@ -18,6 +23,18 @@ export default function ProfessorDashboard() {
       loadClasses();
     }
   }, [activeTab]);
+
+  const loadClasses = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/professor/classes/my");
+      setClasses(res.data);
+    } catch {
+      alert("Failed to load classes");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const createClass = async () => {
     if (!newClassName.trim()) {
@@ -32,29 +49,18 @@ export default function ProfessorDashboard() {
 
       setNewClassName("");
       setShowCreateModal(false);
-      loadClasses(); // 🔥 refresh classes
+      loadClasses();
     } catch {
       alert("Failed to create class");
     }
   };
 
-
-  const loadClasses = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get("/professor/classes/my");
-      setClasses(res.data);
-    } catch (err) {
-      alert("Failed to load classes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* 🔹 Load students when class selected */
+  /* 🔹 Open class */
   const openClass = async (cls) => {
     setSelectedClass(cls);
+    setAttendance([]);
     setLoading(true);
+
     try {
       const res = await api.get(
         `/professor/classes/${cls.classCode}/students`
@@ -67,6 +73,7 @@ export default function ProfessorDashboard() {
     }
   };
 
+  /* 🔹 Mark attendance (Phase 1) */
   const markAttendance = async (studentRegNo, present) => {
     try {
       await api.post("/attendance/mark", {
@@ -77,6 +84,22 @@ export default function ProfessorDashboard() {
       alert("Attendance saved");
     } catch {
       alert("Failed to save attendance");
+    }
+  };
+
+  /* 🔹 Load attendance by date (Phase 2) */
+  const loadAttendanceByDate = async (date) => {
+    setLoading(true);
+    try {
+      const res = await api.get(
+        `/attendance/${selectedClass.classCode}/date`,
+        { params: { date } }
+      );
+      setAttendance(res.data);
+    } catch {
+      alert("Failed to load attendance");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,7 +125,7 @@ export default function ProfessorDashboard() {
         <button className="nav-item">Notice Board</button>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <div className="main-area">
         {activeTab === "attendance" && (
           <>
@@ -116,51 +139,38 @@ export default function ProfessorDashboard() {
                   >
                     + Create Class
                   </button>
-
-                  {showCreateModal && (
-                    <div className="modal-overlay">
-                      <div className="modal">
-                        <h2 className="modal-title">Create Class</h2>
-
-                        <input
-                          type="text"
-                          placeholder="Enter class name"
-                          className="modal-input"
-                          value={newClassName}
-                          onChange={(e) => setNewClassName(e.target.value)}
-                        />
-
-                        <div className="modal-actions">
-                          <button className="cancel" onClick={() => setShowCreateModal(false)}>
-                            Cancel
-                          </button>
-
-                          <button className="confirm" onClick={createClass}>
-                            Create
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {loading ? (
-                  <p>Loading...</p>
-                ) : classes.length === 0 ? (
-                  <p>No classes created yet</p>
-                ) : (
-                  <div className="class-grid">
-                    {classes.map((cls) => (
-                      <div
-                        key={cls.id}
-                        className="class-card"
-                        onClick={() => openClass(cls)}
-                      >
-                        {cls.className}
+                {showCreateModal && (
+                  <div className="modal-overlay">
+                    <div className="modal">
+                      <h2>Create Class</h2>
+                      <input
+                        value={newClassName}
+                        onChange={(e) => setNewClassName(e.target.value)}
+                        placeholder="Class name"
+                      />
+                      <div className="modal-actions">
+                        <button onClick={() => setShowCreateModal(false)}>
+                          Cancel
+                        </button>
+                        <button onClick={createClass}>Create</button>
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
+
+                <div className="class-grid">
+                  {classes.map((cls) => (
+                    <div
+                      key={cls.id}
+                      className="class-card"
+                      onClick={() => openClass(cls)}
+                    >
+                      {cls.className}
+                    </div>
+                  ))}
+                </div>
               </>
             ) : (
               <>
@@ -174,8 +184,33 @@ export default function ProfessorDashboard() {
                   </button>
                 </div>
 
+                {/* 📅 DATE PICKER */}
+                <div className="date-bar">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                  <button onClick={() => loadAttendanceByDate(selectedDate)}>
+                    View Attendance
+                  </button>
+                </div>
+
                 {loading ? (
                   <p>Loading...</p>
+                ) : attendance.length > 0 ? (
+                  <div className="attendance-list">
+                    {attendance.map((a) => (
+                      <div key={a.studentRegNo} className="student-row">
+                        <span>{a.studentRegNo}</span>
+                        <span
+                          className={a.present ? "present" : "absent"}
+                        >
+                          {a.present ? "Present" : "Absent"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
                   <div className="attendance-list">
                     {students.map((enrollment) => (
@@ -184,7 +219,6 @@ export default function ProfessorDashboard() {
                         className="student-row"
                       >
                         <span>{enrollment.student.name}</span>
-
                         <div className="actions">
                           <button
                             className="present"
@@ -194,7 +228,6 @@ export default function ProfessorDashboard() {
                           >
                             Present
                           </button>
-
                           <button
                             className="absent"
                             onClick={() =>
