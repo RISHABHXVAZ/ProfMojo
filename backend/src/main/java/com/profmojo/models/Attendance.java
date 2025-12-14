@@ -8,29 +8,31 @@ import java.time.LocalDate;
 @Entity
 @Table(
         name = "attendance",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"class_room_id", "student_reg_no", "date"})
-        }
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"class_code", "student_reg_no", "attendance_date"}
+        )
 )
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Attendance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "class_room_id", nullable = false)
-    private ClassRoom classRoom;
+    @Column(name = "class_code", nullable = false)
+    private String classCode;
 
-    @ManyToOne
-    @JoinColumn(name = "student_reg_no", nullable = false)
-    private Student student;
+    @Column(name = "student_reg_no", nullable = false)
+    private String studentRegNo;
 
-    private LocalDate date;
-
+    @Column(nullable = false)
     private boolean present;
+
+    @Column(name = "attendance_date", nullable = false)
+    private LocalDate attendanceDate;
 }
+
