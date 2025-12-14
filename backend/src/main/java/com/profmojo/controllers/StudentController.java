@@ -2,10 +2,12 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.Student;
 import com.profmojo.repositories.StudentRepository;
+import com.profmojo.services.ClassRoomService;
 import com.profmojo.services.StudentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -18,6 +20,7 @@ public class StudentController {
 
     private final StudentService studentService;
     private final StudentRepository studentRepository;
+    private final ClassRoomService classRoomService;
 
     @GetMapping("/check-id/{regNo}")
     public ResponseEntity<?> checkRegistrationNumber(@PathVariable String regNo) {
@@ -52,4 +55,13 @@ public class StudentController {
 
         return ResponseEntity.ok(student);
     }
+
+    @PostMapping("/join/{classCode}")
+    public void joinClass(
+            @PathVariable String classCode,
+            @AuthenticationPrincipal Student student
+    ) {
+        classRoomService.joinClass(classCode, student);
+    }
+
 }

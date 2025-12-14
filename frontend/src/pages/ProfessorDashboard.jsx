@@ -1,18 +1,84 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "../services/api";
 import "./ProfessorDashboard.css";
 
 export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
-  const [classes, setClasses] = useState(["C Section", "D Section"]);
+  const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newClassName, setNewClassName] = useState("");
 
-  const students = [
-    "Aarav Sharma",
-    "Ananya Verma",
-    "Kunal Singh",
-    "Rishabh Srivastava",
-    "Sneha Patel"
-  ];
+
+  /* 🔹 Load professor classes */
+  useEffect(() => {
+    if (activeTab === "attendance") {
+      loadClasses();
+    }
+  }, [activeTab]);
+
+  const createClass = async () => {
+    if (!newClassName.trim()) {
+      alert("Class name cannot be empty");
+      return;
+    }
+
+    try {
+      await api.post("/professor/classes/create", {
+        className: newClassName,
+      });
+
+      setNewClassName("");
+      setShowCreateModal(false);
+      loadClasses(); // 🔥 refresh classes
+    } catch {
+      alert("Failed to create class");
+    }
+  };
+
+
+  const loadClasses = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/professor/classes/my");
+      setClasses(res.data);
+    } catch (err) {
+      alert("Failed to load classes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* 🔹 Load students when class selected */
+  const openClass = async (cls) => {
+    setSelectedClass(cls);
+    setLoading(true);
+    try {
+      const res = await api.get(
+        `/professor/classes/${cls.classCode}/students`
+      );
+      setStudents(res.data);
+    } catch {
+      alert("Failed to load students");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAttendance = async (studentRegNo, present) => {
+    try {
+      await api.post("/attendance/mark", {
+        classCode: selectedClass.classCode,
+        studentRegNo,
+        present,
+      });
+      alert("Attendance saved");
+    } catch {
+      alert("Failed to save attendance");
+    }
+  };
 
   return (
     <div className="prof-dashboard">
@@ -44,25 +110,62 @@ export default function ProfessorDashboard() {
               <>
                 <div className="header">
                   <h1>Your Classes</h1>
-                  <button className="create-btn">+ Create Class</button>
+                  <button
+                    className="create-btn"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    + Create Class
+                  </button>
+
+                  {showCreateModal && (
+                    <div className="modal-overlay">
+                      <div className="modal">
+                        <h2 className="modal-title">Create Class</h2>
+
+                        <input
+                          type="text"
+                          placeholder="Enter class name"
+                          className="modal-input"
+                          value={newClassName}
+                          onChange={(e) => setNewClassName(e.target.value)}
+                        />
+
+                        <div className="modal-actions">
+                          <button className="cancel" onClick={() => setShowCreateModal(false)}>
+                            Cancel
+                          </button>
+
+                          <button className="confirm" onClick={createClass}>
+                            Create
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="class-grid">
-                  {classes.map((cls) => (
-                    <div
-                      key={cls}
-                      className="class-card"
-                      onClick={() => setSelectedClass(cls)}
-                    >
-                      {cls}
-                    </div>
-                  ))}
-                </div>
+                {loading ? (
+                  <p>Loading...</p>
+                ) : classes.length === 0 ? (
+                  <p>No classes created yet</p>
+                ) : (
+                  <div className="class-grid">
+                    {classes.map((cls) => (
+                      <div
+                        key={cls.id}
+                        className="class-card"
+                        onClick={() => openClass(cls)}
+                      >
+                        {cls.className}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <div className="header">
-                  <h1>{selectedClass} – Attendance</h1>
+                  <h1>{selectedClass.className} – Attendance</h1>
                   <button
                     className="back-btn"
                     onClick={() => setSelectedClass(null)}
@@ -71,17 +174,40 @@ export default function ProfessorDashboard() {
                   </button>
                 </div>
 
-                <div className="attendance-list">
-                  {students.map((student) => (
-                    <div key={student} className="student-row">
-                      <span>{student}</span>
-                      <div className="actions">
-                        <button className="present">Present</button>
-                        <button className="absent">Absent</button>
+                {loading ? (
+                  <p>Loading...</p>
+                ) : (
+                  <div className="attendance-list">
+                    {students.map((enrollment) => (
+                      <div
+                        key={enrollment.student.regNo}
+                        className="student-row"
+                      >
+                        <span>{enrollment.student.name}</span>
+
+                        <div className="actions">
+                          <button
+                            className="present"
+                            onClick={() =>
+                              markAttendance(enrollment.student.regNo, true)
+                            }
+                          >
+                            Present
+                          </button>
+
+                          <button
+                            className="absent"
+                            onClick={() =>
+                              markAttendance(enrollment.student.regNo, false)
+                            }
+                          >
+                            Absent
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </>
