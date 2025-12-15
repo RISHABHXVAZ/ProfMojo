@@ -2,6 +2,7 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.Attendance;
 import com.profmojo.models.dto.AttendanceRequest;
+import com.profmojo.models.dto.AttendanceSummaryDTO;
 import com.profmojo.services.AttendanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,8 @@ public class AttendanceController {
         attendanceService.markAttendance(
                 request.getClassCode(),
                 request.getStudentRegNo(),
-                request.isPresent()
+                request.isPresent(),
+                request.getAttendanceDate()
         );
         return ResponseEntity.ok("Attendance saved");
     }
@@ -53,5 +55,9 @@ public class AttendanceController {
         return attendanceService.getStudentAttendanceHistory(classCode, regNo);
     }
 
+    @GetMapping("/{classCode}/summary")
+    public AttendanceSummaryDTO getSummary(@PathVariable String classCode) {
+        return attendanceService.getAttendanceSummary(classCode);
+    }
 
 }
