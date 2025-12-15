@@ -12,12 +12,16 @@ export default function ProfessorDashboard() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newClassName, setNewClassName] = useState("");
+  const [summary, setSummary] = useState(null);
+
+  // 🔥 Temporary UI state for undo
+  const [markedMap, setMarkedMap] = useState({});
 
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
 
-  /* 🔹 Load professor classes */
+  /* ================= LOAD CLASSES ================= */
   useEffect(() => {
     if (activeTab === "attendance") {
       loadClasses();
@@ -36,17 +40,20 @@ export default function ProfessorDashboard() {
     }
   };
 
+  /* ================= SUMMARY ================= */
+  const loadSummary = async (classCode) => {
+    const res = await api.get(`/attendance/${classCode}/summary`);
+    setSummary(res.data);
+  };
+
+  /* ================= CREATE CLASS ================= */
   const createClass = async () => {
-    if (!newClassName.trim()) {
-      alert("Class name cannot be empty");
-      return;
-    }
+    if (!newClassName.trim()) return;
 
     try {
       await api.post("/professor/classes/create", {
         className: newClassName,
       });
-
       setNewClassName("");
       setShowCreateModal(false);
       loadClasses();
@@ -55,13 +62,16 @@ export default function ProfessorDashboard() {
     }
   };
 
-  /* 🔹 Open class */
+  /* ================= OPEN CLASS ================= */
   const openClass = async (cls) => {
     setSelectedClass(cls);
     setAttendance([]);
+    setMarkedMap({});
     setLoading(true);
 
     try {
+      await loadSummary(cls.classCode);
+
       const res = await api.get(
         `/professor/classes/${cls.classCode}/students`
       );
@@ -73,21 +83,7 @@ export default function ProfessorDashboard() {
     }
   };
 
-  /* 🔹 Mark attendance (Phase 1) */
-  const markAttendance = async (studentRegNo, present) => {
-    try {
-      await api.post("/attendance/mark", {
-        classCode: selectedClass.classCode,
-        studentRegNo,
-        present,
-      });
-      alert("Attendance saved");
-    } catch {
-      alert("Failed to save attendance");
-    }
-  };
-
-  /* 🔹 Load attendance by date (Phase 2) */
+  /* ================= LOAD ATTENDANCE ================= */
   const loadAttendanceByDate = async (date) => {
     setLoading(true);
     try {
@@ -103,9 +99,67 @@ export default function ProfessorDashboard() {
     }
   };
 
+  /* ================= UNDO ================= */
+  const undoAttendance = (studentRegNo) => {
+    const entry = markedMap[studentRegNo];
+    if (!entry) return;
+
+    clearTimeout(entry.timeoutId);
+
+    setMarkedMap((prev) => {
+      const updated = { ...prev };
+      delete updated[studentRegNo];
+      return updated;
+    });
+  };
+
+  /* ================= MARK ATTENDANCE ================= */
+const markAttendance = async (studentRegNo, present) => {
+  try {
+    // 1️⃣ Save attendance
+    await api.post("/attendance/mark", {
+      classCode: selectedClass.classCode,
+      studentRegNo,
+      present,
+      attendanceDate: selectedDate,
+    });
+
+    // 2️⃣ Reload summary ONLY
+    const summaryRes = await api.get(
+      `/attendance/${selectedClass.classCode}/summary`
+    );
+    setSummary(summaryRes.data);
+
+    // 3️⃣ Undo timer
+    const timeoutId = setTimeout(() => {
+      setMarkedMap((prev) => ({
+        ...prev,
+        [studentRegNo]: {
+          ...prev[studentRegNo],
+          undoable: false,
+        },
+      }));
+    }, 5000);
+
+    // 4️⃣ UI state
+    setMarkedMap((prev) => ({
+      ...prev,
+      [studentRegNo]: {
+        status: present,
+        undoable: true,
+        timeoutId,
+      },
+    }));
+  } catch (err) {
+    console.error("Attendance save failed", err);
+  }
+};
+
+
+
   return (
     <div className="prof-dashboard">
-      {/* SIDEBAR */}
+      {/* ================= SIDEBAR ================= */}
       <div className="sidebar">
         <h2 className="sidebar-logo">ProfMojo</h2>
 
@@ -125,7 +179,7 @@ export default function ProfessorDashboard() {
         <button className="nav-item">Notice Board</button>
       </div>
 
-      {/* MAIN */}
+      {/* ================= MAIN ================= */}
       <div className="main-area">
         {activeTab === "attendance" && (
           <>
@@ -151,10 +205,15 @@ export default function ProfessorDashboard() {
                         placeholder="Class name"
                       />
                       <div className="modal-actions">
-                        <button onClick={() => setShowCreateModal(false)}>
+                        <button
+                          className="cancel"
+                          onClick={() => setShowCreateModal(false)}
+                        >
                           Cancel
                         </button>
-                        <button onClick={createClass}>Create</button>
+                        <button className="confirm" onClick={createClass}>
+                          Create
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -184,63 +243,128 @@ export default function ProfessorDashboard() {
                   </button>
                 </div>
 
-                {/* 📅 DATE PICKER */}
-                <div className="date-bar">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                  <button onClick={() => loadAttendanceByDate(selectedDate)}>
+                {summary && (
+                  <div className="attendance-summary">
+                    <div>
+                      <strong>Total Lectures</strong>
+                      <span>{summary.totalLectures}</span>
+                    </div>
+
+                    <div>
+                      <strong>Avg Attendance</strong>
+                      <span>{summary.averageAttendance}%</span>
+                    </div>
+
+                    <div className="warning">
+                      <strong>Low Attendance</strong>
+                      <span>{summary.lowAttendanceCount}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="attendance-toolbar">
+                  <div className="date-picker">
+                    <label>Attendance Date</label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    className="view-btn"
+                    onClick={() => loadAttendanceByDate(selectedDate)}
+                  >
                     View Attendance
                   </button>
                 </div>
 
-                {loading ? (
-                  <p>Loading...</p>
-                ) : attendance.length > 0 ? (
-                  <div className="attendance-list">
-                    {attendance.map((a) => (
-                      <div key={a.studentRegNo} className="student-row">
-                        <span>{a.studentRegNo}</span>
-                        <span
-                          className={a.present ? "present" : "absent"}
-                        >
-                          {a.present ? "Present" : "Absent"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="attendance-list">
-                    {students.map((enrollment) => (
-                      <div
-                        key={enrollment.student.regNo}
-                        className="student-row"
-                      >
-                        <span>{enrollment.student.name}</span>
-                        <div className="actions">
-                          <button
-                            className="present"
-                            onClick={() =>
-                              markAttendance(enrollment.student.regNo, true)
-                            }
+                <div className="attendance-card">
+                  {attendance.length > 0
+                    ? attendance.map((a) => (
+                        <div key={a.studentRegNo} className="student-row">
+                          <span>{a.studentRegNo}</span>
+                          <span
+                            className={`status-pill ${
+                              a.present ? "present" : "absent"
+                            }`}
                           >
-                            Present
-                          </button>
-                          <button
-                            className="absent"
-                            onClick={() =>
-                              markAttendance(enrollment.student.regNo, false)
-                            }
-                          >
-                            Absent
-                          </button>
+                            {a.present ? "Present" : "Absent"}
+                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))
+                    : students.map((enrollment, index) => {
+                        const student = enrollment.student;
+                        const marked = markedMap[student.regNo];
+
+                        return (
+                          <div
+                            key={student.regNo}
+                            className="student-row grid-row"
+                          >
+                            <div className="col-serial">{index + 1}</div>
+
+                            <div className="student-info">
+                              <div className="avatar">
+                                {student.name.charAt(0)}
+                              </div>
+                              <span className="student-name">
+                                {student.name}
+                              </span>
+                            </div>
+
+                            <div className="reg-no">{student.regNo}</div>
+
+                            <div className="actions">
+                              {marked ? (
+                                <div className="marked-box">
+                                  <span
+                                    className={`status-pill ${
+                                      marked.status ? "present" : "absent"
+                                    }`}
+                                  >
+                                    {marked.status
+                                      ? "Marked: Present"
+                                      : "Marked: Absent"}
+                                  </span>
+
+                                  {marked.undoable && (
+                                    <button
+                                      className="undo-btn"
+                                      onClick={() =>
+                                        undoAttendance(student.regNo)
+                                      }
+                                    >
+                                      Undo
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    className="present"
+                                    onClick={() =>
+                                      markAttendance(student.regNo, true)
+                                    }
+                                  >
+                                    Present
+                                  </button>
+                                  <button
+                                    className="absent"
+                                    onClick={() =>
+                                      markAttendance(student.regNo, false)
+                                    }
+                                  >
+                                    Absent
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                </div>
               </>
             )}
           </>

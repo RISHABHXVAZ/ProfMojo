@@ -168,7 +168,7 @@
 
 .present {
   background: #22c55e;
-  color: white;
+  color: white;;
 }
 
 .absent {
@@ -189,16 +189,20 @@
 }
 
 .modal {
-  background: rgb(244, 241, 241);
+  background: rgb(248, 245, 245);
   padding: 24px;
   border-radius: 12px;
   width: 320px;
+  color: #060708;
+  text-align: center;
 }
 
 .modal input {
   width: 100%;
   padding: 10px;
   margin: 16px 0;
+  color:#060708;
+  background: #cfcfd0;
 }
 
 .modal-actions {
@@ -207,7 +211,7 @@
 }
 
 .modal-actions .confirm {
-  background: #2563eb;
+  background: #185beb;
   color: rgb(240, 235, 235);
   padding: 8px 16px;
 }
@@ -230,4 +234,99 @@
   background-color: #cbd0cd;
   font-family: "Inter", "Segoe UI", sans-serif;
   color: #111827;
+}
+.marked-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-pill.present {
+  background: #e6f7ed;
+  color: #1f9254;
+}
+
+.status-pill.absent {
+  background: #fdecea;
+  color: #d32f2f;
+}
+
+.undo-btn {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.undo-btn:hover {
+  text-decoration: underline;
+}
+
+/* Grid layout for student row */
+.grid-row {
+  display: grid;
+  grid-template-columns: 60px 1.5fr 4fr 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Serial number */
+.col-serial {
+  font-weight: 600;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Registration number */
+.reg-no {
+  font-family: monospace;
+  color: #374151;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Student name */
+.student-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.attendance-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.attendance-summary div {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+  text-align: center;
+}
+
+.attendance-summary strong {
+  display: block;
+  font-size: 14px;
+  color: #6b7280; /* label color */
+  margin-bottom: 6px;
+}
+
+.attendance-summary span {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827; /* 🔥 THIS WAS MISSING */
+}
+
+.attendance-summary .warning span {
+  color: #dc2626; /* red */
 }
