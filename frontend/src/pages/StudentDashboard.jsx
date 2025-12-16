@@ -7,6 +7,9 @@ export default function StudentDashboard() {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [classCode, setClassCode] = useState("");
+  const [joinError, setJoinError] = useState("");
 
 
   /* ================= LOAD STUDENT PROFILE ================= */
@@ -97,7 +100,15 @@ export default function StudentDashboard() {
           <div className="student-main">
             <div className="student-header">
               <h1>My Attendance</h1>
+
+              <button
+                className="join-class-btn"
+                onClick={() => setShowJoinModal(true)}
+              >
+                + Join Class
+              </button>
             </div>
+
 
             <div className="attendance-list">
 
@@ -143,6 +154,52 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
+            {showJoinModal && (
+              <div className="modal-backdrop">
+                <div className="modal">
+                  <h3>Join a Class</h3>
+
+                  <input
+                    type="text"
+                    placeholder="Enter Class Code"
+                    value={classCode}
+                    onChange={(e) => setClassCode(e.target.value)}
+                  />
+
+                  {joinError && <p className="error">{joinError}</p>}
+
+                  <div className="modal-actions">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        setShowJoinModal(false);
+                        setClassCode("");
+                        setJoinError("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      className="btn-primary"
+                      onClick={async () => {
+                        try {
+                          await api.post(`/students/join/${classCode}`);
+                          setShowJoinModal(false);
+                          setClassCode("");
+                          loadMyAttendance(); // refresh data
+                        } catch (err) {
+                          setJoinError("Invalid or already joined class code");
+                        }
+                      }}
+                    >
+                      Join
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
