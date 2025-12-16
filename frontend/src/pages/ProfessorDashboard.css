@@ -330,3 +330,43 @@
 .attendance-summary .warning span {
   color: #dc2626; /* red */
 }
+
+.attendance-toggle {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.attendance-toggle button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #ede8e8;
+  background: #d52db1;
+  cursor: pointer;
+}
+
+.attendance-toggle button.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #f8f9fb;
+  color: #0a0a0b;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+
+.analytics-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+

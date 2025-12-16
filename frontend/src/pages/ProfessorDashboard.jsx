@@ -13,6 +13,9 @@ export default function ProfessorDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newClassName, setNewClassName] = useState("");
   const [summary, setSummary] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [studentAnalytics, setStudentAnalytics] = useState([]);
+
 
   // 🔥 Temporary UI state for undo
   const [markedMap, setMarkedMap] = useState({});
@@ -39,6 +42,18 @@ export default function ProfessorDashboard() {
       setLoading(false);
     }
   };
+
+  const loadStudentAnalytics = async () => {
+    try {
+      const res = await api.get(
+        `/attendance/${selectedClass.classCode}/students/summary`
+      );
+      setStudentAnalytics(res.data);
+    } catch (err) {
+      console.error("Failed to load analytics", err);
+    }
+  };
+
 
   /* ================= SUMMARY ================= */
   const loadSummary = async (classCode) => {
@@ -114,46 +129,46 @@ export default function ProfessorDashboard() {
   };
 
   /* ================= MARK ATTENDANCE ================= */
-const markAttendance = async (studentRegNo, present) => {
-  try {
-    // 1️⃣ Save attendance
-    await api.post("/attendance/mark", {
-      classCode: selectedClass.classCode,
-      studentRegNo,
-      present,
-      attendanceDate: selectedDate,
-    });
+  const markAttendance = async (studentRegNo, present) => {
+    try {
+      // 1️⃣ Save attendance
+      await api.post("/attendance/mark", {
+        classCode: selectedClass.classCode,
+        studentRegNo,
+        present,
+        attendanceDate: selectedDate,
+      });
 
-    // 2️⃣ Reload summary ONLY
-    const summaryRes = await api.get(
-      `/attendance/${selectedClass.classCode}/summary`
-    );
-    setSummary(summaryRes.data);
+      // 2️⃣ Reload summary ONLY
+      const summaryRes = await api.get(
+        `/attendance/${selectedClass.classCode}/summary`
+      );
+      setSummary(summaryRes.data);
 
-    // 3️⃣ Undo timer
-    const timeoutId = setTimeout(() => {
+      // 3️⃣ Undo timer
+      const timeoutId = setTimeout(() => {
+        setMarkedMap((prev) => ({
+          ...prev,
+          [studentRegNo]: {
+            ...prev[studentRegNo],
+            undoable: false,
+          },
+        }));
+      }, 5000);
+
+      // 4️⃣ UI state
       setMarkedMap((prev) => ({
         ...prev,
         [studentRegNo]: {
-          ...prev[studentRegNo],
-          undoable: false,
+          status: present,
+          undoable: true,
+          timeoutId,
         },
       }));
-    }, 5000);
-
-    // 4️⃣ UI state
-    setMarkedMap((prev) => ({
-      ...prev,
-      [studentRegNo]: {
-        status: present,
-        undoable: true,
-        timeoutId,
-      },
-    }));
-  } catch (err) {
-    console.error("Attendance save failed", err);
-  }
-};
+    } catch (err) {
+      console.error("Attendance save failed", err);
+    }
+  };
 
 
 
@@ -261,6 +276,25 @@ const markAttendance = async (studentRegNo, present) => {
                     </div>
                   </div>
                 )}
+                <div className="attendance-toggle">
+                  <button
+                    className={!showAnalytics ? "active" : ""}
+                    onClick={() => setShowAnalytics(false)}
+                  >
+                    Mark Attendance
+                  </button>
+
+                  <button
+                    className={showAnalytics ? "active" : ""}
+                    onClick={() => {
+                      setShowAnalytics(true);
+                      loadStudentAnalytics();
+                    }}
+                  >
+                    📊 View Analytics
+                  </button>
+                </div>
+
 
                 <div className="attendance-toolbar">
                   <div className="date-picker">
@@ -281,20 +315,54 @@ const markAttendance = async (studentRegNo, present) => {
                 </div>
 
                 <div className="attendance-card">
-                  {attendance.length > 0
-                    ? attendance.map((a) => (
+                  {showAnalytics ? (
+                    /* ================= ANALYTICS TABLE ================= */
+                    <table className="analytics-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Reg No</th>
+                          <th>Total Lectures</th>
+                          <th>Present</th>
+                          <th>Attendance %</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studentAnalytics.map((s, index) => (
+                          <tr key={s.studentRegNo}>
+                            <td>{index + 1}</td>
+                            <td>{s.studentRegNo}</td>
+                            <td>{s.totalLectures}</td>
+                            <td>{s.presentCount}</td>
+                            <td>{s.attendancePercentage.toFixed(1)}%</td>
+                            <td>
+                              <span
+                                className={`status-pill ${s.lowAttendance ? "absent" : "present"
+                                  }`}
+                              >
+                                {s.lowAttendance ? "Low" : "OK"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    /* ================= MARK ATTENDANCE (UNCHANGED) ================= */
+                    attendance.length > 0
+                      ? attendance.map((a) => (
                         <div key={a.studentRegNo} className="student-row">
                           <span>{a.studentRegNo}</span>
                           <span
-                            className={`status-pill ${
-                              a.present ? "present" : "absent"
-                            }`}
+                            className={`status-pill ${a.present ? "present" : "absent"
+                              }`}
                           >
                             {a.present ? "Present" : "Absent"}
                           </span>
                         </div>
                       ))
-                    : students.map((enrollment, index) => {
+                      : students.map((enrollment, index) => {
                         const student = enrollment.student;
                         const marked = markedMap[student.regNo];
 
@@ -320,9 +388,8 @@ const markAttendance = async (studentRegNo, present) => {
                               {marked ? (
                                 <div className="marked-box">
                                   <span
-                                    className={`status-pill ${
-                                      marked.status ? "present" : "absent"
-                                    }`}
+                                    className={`status-pill ${marked.status ? "present" : "absent"
+                                      }`}
                                   >
                                     {marked.status
                                       ? "Marked: Present"
@@ -363,8 +430,10 @@ const markAttendance = async (studentRegNo, present) => {
                             </div>
                           </div>
                         );
-                      })}
+                      })
+                  )}
                 </div>
+
               </>
             )}
           </>

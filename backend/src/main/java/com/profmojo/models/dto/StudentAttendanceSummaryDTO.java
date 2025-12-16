@@ -5,10 +5,11 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class AttendanceStudentSummaryDTO {
-    private String studentRegNo;
+public class StudentAttendanceSummaryDTO {
+    private String classCode;
+    private String className;
+    private String professorName;
     private long totalLectures;
     private long presentCount;
-    private double attendancePercentage;
-    private boolean lowAttendance;
+    private double percentage;
 }

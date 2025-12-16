@@ -57,11 +57,17 @@ public class StudentController {
     }
 
     @PostMapping("/join/{classCode}")
-    public void joinClass(
+    public ResponseEntity<?> joinClass(
             @PathVariable String classCode,
-            @AuthenticationPrincipal Student student
+            HttpServletRequest request
     ) {
+        String regNo = (String) request.getAttribute("username");
+        Student student = studentRepository.findById(regNo)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
         classRoomService.joinClass(classCode, student);
+        return ResponseEntity.ok().build();
     }
+
 
 }
