@@ -1,6 +1,7 @@
 package com.profmojo.repositories;
 
 import com.profmojo.models.Attendance;
+import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -54,4 +55,41 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
         HAVING (SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*)) < 0.75
     """)
     Long countLowAttendanceStudents(@Param("classCode") String classCode);
+
+    @Query("""
+        SELECT new com.profmojo.models.dto.AttendanceStudentSummaryDTO(
+            a.studentRegNo,
+            COUNT(a),
+            SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END),
+            (SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END) * 100.0 / COUNT(a)),
+            (SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END) * 1.0 / COUNT(a)) < 0.75
+        )
+        FROM Attendance a
+        WHERE a.classCode = :classCode
+        GROUP BY a.studentRegNo
+    """)
+    List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode);
+
+    @Query("""
+SELECT COUNT(a.id),
+       SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END)
+FROM Attendance a
+WHERE a.classCode = :classCode
+  AND a.studentRegNo = :regNo
+""")
+    List<Object[]> getStudentAttendanceStats(
+            @Param("classCode") String classCode,
+            @Param("regNo") String regNo
+    );
+
+
+
+    @Query("""
+SELECT DISTINCT a.classCode
+FROM Attendance a
+WHERE a.studentRegNo = :regNo
+""")
+    List<String> findDistinctClassCodesByStudent(@Param("regNo") String regNo);
+
+
 }

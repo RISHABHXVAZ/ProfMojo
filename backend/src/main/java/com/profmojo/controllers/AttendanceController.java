@@ -1,11 +1,15 @@
 package com.profmojo.controllers;
 
 import com.profmojo.models.Attendance;
+import com.profmojo.models.Student;
 import com.profmojo.models.dto.AttendanceRequest;
+import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
 import com.profmojo.models.dto.AttendanceSummaryDTO;
+import com.profmojo.models.dto.StudentAttendanceSummaryDTO;
 import com.profmojo.services.AttendanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -59,5 +63,20 @@ public class AttendanceController {
     public AttendanceSummaryDTO getSummary(@PathVariable String classCode) {
         return attendanceService.getAttendanceSummary(classCode);
     }
+
+    @GetMapping("/{classCode}/students/summary")
+    public List<AttendanceStudentSummaryDTO> getStudentWiseSummary(
+            @PathVariable String classCode
+    ) {
+        return attendanceService.getStudentAttendanceSummary(classCode);
+    }
+
+    @GetMapping("/student/my-attendance")
+    public List<StudentAttendanceSummaryDTO> myAttendance(
+            @AuthenticationPrincipal Student student
+    ) {
+        return attendanceService.getStudentAttendance(student.getRegNo());
+    }
+
 
 }

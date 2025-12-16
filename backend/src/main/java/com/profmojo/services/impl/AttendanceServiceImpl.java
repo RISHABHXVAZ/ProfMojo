@@ -1,13 +1,16 @@
 package com.profmojo.services.impl;
 
 import com.profmojo.models.*;
+import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
 import com.profmojo.models.dto.AttendanceSummaryDTO;
+import com.profmojo.models.dto.StudentAttendanceSummaryDTO;
 import com.profmojo.repositories.*;
 import com.profmojo.services.AttendanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -87,6 +90,52 @@ public class AttendanceServiceImpl implements AttendanceService {
                 lowCount != null ? lowCount : 0
         );
 
+    }
+
+    @Override
+    public List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode) {
+        return attendanceRepo.getStudentAttendanceSummary(classCode);
+    }
+
+    @Override
+    public List<StudentAttendanceSummaryDTO> getStudentAttendance(String regNo) {
+
+        Student student = studentRepo.findById(regNo)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        List<String> classCodes =
+                attendanceRepo.findDistinctClassCodesByStudent(regNo);
+
+        List<StudentAttendanceSummaryDTO> result = new ArrayList<>();
+
+        for (String classCode : classCodes) {
+
+            ClassRoom cls = classRoomRepo.findByClassCode(classCode)
+                    .orElseThrow(() -> new RuntimeException("Class not found"));
+
+            List<Object[]> rows =
+                    attendanceRepo.getStudentAttendanceStats(classCode, regNo);
+
+            Object[] stats = rows.get(0);   // ← THE ACTUAL ROW
+
+
+            long total = stats[0] == null ? 0L : ((Number) stats[0]).longValue();
+            long present = stats[1] == null ? 0L : ((Number) stats[1]).longValue();
+
+            double percentage = total == 0 ? 0.0 : (present * 100.0) / total;
+
+
+            result.add(new StudentAttendanceSummaryDTO(
+                    cls.getClassCode(),
+                    cls.getClassName(),
+                    cls.getProfessor().getName(),
+                    total,
+                    present,
+                    Math.round(percentage * 10.0) / 10.0
+            ));
+        }
+
+        return result;
     }
 
 

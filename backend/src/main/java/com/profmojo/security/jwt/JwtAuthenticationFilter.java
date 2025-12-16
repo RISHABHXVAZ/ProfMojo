@@ -87,6 +87,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (ExpiredJwtException e) {
             // token expired → let request fail naturally
         }
+        catch (io.jsonwebtoken.security.SignatureException |
+               io.jsonwebtoken.MalformedJwtException |
+               io.jsonwebtoken.UnsupportedJwtException |
+               IllegalArgumentException e) {
+
+            SecurityContextHolder.clearContext();
+        }
 
         filterChain.doFilter(request, response);
     }

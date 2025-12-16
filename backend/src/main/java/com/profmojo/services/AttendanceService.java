@@ -1,7 +1,9 @@
 package com.profmojo.services;
 
 import com.profmojo.models.Attendance;
+import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
 import com.profmojo.models.dto.AttendanceSummaryDTO;
+import com.profmojo.models.dto.StudentAttendanceSummaryDTO;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -24,6 +26,10 @@ public interface AttendanceService {
             String studentRegNo
     );
     AttendanceSummaryDTO getAttendanceSummary(String classCode);
+
+    List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode);
+
+    List<StudentAttendanceSummaryDTO> getStudentAttendance(String regNo);
 
 
 }
