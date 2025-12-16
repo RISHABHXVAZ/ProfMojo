@@ -62,12 +62,14 @@ public class StudentController {
             HttpServletRequest request
     ) {
         String regNo = (String) request.getAttribute("username");
+
         Student student = studentRepository.findById(regNo)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         classRoomService.joinClass(classCode, student);
         return ResponseEntity.ok().build();
     }
+
 
 
 }
