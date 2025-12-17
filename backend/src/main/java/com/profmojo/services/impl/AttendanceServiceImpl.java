@@ -22,6 +22,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final ClassRoomRepository classRoomRepo;
     private final StudentRepository studentRepo;
     private final StudentClassRepository studentClassRepo;
+    private final ClassEnrollmentRepository classEnrollmentRepo;
 
     @Override
     public void markAttendance(String classCode, String studentRegNo, boolean present, LocalDate date) {
@@ -145,6 +146,40 @@ public class AttendanceServiceImpl implements AttendanceService {
     public List<StudentClassDTO> getStudentClasses(String regNo) {
         return studentClassRepo.findStudentClasses(regNo);
     }
+
+    public List<StudentAttendanceSummaryDTO> getStudentDashboard(String regNo) {
+
+        // 1️⃣ Get all classes student joined
+        List<ClassEnrollment> enrollments =
+                classEnrollmentRepo.findByStudent_RegNo(regNo);
+
+        // 2️⃣ For each class, compute attendance
+        return enrollments.stream().map(enrollment -> {
+            String classCode = enrollment.getClassCode();
+
+            long totalLectures =
+                    attendanceRepo.countDistinctByClassCode(classCode);
+
+            long presentCount =
+                    attendanceRepo.countByClassCodeAndStudentRegNoAndPresentTrue(
+                            classCode, regNo
+                    );
+
+            double percentage =
+                    totalLectures == 0 ? 0 :
+                            (presentCount * 100.0) / totalLectures;
+
+            return new StudentAttendanceSummaryDTO(
+                    enrollment.getClassRoom().getClassCode(),
+                    enrollment.getClassRoom().getClassName(),
+                    enrollment.getClassRoom().getProfessor().getName(),
+                    presentCount,
+                    totalLectures,
+                    (int) percentage
+            );
+        }).toList();
+    }
+
 
 
 }

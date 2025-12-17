@@ -2,10 +2,7 @@ package com.profmojo.services.impl;
 
 import com.profmojo.models.*;
 import com.profmojo.models.dto.StudentClassDTO;
-import com.profmojo.repositories.ClassEnrollmentRepository;
-import com.profmojo.repositories.ClassRoomRepository;
-import com.profmojo.repositories.StudentClassRepository;
-import com.profmojo.repositories.StudentRepository;
+import com.profmojo.repositories.*;
 import com.profmojo.services.ClassRoomService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +20,7 @@ public class ClassRoomServiceImpl implements ClassRoomService {
     private final ClassEnrollmentRepository classEnrollmentRepo;
     private final StudentClassRepository studentClassRepo;
     private final StudentRepository studentRepo;
+    private final AttendanceRepository attendanceRepo;
     @Override
     public ClassRoom createClass(String className, Professor professor) {
 
@@ -72,6 +70,30 @@ public class ClassRoomServiceImpl implements ClassRoomService {
         enrollment.setClassCode(classCode);
 
         classEnrollmentRepo.save(enrollment);
+    }
+
+    @Transactional
+    @Override
+    public void deleteClass(String classCode, Professor professor) {
+
+        ClassRoom classRoom = classRoomRepo
+                .findByClassCode(classCode)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        // 🔐 SECURITY CHECK
+        if (!classRoom.getProfessor().getProfId()
+                .equals(professor.getProfId())) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        // 1️⃣ Delete attendance
+        attendanceRepo.deleteByClassCode(classCode);
+
+        // 2️⃣ Delete enrollments
+        classEnrollmentRepo.deleteByClassCode(classCode);
+
+        // 3️⃣ Delete class itself
+        classRoomRepo.delete(classRoom);
     }
 
 

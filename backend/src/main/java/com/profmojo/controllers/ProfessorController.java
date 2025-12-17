@@ -4,11 +4,13 @@ import com.profmojo.models.Professor;
 import com.profmojo.models.dto.LoginRequest;
 import com.profmojo.repositories.ProfessorMasterRepository;
 import com.profmojo.repositories.ProfessorRepository;
+import com.profmojo.services.ClassRoomService;
 import com.profmojo.services.ProfessorService;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -26,6 +28,7 @@ public class ProfessorController {
     private final ProfessorService professorService;
     private final ProfessorMasterRepository professorMasterRepository;
     private final ProfessorRepository professorRepository;
+    private final ClassRoomService classRoomService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Professor professor) {
@@ -64,4 +67,14 @@ public class ProfessorController {
         // If exists in master AND not registered → can register ✔
         return ResponseEntity.ok(Map.of("canRegister", true));
     }
+
+    @DeleteMapping("/{classCode}")
+    public ResponseEntity<?> deleteClass(
+            @PathVariable String classCode,
+            @AuthenticationPrincipal Professor professor
+    ) {
+        classRoomService.deleteClass(classCode, professor);
+        return ResponseEntity.ok().build();
+    }
+
 }
