@@ -18,6 +18,7 @@ public interface ClassRoomService {
 
     void joinClass(String classCode, Student student);
 
+    void deleteClass(String classCode, Professor professor);
 
 
 }

@@ -29,15 +29,15 @@ export default function StudentDashboard() {
   };
 
   /* ================= LOAD JOINED CLASSES ================= */
-const loadMyClasses = async () => {
-  try {
-    const res = await api.get("/attendance/student/my-classes");
-    console.log("MY CLASSES:", res.data); // 👈 ADD THIS
-    setClasses(res.data);
-  } catch (err) {
-    console.error("Failed to load classes", err);
-  }
-};
+  const loadMyClasses = async () => {
+    try {
+      const res = await api.get("/attendance/student/my-attendance");
+      console.log("MY CLASSES:", res.data);
+      setClasses(res.data);
+    } catch (err) {
+      console.error("Failed to load classes", err);
+    }
+  };
 
   if (loading) return <p className="loading">Loading...</p>;
 
@@ -91,17 +91,21 @@ const loadMyClasses = async () => {
               </div>
 
               {classes.map((item, index) => {
-                const percentage =
-                  item.totalLectures === 0
-                    ? 0
-                    : item.percentage.toFixed(1);
+                const total = item.totalLectures;
+                const present = item.presentCount;
 
-                const status =
-                  percentage >= 75
-                    ? "good"
-                    : percentage >= 60
-                    ? "warning"
-                    : "low";
+                const percentage =
+                  total === 0 ? 0 : ((total / present) * 100).toFixed(1);
+
+                let status = "low";
+                if (present === 0) {
+                  status = "not-started";
+                } else if (percentage >= 75) {
+                  status = "good";
+                } else if (percentage >= 60) {
+                  status = "warning";
+                }
+
 
                 return (
                   <div className="attendance-row" key={index}>
@@ -113,15 +117,17 @@ const loadMyClasses = async () => {
                     </div>
 
                     <div className="count">
-                      {item.presentCount}/{item.totalLectures}
+                      {total}/{present}
                     </div>
+
 
                     <div className="percentage">{percentage}%</div>
 
                     <div className={`status-pill ${status}`}>
-                      {item.totalLectures === 0
+                      {present === 0
                         ? "NOT STARTED"
                         : status.toUpperCase()}
+
                     </div>
                   </div>
                 );

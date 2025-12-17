@@ -70,11 +70,10 @@ public class AttendanceController {
     }
 
     @GetMapping("/student/my-attendance")
-    public List<StudentAttendanceSummaryDTO> myAttendance(
-            @AuthenticationPrincipal Student student
-    ) {
-        return attendanceService.getStudentAttendance(student.getRegNo());
+    public List<StudentAttendanceSummaryDTO> myAttendance(@AuthenticationPrincipal Student student) {
+        return attendanceService.getStudentDashboard(student.getRegNo());
     }
+
 
     @GetMapping("/student/my-classes")
     public List<StudentClassDTO> getMyClasses(

@@ -35,5 +35,8 @@ public interface ClassEnrollmentRepository
 
     void deleteByClassCode(String classCode);
 
+    List<ClassEnrollment> findByStudent_RegNo(String studentRegNo);
+
+
 }
 

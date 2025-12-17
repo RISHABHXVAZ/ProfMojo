@@ -179,6 +179,28 @@ export default function ProfessorDashboard() {
     }
   };
 
+  const deleteClass = async () => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this class?\nThis will remove all students and attendance permanently."
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await api.delete(`/professors/${selectedClass.classCode}`);
+
+      setSelectedClass(null);
+      setStudents([]);
+      setAttendance([]);
+      setSummary(null);
+      setMarkedMap({});
+      loadClasses(); // refresh class list
+    } catch (err) {
+      alert("Failed to delete class");
+    }
+  };
+
+
 
 
   return (
@@ -211,6 +233,7 @@ export default function ProfessorDashboard() {
               <>
                 <div className="header">
                   <h1>Your Classes</h1>
+
                   <button
                     className="create-btn"
                     onClick={() => setShowCreateModal(true)}
@@ -294,7 +317,6 @@ export default function ProfessorDashboard() {
                   <div>
                     <h1>{selectedClass.className}</h1>
 
-                    {/* ✅ CLASS CODE DISPLAY */}
                     <div className="class-code-inline">
                       <span className="label">Class Code:</span>
                       <span className="code">{selectedClass.classCode}</span>
@@ -309,13 +331,23 @@ export default function ProfessorDashboard() {
                     </div>
                   </div>
 
-                  <button
-                    className="back-btn"
-                    onClick={() => setSelectedClass(null)}
-                  >
-                    ← Back
-                  </button>
+                  <div className="header-actions">
+                    <button
+                      className="delete-btn"
+                      onClick={deleteClass}
+                    >
+                      Delete Class
+                    </button>
+
+                    <button
+                      className="back-btn"
+                      onClick={() => setSelectedClass(null)}
+                    >
+                      ← Back
+                    </button>
+                  </div>
                 </div>
+
 
 
                 {summary && (
