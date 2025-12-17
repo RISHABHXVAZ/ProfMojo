@@ -39,6 +39,9 @@ public class SecurityConfig {
                         // PROTECTED
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
+                        .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
+                        .requestMatchers("/api/professor/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
 
                         .anyRequest().authenticated()
                 )

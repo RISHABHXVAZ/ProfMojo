@@ -1,6 +1,7 @@
 package com.profmojo.services.impl;
 
 import com.profmojo.models.*;
+import com.profmojo.models.dto.StudentClassDTO;
 import com.profmojo.repositories.ClassEnrollmentRepository;
 import com.profmojo.repositories.ClassRoomRepository;
 import com.profmojo.repositories.StudentClassRepository;
@@ -19,9 +20,9 @@ import java.util.UUID;
 public class ClassRoomServiceImpl implements ClassRoomService {
 
     private final ClassRoomRepository classRoomRepo;
-    private final ClassEnrollmentRepository enrollmentRepo;
+    private final ClassEnrollmentRepository classEnrollmentRepo;
     private final StudentClassRepository studentClassRepo;
-
+    private final StudentRepository studentRepo;
     @Override
     public ClassRoom createClass(String className, Professor professor) {
 
@@ -44,40 +45,35 @@ public class ClassRoomServiceImpl implements ClassRoomService {
                 + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
+    @Override
     public List<ClassEnrollment> getStudentsOfClass(String classCode) {
-        classRoomRepo.findByClassCode(classCode)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
 
-        return enrollmentRepo
-                .findByClassRoom_ClassCodeOrderByStudent_NameAsc(classCode);
+        // ✅ Fetch purely from enrollment table
+        return classEnrollmentRepo.findByClassCode(classCode);
     }
 
-    @Override
+    @Transactional
     public void joinClass(String classCode, Student student) {
 
-        // 1️⃣ Validate class exists
-        ClassRoom classroom = classRoomRepo.findByClassCode(classCode)
-                .orElseThrow(() ->
-                        new RuntimeException("Invalid class code")
-                );
+        ClassRoom classRoom = classRoomRepo
+                .findByClassCode(classCode)
+                .orElseThrow(() -> new RuntimeException("Invalid class code"));
 
-        // 2️⃣ Prevent duplicate join
-        boolean alreadyJoined =
-                studentClassRepo.existsByStudentRegNoAndClassCode(
-                        student.getRegNo(),
-                        classCode
-                );
+        boolean exists = classEnrollmentRepo
+                .existsByClassCodeAndStudent_RegNo(classCode, student.getRegNo());
 
-        if (alreadyJoined) {
-            throw new RuntimeException("You have already joined this class");
+        if (exists) {
+            throw new RuntimeException("Already joined");
         }
 
-        // 3️⃣ Save mapping
-        StudentClass join = StudentClass.builder()
-                .studentRegNo(student.getRegNo())
-                .classCode(classCode)
-                .build();
+        ClassEnrollment enrollment = new ClassEnrollment();
+        enrollment.setClassRoom(classRoom);
+        enrollment.setStudent(student);
+        enrollment.setClassCode(classCode);
 
-        studentClassRepo.save(join);
+        classEnrollmentRepo.save(enrollment);
     }
+
+
+
 }

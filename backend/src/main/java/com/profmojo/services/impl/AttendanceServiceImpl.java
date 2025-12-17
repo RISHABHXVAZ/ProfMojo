@@ -4,6 +4,7 @@ import com.profmojo.models.*;
 import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
 import com.profmojo.models.dto.AttendanceSummaryDTO;
 import com.profmojo.models.dto.StudentAttendanceSummaryDTO;
+import com.profmojo.models.dto.StudentClassDTO;
 import com.profmojo.repositories.*;
 import com.profmojo.services.AttendanceService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRepository attendanceRepo;
     private final ClassRoomRepository classRoomRepo;
     private final StudentRepository studentRepo;
+    private final StudentClassRepository studentClassRepo;
 
     @Override
     public void markAttendance(String classCode, String studentRegNo, boolean present, LocalDate date) {
@@ -138,6 +140,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         return result;
     }
 
+
+    @Override
+    public List<StudentClassDTO> getStudentClasses(String regNo) {
+        return studentClassRepo.findStudentClasses(regNo);
+    }
 
 
 }

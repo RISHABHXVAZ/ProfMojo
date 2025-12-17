@@ -22,11 +22,12 @@ public class ClassEnrollment {
     @JoinColumn(name = "class_room_id", nullable = false)
     private ClassRoom classRoom;
 
-    @ManyToOne
-    @JoinColumn(name = "student_reg_no", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "student_reg_no", referencedColumnName = "regNo")
     private Student student;
 
     @Column(name = "class_code", nullable = false)
     private String classCode;
+
 }
 

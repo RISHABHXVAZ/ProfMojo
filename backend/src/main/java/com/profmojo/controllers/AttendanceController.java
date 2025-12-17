@@ -2,11 +2,9 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.Attendance;
 import com.profmojo.models.Student;
-import com.profmojo.models.dto.AttendanceRequest;
-import com.profmojo.models.dto.AttendanceStudentSummaryDTO;
-import com.profmojo.models.dto.AttendanceSummaryDTO;
-import com.profmojo.models.dto.StudentAttendanceSummaryDTO;
+import com.profmojo.models.dto.*;
 import com.profmojo.services.AttendanceService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -76,6 +74,12 @@ public class AttendanceController {
             @AuthenticationPrincipal Student student
     ) {
         return attendanceService.getStudentAttendance(student.getRegNo());
+    }
+
+    @GetMapping("/student/my-classes")
+    public List<StudentClassDTO> getMyClasses(
+            @AuthenticationPrincipal Student student) {
+        return attendanceService.getStudentClasses(student.getRegNo());
     }
 
 

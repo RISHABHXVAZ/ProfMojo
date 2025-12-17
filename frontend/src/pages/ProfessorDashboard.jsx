@@ -16,6 +16,10 @@ export default function ProfessorDashboard() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [studentAnalytics, setStudentAnalytics] = useState([]);
 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdClass, setCreatedClass] = useState(null);
+
+
 
   // 🔥 Temporary UI state for undo
   const [markedMap, setMarkedMap] = useState({});
@@ -66,16 +70,21 @@ export default function ProfessorDashboard() {
     if (!newClassName.trim()) return;
 
     try {
-      await api.post("/professor/classes/create", {
+      const res = await api.post("/professor/classes/create", {
         className: newClassName,
       });
-      setNewClassName("");
+
+      setCreatedClass(res.data);      // { className, classCode }
       setShowCreateModal(false);
-      loadClasses();
+      setShowSuccessModal(true);
+      setNewClassName("");
+
+      loadClasses(); // refresh class list
     } catch {
       alert("Failed to create class");
     }
   };
+
 
   /* ================= OPEN CLASS ================= */
   const openClass = async (cls) => {
@@ -233,6 +242,39 @@ export default function ProfessorDashboard() {
                     </div>
                   </div>
                 )}
+                {showSuccessModal && createdClass && (
+                  <div className="modal-overlay">
+                    <div className="modal">
+                      <h2>Class Created Successfully</h2>
+
+                      <p>
+                        <strong>Class Name:</strong> {createdClass.className}
+                      </p>
+
+                      <div className="class-code-box">
+                        <span>{createdClass.classCode}</span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(createdClass.classCode)
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <p className="hint">
+                        Share this class code with students to join
+                      </p>
+
+                      <button
+                        className="confirm"
+                        onClick={() => setShowSuccessModal(false)}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="class-grid">
                   {classes.map((cls) => (
@@ -248,8 +290,25 @@ export default function ProfessorDashboard() {
               </>
             ) : (
               <>
-                <div className="header">
-                  <h1>{selectedClass.className} – Attendance</h1>
+                <div className="header class-header">
+                  <div>
+                    <h1>{selectedClass.className}</h1>
+
+                    {/* ✅ CLASS CODE DISPLAY */}
+                    <div className="class-code-inline">
+                      <span className="label">Class Code:</span>
+                      <span className="code">{selectedClass.classCode}</span>
+                      <button
+                        className="copy-btn"
+                        onClick={() =>
+                          navigator.clipboard.writeText(selectedClass.classCode)
+                        }
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+
                   <button
                     className="back-btn"
                     onClick={() => setSelectedClass(null)}
@@ -257,6 +316,7 @@ export default function ProfessorDashboard() {
                     ← Back
                   </button>
                 </div>
+
 
                 {summary && (
                   <div className="attendance-summary">
@@ -350,36 +410,29 @@ export default function ProfessorDashboard() {
                     </table>
                   ) : (
                     /* ================= MARK ATTENDANCE (UNCHANGED) ================= */
-                    attendance.length > 0
-                      ? attendance.map((a) => (
+                    attendance.length > 0 ? (
+                      attendance.map((a) => (
                         <div key={a.studentRegNo} className="student-row">
                           <span>{a.studentRegNo}</span>
                           <span
-                            className={`status-pill ${a.present ? "present" : "absent"
-                              }`}
+                            className={`status-pill ${a.present ? "present" : "absent"}`}
                           >
                             {a.present ? "Present" : "Absent"}
                           </span>
                         </div>
                       ))
-                      : students.map((enrollment, index) => {
+                    ) : students.length > 0 ? (
+                      students.map((enrollment, index) => {
                         const student = enrollment.student;
                         const marked = markedMap[student.regNo];
 
                         return (
-                          <div
-                            key={student.regNo}
-                            className="student-row grid-row"
-                          >
+                          <div key={student.regNo} className="student-row grid-row">
                             <div className="col-serial">{index + 1}</div>
 
                             <div className="student-info">
-                              <div className="avatar">
-                                {student.name.charAt(0)}
-                              </div>
-                              <span className="student-name">
-                                {student.name}
-                              </span>
+                              <div className="avatar">{student.name.charAt(0)}</div>
+                              <span className="student-name">{student.name}</span>
                             </div>
 
                             <div className="reg-no">{student.regNo}</div>
@@ -399,9 +452,7 @@ export default function ProfessorDashboard() {
                                   {marked.undoable && (
                                     <button
                                       className="undo-btn"
-                                      onClick={() =>
-                                        undoAttendance(student.regNo)
-                                      }
+                                      onClick={() => undoAttendance(student.regNo)}
                                     >
                                       Undo
                                     </button>
@@ -411,17 +462,13 @@ export default function ProfessorDashboard() {
                                 <>
                                   <button
                                     className="present"
-                                    onClick={() =>
-                                      markAttendance(student.regNo, true)
-                                    }
+                                    onClick={() => markAttendance(student.regNo, true)}
                                   >
                                     Present
                                   </button>
                                   <button
                                     className="absent"
-                                    onClick={() =>
-                                      markAttendance(student.regNo, false)
-                                    }
+                                    onClick={() => markAttendance(student.regNo, false)}
                                   >
                                     Absent
                                   </button>
@@ -431,6 +478,10 @@ export default function ProfessorDashboard() {
                           </div>
                         );
                       })
+                    ) : (
+                      <p className="empty">No students joined yet</p>
+                    )
+
                   )}
                 </div>
 
@@ -440,5 +491,6 @@ export default function ProfessorDashboard() {
         )}
       </div>
     </div>
+
   );
 }

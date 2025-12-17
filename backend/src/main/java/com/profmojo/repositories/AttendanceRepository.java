@@ -91,5 +91,5 @@ WHERE a.studentRegNo = :regNo
 """)
     List<String> findDistinctClassCodesByStudent(@Param("regNo") String regNo);
 
-
+    void deleteByClassCode(String classCode);
 }
