@@ -1,15 +1,19 @@
 package com.profmojo.controllers;
 
 import com.profmojo.models.Student;
+import com.profmojo.models.dto.StudentClassDTO;
 import com.profmojo.repositories.StudentRepository;
+import com.profmojo.services.AttendanceService;
 import com.profmojo.services.ClassRoomService;
 import com.profmojo.services.StudentService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Email;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,6 +25,7 @@ public class StudentController {
     private final StudentService studentService;
     private final StudentRepository studentRepository;
     private final ClassRoomService classRoomService;
+    private final AttendanceService attendanceService;
 
     @GetMapping("/check-id/{regNo}")
     public ResponseEntity<?> checkRegistrationNumber(@PathVariable String regNo) {
@@ -69,6 +74,7 @@ public class StudentController {
         classRoomService.joinClass(classCode, student);
         return ResponseEntity.ok().build();
     }
+
 
 
 

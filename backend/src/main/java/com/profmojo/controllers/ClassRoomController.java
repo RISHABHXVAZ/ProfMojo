@@ -3,8 +3,10 @@ package com.profmojo.controllers;
 import com.profmojo.models.ClassEnrollment;
 import com.profmojo.models.ClassRoom;
 import com.profmojo.models.Professor;
+import com.profmojo.models.dto.CreateClassResponseDTO;
 import com.profmojo.services.ClassRoomService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +23,21 @@ public class ClassRoomController {
 
     // Create class
     @PostMapping("/create")
-    public ClassRoom createClass(
+    public ResponseEntity<CreateClassResponseDTO> createClass(
             @RequestBody Map<String, String> request,
             @AuthenticationPrincipal Professor professor
     ){
-        return classRoomService.createClass(request.get("className"), professor);
+        ClassRoom classRoom = classRoomService.createClass(
+                request.get("className"),
+                professor
+        );
+
+        return ResponseEntity.ok(
+                new CreateClassResponseDTO(
+                        classRoom.getClassCode(),
+                        classRoom.getClassName()
+                )
+        );
     }
 
     // Get my classes

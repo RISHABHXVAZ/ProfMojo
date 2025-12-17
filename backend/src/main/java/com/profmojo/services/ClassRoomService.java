@@ -4,6 +4,7 @@ import com.profmojo.models.ClassEnrollment;
 import com.profmojo.models.ClassRoom;
 import com.profmojo.models.Professor;
 import com.profmojo.models.Student;
+import com.profmojo.models.dto.StudentClassDTO;
 
 import java.util.List;
 
@@ -16,4 +17,7 @@ public interface ClassRoomService {
     List<ClassEnrollment> getStudentsOfClass(String classCode);
 
     void joinClass(String classCode, Student student);
+
+
+
 }

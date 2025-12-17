@@ -57,4 +57,5 @@ public class StudentServiceImpl implements StudentService {
 
         return jwtUtil.generateToken(student.getRegNo(), "STUDENT");
     }
+
 }
