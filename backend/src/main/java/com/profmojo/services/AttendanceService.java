@@ -36,4 +36,6 @@ public interface AttendanceService {
 
 
     List<StudentAttendanceSummaryDTO> getStudentDashboard(String regNo);
+
+    List<StudentAttendanceSummaryDTO> getMyAttendance(String regNo);
 }
