@@ -95,10 +95,10 @@ export default function StudentDashboard() {
                 const present = item.presentCount;
 
                 const percentage =
-                  total === 0 ? 0 : ((total / present) * 100).toFixed(1);
+                  total === 0 ? 0 : ((present / total) * 100).toFixed(1);
 
                 let status = "low";
-                if (present === 0) {
+                if (total === 0) {
                   status = "not-started";
                 } else if (percentage >= 75) {
                   status = "good";
@@ -117,14 +117,14 @@ export default function StudentDashboard() {
                     </div>
 
                     <div className="count">
-                      {total}/{present}
+                      {present}/{total}
                     </div>
 
 
                     <div className="percentage">{percentage}%</div>
 
                     <div className={`status-pill ${status}`}>
-                      {present === 0
+                      {total === 0
                         ? "NOT STARTED"
                         : status.toUpperCase()}
 

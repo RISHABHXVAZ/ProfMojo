@@ -85,12 +85,15 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         long totalLectures = attendanceRepo.countTotalLectures(classCode);
         Double avg = attendanceRepo.getAverageAttendance(classCode);
-        Long lowCount = attendanceRepo.countLowAttendanceStudents(classCode);
+        long lowCount = attendanceRepo
+                .findLowAttendanceStudents(classCode)
+                .size();
+
 
         return new AttendanceSummaryDTO(
                 totalLectures,
                 avg != null ? Math.round(avg * 10.0) / 10.0 : 0,
-                lowCount != null ? lowCount : 0
+                lowCount != 0 ? lowCount : 0
         );
 
     }
@@ -180,6 +183,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         }).toList();
     }
 
+
+    @Override
+    public List<StudentAttendanceSummaryDTO> getMyAttendance(String regNo) {
+        return attendanceRepo.getStudentAttendance(regNo);
+    }
 
 
 }
