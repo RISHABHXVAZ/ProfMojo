@@ -450,3 +450,261 @@
 .delete-btn:hover {
   background-color: #b91c1c;
 }
+
+/* ================= ATTENDANCE TABS ================= */
+
+.attendance-tabs {
+  display: inline-flex;
+  background: #f1f3f5;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+  margin: 20px 0;
+}
+
+.tab-btn {
+  border: none;
+  background: transparent;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+/* Hover */
+.tab-btn:hover {
+  background: #e9ecef;
+}
+
+/* Active tab */
+.tab-btn.active {
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+
+
+.modal textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* ================= EMPTY STATE ================= */
+
+.empty {
+  margin-top: 40px;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ================= NOTICE BOARD (CLASS SELECTION) ================= */
+
+.notice-board .class-select {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.notice-board .class-select-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.notice-board .class-select-header strong {
+  font-size: 14px;
+}
+
+.notice-board .select-all {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* 👇 MAIN FIX */
+.notice-board .class-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.notice-board .class-select label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.notice-board .class-select label:hover {
+  background: #eef2ff;
+}
+
+.notice-board .class-select input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.notice-board textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: #ffffff;
+  color: #000000;
+}
+
+
+/* Limit modal height */
+.notice-board .modal {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Keep content scrolling instead of modal stretching */
+.notice-board .modal-content {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* ================= CREATE NOTICE MODAL FIX ================= */
+
+/* Limit modal height */
+.notice-board .modal {
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Keep content scrolling instead of modal stretching */
+.notice-board .modal-content {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Make class selection scrollable */
+.notice-board .class-select {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* Smooth scrollbar (optional, subtle) */
+.notice-board .class-select::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notice-board .class-select::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 6px;
+}
+
+/* Keep footer buttons fixed & visible */
+.notice-board .modal-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notice-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+.notice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.notice-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.notice-date {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.notice-message {
+  font-size: 14px;
+  color: #374151;
+  margin: 10px 0;
+}
+
+.notice-footer {
+  margin-top: 8px;
+}
+
+.class-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
+}
+.sent-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  justify-content: center;
+}
+
+.notice-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.notice-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notice-prof {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.sent-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
