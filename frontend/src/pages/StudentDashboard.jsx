@@ -10,6 +10,8 @@ export default function StudentDashboard() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [classCode, setClassCode] = useState("");
   const [joinError, setJoinError] = useState("");
+  const [notices, setNotices] = useState([]);
+
 
   /* ================= LOAD STUDENT PROFILE ================= */
   useEffect(() => {
@@ -28,6 +30,22 @@ export default function StudentDashboard() {
     }
   };
 
+  //==================NOTICE BOARD==================
+  useEffect(() => {
+    if (activeTab === "notice") {
+      loadStudentNotices();
+    }
+  }, [activeTab]);
+
+  const loadStudentNotices = async () => {
+    try {
+      const res = await api.get("/notices/student/my");
+      setNotices(res.data);
+    } catch (err) {
+      console.error("Failed to load notices", err);
+    }
+  };
+
   /* ================= LOAD JOINED CLASSES ================= */
   const loadMyClasses = async () => {
     try {
@@ -40,6 +58,28 @@ export default function StudentDashboard() {
   };
 
   if (loading) return <p className="loading">Loading...</p>;
+  const groupedNotices = Object.values(
+    notices.reduce((acc, notice) => {
+      const key = `${notice.title}-${notice.message}-${notice.createdAt}-${notice.professorName}`;
+
+      if (!acc[key]) {
+        acc[key] = {
+          title: notice.title,
+          message: notice.message,
+          createdAt: notice.createdAt,
+          professorName: notice.professorName,
+          classCodes: [notice.classCode],
+        };
+      } else {
+        acc[key].classCodes.push(notice.classCode);
+      }
+
+      return acc;
+    }, {})
+  ).sort(
+  (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+);
+
 
   return (
     <div className="student-dashboard">
@@ -64,7 +104,12 @@ export default function StudentDashboard() {
           </button>
           <button onClick={() => setActiveTab("schedule")}>Class Schedule</button>
           <button onClick={() => setActiveTab("library")}>Library</button>
-          <button onClick={() => setActiveTab("notice")}>Notice Board</button>
+          <button
+            className={activeTab === "notice" ? "active" : ""}
+            onClick={() => setActiveTab("notice")}
+          >
+            Notice Board
+          </button>
         </div>
       </div>
 
@@ -182,6 +227,48 @@ export default function StudentDashboard() {
             )}
           </div>
         )}
+
+        {activeTab === "notice" && (
+          <div className="notice-board">
+            <div className="student-header">
+              <h1>Notice Board</h1>
+            </div>
+
+            {groupedNotices.length === 0 ? (
+              <p className="empty">No notices yet</p>
+            ) : (
+              <div className="notice-list">
+                {groupedNotices.map((notice, index) => (
+                  <div key={index} className="notice-card">
+                    <div className="notice-header">
+                      <h3>{notice.title}</h3>
+                      <span className="notice-date">
+                        {new Date(notice.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <p className="notice-message">{notice.message}</p>
+
+                    <div className="notice-footer">
+                      <span className="notice-prof">
+                        — Prof. {notice.professorName}
+                      </span>
+
+                      <div className="notice-classes">
+                        {notice.classCodes.map((code) => (
+                          <span key={code} className="class-pill">
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
