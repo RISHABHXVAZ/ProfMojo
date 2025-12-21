@@ -19,6 +19,23 @@ export default function ProfessorDashboard() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdClass, setCreatedClass] = useState(null);
 
+  const [showNoticeModal, setShowNoticeModal] = useState(false);
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeMessage, setNoticeMessage] = useState("");
+  const [selectedClasses, setSelectedClasses] = useState([]);
+  const [showNoticeSuccess, setShowNoticeSuccess] = useState(false);
+  const [noticeSentClasses, setNoticeSentClasses] = useState([]);
+
+
+  const [notices, setNotices] = useState([]);
+
+  useEffect(() => {
+    if (activeTab === "notice") {
+      loadProfessorNotices();
+    }
+  }, [activeTab]);
+
+
 
 
   // 🔥 Temporary UI state for undo
@@ -200,6 +217,77 @@ export default function ProfessorDashboard() {
     }
   };
 
+  //=================NOTICE BOARD MODAL=================
+  const toggleClassSelection = (code) => {
+    setSelectedClasses((prev) =>
+      prev.includes(code)
+        ? prev.filter((c) => c !== code)
+        : [...prev, code]
+    );
+  };
+
+  const selectAllClasses = () => {
+    setSelectedClasses(classes.map((c) => c.classCode));
+  };
+
+  const loadProfessorNotices = async () => {
+    try {
+      const res = await api.get("/notices/professor/my");
+      setNotices(res.data);
+    } catch (err) {
+      console.error("Failed to load notices", err);
+    }
+  };
+
+  const publishNotice = async () => {
+    if (!noticeTitle || !noticeMessage || selectedClasses.length === 0) {
+      return;
+    }
+
+    try {
+      await api.post("/notices/create", {
+        title: noticeTitle,
+        message: noticeMessage,
+        classCodes: selectedClasses,
+      });
+
+      // store classes for confirmation modal
+      setNoticeSentClasses(
+        classes
+          .filter((c) => selectedClasses.includes(c.classCode))
+          .map((c) => c.className)
+      );
+
+      setShowNoticeModal(false);
+      setShowNoticeSuccess(true);
+
+      setNoticeTitle("");
+      setNoticeMessage("");
+      setSelectedClasses([]);
+
+      loadProfessorNotices(); // refresh list
+    } catch {
+
+    }
+  };
+
+  const groupedNotices = notices.reduce((acc, notice) => {
+    const key = `${notice.title}-${notice.message}-${notice.createdAt}`;
+
+    if (!acc[key]) {
+      acc[key] = {
+        title: notice.title,
+        message: notice.message,
+        createdAt: notice.createdAt,
+        professorName: notice.professorName,
+        classCodes: [notice.classCode],
+      };
+    } else {
+      acc[key].classCodes.push(notice.classCode);
+    }
+
+    return acc;
+  }, {});
 
 
 
@@ -222,7 +310,15 @@ export default function ProfessorDashboard() {
         <button className="nav-item">Class Schedule</button>
         <button className="nav-item">Canteen</button>
         <button className="nav-item">Library</button>
-        <button className="nav-item">Notice Board</button>
+        <button
+          className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("notice");
+            setSelectedClass(null); // reset attendance view
+          }}
+        >
+          Notice Board
+        </button>
       </div>
 
       {/* ================= MAIN ================= */}
@@ -521,6 +617,136 @@ export default function ProfessorDashboard() {
             )}
           </>
         )}
+
+        {activeTab === "notice" && (
+          <div className="notice-board">
+            <div className="header">
+              <h1>Notice Board</h1>
+              <button
+                className="create-btn"
+                onClick={() => setShowNoticeModal(true)}
+              >
+                + Create Notice
+              </button>
+            </div>
+
+            {/* ================= NOTICE LIST ================= */}
+            {Object.values(groupedNotices).length === 0 ? (
+              <p className="empty">No notices published yet</p>
+            ) : (
+              <div className="notice-list">
+                {Object.values(groupedNotices).map((notice, index) => (
+                  <div key={index} className="notice-card">
+                    <div className="notice-header">
+                      <h3>{notice.title}</h3>
+                      <span className="notice-date">
+                        {new Date(notice.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <p className="notice-message">{notice.message}</p>
+
+                    <div className="notice-footer">
+                      <span className="notice-prof">
+                        — {notice.professorName}
+                      </span>
+
+                      <div className="notice-classes">
+                        {notice.classCodes.map((code) => (
+                          <span key={code} className="class-pill">
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+
+
+            {showNoticeModal && (
+              <div className="modal-overlay">
+                <div className="modal">
+                  <h2>Create Notice</h2>
+
+                  <input
+                    placeholder="Title"
+                    value={noticeTitle}
+                    onChange={(e) => setNoticeTitle(e.target.value)}
+                  />
+
+                  <textarea
+                    placeholder="Write your notice..."
+                    value={noticeMessage}
+                    onChange={(e) => setNoticeMessage(e.target.value)}
+                  />
+
+                  <div className="class-select">
+                    <div className="class-select-header">
+                      <strong>Select Classes</strong>
+                      <button className="select-all" onClick={selectAllClasses}>
+                        Select All
+                      </button>
+                    </div>
+
+                    <div className="class-list">
+                      {classes.map((cls) => (
+                        <label key={cls.classCode}>
+                          <input
+                            type="checkbox"
+                            checked={selectedClasses.includes(cls.classCode)}
+                            onChange={() => toggleClassSelection(cls.classCode)}
+                          />
+                          {cls.className}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+
+
+
+                  <div className="modal-actions">
+                    <button className="cancel" onClick={() => setShowNoticeModal(false)}>
+                      Cancel
+                    </button>
+                    <button className="confirm" onClick={publishNotice}>
+                      Publish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showNoticeSuccess && (
+              <div className="modal-overlay">
+                <div className="modal">
+                  <h2>Notice Sent ✅</h2>
+
+                  <p>This notice has been sent to:</p>
+
+                  <div className="sent-classes">
+                    {noticeSentClasses.map((cls) => (
+                      <span key={cls} className="class-pill">
+                        {cls}
+                      </span>
+                    ))}
+                  </div>
+
+                  <button
+                    className="confirm"
+                    onClick={() => setShowNoticeSuccess(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
       </div>
     </div>
 

@@ -37,6 +37,13 @@ public interface ClassEnrollmentRepository
 
     List<ClassEnrollment> findByStudent_RegNo(String studentRegNo);
 
+    @Query("""
+    SELECT DISTINCT ce.classCode
+    FROM ClassEnrollment ce
+    WHERE ce.student.regNo = :regNo
+""")
+    List<String> findClassCodesByStudent(@Param("regNo") String regNo);
+
 
 }
 
