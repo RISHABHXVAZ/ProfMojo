@@ -1,7 +1,9 @@
 package com.profmojo.security.jwt;
 
+import com.profmojo.models.CanteenFolder.Canteen;
 import com.profmojo.models.Professor;
 import com.profmojo.models.Student;
+import com.profmojo.repositories.CanteenRepository;
 import com.profmojo.repositories.ProfessorRepository;
 import com.profmojo.repositories.StudentRepository;
 
@@ -28,6 +30,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final ProfessorRepository professorRepository;
     private final StudentRepository studentRepository;
+    private final CanteenRepository canteenRepository;
+
 
     @Override
     protected void doFilterInternal(
@@ -83,6 +87,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
+            // 🔥 CANTEEN AUTH
+            if ("CANTEEN".equals(role)) {
+                Canteen canteen = canteenRepository.findById(username).orElse(null);
+
+                if (canteen != null) {
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    canteen,
+                                    null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_CANTEEN"))
+                            );
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+
 
         } catch (ExpiredJwtException e) {
             // token expired → let request fail naturally

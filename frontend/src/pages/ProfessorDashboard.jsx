@@ -38,7 +38,6 @@ export default function ProfessorDashboard() {
 
 
 
-  // 🔥 Temporary UI state for undo
   const [markedMap, setMarkedMap] = useState({});
 
   const [selectedDate, setSelectedDate] = useState(
@@ -308,7 +307,13 @@ export default function ProfessorDashboard() {
         </button>
 
         <button className="nav-item">Class Schedule</button>
-        <button className="nav-item">Canteen</button>
+        <button
+          className={`nav-item ${activeTab === "canteen" ? "active" : ""}`}
+          onClick={() => setActiveTab("canteen")}
+        >
+          Canteen
+        </button>
+
         <button className="nav-item">Library</button>
         <button
           className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
