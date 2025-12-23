@@ -28,25 +28,25 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
 
-                        // PUBLIC
                         .requestMatchers(
                                 "/api/students/login",
                                 "/api/students/register",
                                 "/api/professors/login",
-                                "/api/professors/register"
+                                "/api/professors/register",
+                                "/api/canteen/login",
+                                "/api/canteen/register",
+                                "/api/canteen/check-id/**"
                         ).permitAll()
 
-                        // PROTECTED
+                        // 🔒 PROTECTED (generic paths AFTER)
+                        .requestMatchers("/api/canteen/**").hasRole("CANTEEN")
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
                         .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
-                        .requestMatchers("/api/professor/**").hasRole("PROFESSOR")
                         .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
 
                         .anyRequest().authenticated()
                 )
-
-                // 🔥 THIS IS THE MISSING LINE
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
