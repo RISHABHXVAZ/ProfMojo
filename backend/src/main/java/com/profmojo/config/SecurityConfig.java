@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
 
+                        // 🔓 PUBLIC
                         .requestMatchers(
                                 "/api/students/login",
                                 "/api/students/register",
@@ -38,15 +39,27 @@ public class SecurityConfig {
                                 "/api/canteen/check-id/**"
                         ).permitAll()
 
-                        // 🔒 PROTECTED (generic paths AFTER)
-                        .requestMatchers("/api/canteen/**").hasRole("CANTEEN")
+                        // 👀 PROFESSOR CAN VIEW CANTEENS
+                        .requestMatchers("/api/canteen/active")
+                        .hasAnyRole("PROFESSOR", "STUDENT")
+
+                        // 🏪 ONLY CANTEEN STAFF
+                        .requestMatchers("/api/canteen/**")
+                        .hasRole("CANTEEN")
+
+                        // OTHER PROTECTED
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
                         .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/canteen/menu/my").hasRole("CANTEEN")
+                        .requestMatchers("/api/canteen/menu/add").hasRole("CANTEEN")
+                        .requestMatchers("/api/canteen/menu/canteen/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/orders/**").authenticated()
 
                         .anyRequest().authenticated()
                 )
+
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
