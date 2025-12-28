@@ -12,10 +12,10 @@ export default function CanteenDashboard() {
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newItem, setNewItem] = useState({
-    name: "",
-    price: "",
-    available: true
-});
+        name: "",
+        price: "",
+        available: true
+    });
 
     const availableItems = menu.filter(item => item.available);
     const unavailableItems = menu.filter(item => !item.available);
@@ -104,7 +104,7 @@ export default function CanteenDashboard() {
             <li key={i}>
                 {typeof item === "string"
                     ? item
-                    : `${item.name} × ${item.quantity}`}
+                    : `${item.itemName} × ${item.quantity}`}
             </li>
         ));
 
@@ -348,19 +348,16 @@ export default function CanteenDashboard() {
                                         <h2 className="menu-section-title">Available Items</h2>
                                         <div className="menu-grid">
                                             {availableItems.map(item => (
-                                                <div
-                                                    key={item.id}
-                                                    className="menu-item-card"
-                                                >
+                                                <div className="menu-item-card" key={item.id}>
+                                                    {/* TOP ROW */}
                                                     <div className="menu-item-top">
-                                                        <h3>{item.name}</h3>
+                                                        <h3 className="menu-name">{item.name}</h3>
                                                         <span className="menu-price-pill">₹{item.price}</span>
                                                     </div>
 
+                                                    {/* FOOTER */}
                                                     <div className="menu-item-footer">
-                                                        <span className="status-pill on">
-                                                            Available
-                                                        </span>
+                                                        <span className="status-pill on">Available</span>
 
                                                         <label className="switch">
                                                             <input
@@ -374,6 +371,7 @@ export default function CanteenDashboard() {
                                                         </label>
                                                     </div>
                                                 </div>
+
                                             ))}
                                         </div>
                                     </>
@@ -387,19 +385,14 @@ export default function CanteenDashboard() {
                                         </h2>
                                         <div className="menu-grid unavailable-grid">
                                             {unavailableItems.map(item => (
-                                                <div
-                                                    key={item.id}
-                                                    className="menu-item-card item-disabled"
-                                                >
+                                                <div className="menu-item-card item-disabled" key={item.id}>
                                                     <div className="menu-item-top">
-                                                        <h3>{item.name}</h3>
+                                                        <h3 className="menu-name">{item.name}</h3>
                                                         <span className="menu-price-pill">₹{item.price}</span>
                                                     </div>
 
                                                     <div className="menu-item-footer">
-                                                        <span className="status-pill off">
-                                                            Unavailable
-                                                        </span>
+                                                        <span className="status-pill off">Unavailable</span>
 
                                                         <label className="switch">
                                                             <input
@@ -413,6 +406,7 @@ export default function CanteenDashboard() {
                                                         </label>
                                                     </div>
                                                 </div>
+
                                             ))}
                                         </div>
                                     </>
@@ -457,8 +451,11 @@ export default function CanteenDashboard() {
                                             </p>
 
                                             <p className="history-items">
-                                                {order.items.join(", ")}
+                                                {order.items
+                                                    .map(item => `${item.itemName} × ${item.quantity}`)
+                                                    .join(", ")}
                                             </p>
+
                                         </div>
 
                                         <div className="history-right">

@@ -7,6 +7,7 @@ import com.profmojo.repositories.ProfessorRepository;
 import com.profmojo.services.ClassRoomService;
 import com.profmojo.services.ProfessorService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
@@ -43,9 +44,23 @@ public class ProfessorController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> getMyProfile() {
-        return ResponseEntity.ok("You are authenticated!");
+    public ResponseEntity<?> getMyProfile(HttpServletRequest request) {
+
+        String professorId = (String) request.getAttribute("username");
+
+        Professor professor = professorRepository.findById(professorId)
+                .orElseThrow(() -> new RuntimeException("Professor not found"));
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "profId", professor.getProfId(),
+                        "name", professor.getName(),
+                        "contactNo", professor.getContactNo(),
+                        "email", professor.getEmail()
+                )
+        );
     }
+
 
     @GetMapping("/check-id/{profId}")
     public ResponseEntity<?> checkProfId(@PathVariable String profId) {

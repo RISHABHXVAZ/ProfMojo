@@ -39,26 +39,33 @@ public class SecurityConfig {
                                 "/api/canteen/check-id/**"
                         ).permitAll()
 
-                        // 👀 PROFESSOR CAN VIEW CANTEENS
+                        // 👀 PROFESSOR / STUDENT
                         .requestMatchers("/api/canteen/active")
                         .hasAnyRole("PROFESSOR", "STUDENT")
 
-                        // 🏪 ONLY CANTEEN STAFF
-                        .requestMatchers("/api/canteen/**")
-                        .hasRole("CANTEEN")
+                        // 🧾 CANTEEN MENU MANAGEMENT (MOST SPECIFIC FIRST)
+                        .requestMatchers("/api/canteen/menu/my").hasRole("CANTEEN")
+                        .requestMatchers("/api/canteen/menu/add").hasRole("CANTEEN")
+                        .requestMatchers("/api/canteen/menu/availability").hasRole("CANTEEN")
+
+                        // 🍽️ PROFESSOR VIEW MENU
+                        .requestMatchers("/api/canteen/menu/**").hasRole("PROFESSOR")
+
+                        // 🏪 OTHER CANTEEN APIs
+                        .requestMatchers("/api/canteen/**").hasRole("CANTEEN")
 
                         // OTHER PROTECTED
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
                         .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
-                        .requestMatchers("/api/canteen/menu/my").hasRole("CANTEEN")
-                        .requestMatchers("/api/canteen/menu/add").hasRole("CANTEEN")
-                        .requestMatchers("/api/canteen/menu/canteen/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/orders/place").hasRole("PROFESSOR")
                         .requestMatchers("/api/orders/**").authenticated()
+
 
                         .anyRequest().authenticated()
                 )
+
 
                 .addFilterBefore(
                         jwtAuthenticationFilter,

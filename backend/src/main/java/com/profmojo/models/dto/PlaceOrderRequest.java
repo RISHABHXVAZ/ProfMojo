@@ -8,6 +8,7 @@ import java.util.List;
 public class PlaceOrderRequest {
     private String canteenId;
     private String cabinLocation;
-    private List<String> items;
-    private double totalAmount;
+    private List<OrderItemRequest> items;
+    private Double totalAmount;
+    private String paymentMode;
 }

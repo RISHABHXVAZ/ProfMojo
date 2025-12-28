@@ -1,5 +1,6 @@
 package com.profmojo.models.CanteenFolder;
 
+import com.profmojo.models.OrderItem;
 import com.profmojo.models.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,9 +29,18 @@ public class CanteenOrder {
     private String cabinLocation;
 
     @ElementCollection
-    private List<String> items;
+    @CollectionTable(
+            name = "canteen_order_items",
+            joinColumns = @JoinColumn(name = "order_id")
+    )
+    private List<OrderItem> items;
+
 
     private double totalAmount;
+
+    private String canteenContactNo;
+
+    private String paymentMode;
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
