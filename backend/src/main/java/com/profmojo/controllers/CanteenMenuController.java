@@ -47,7 +47,7 @@ public class CanteenMenuController {
 
 
     // 🔹 PROFESSOR – VIEW MENU OF A CANTEEN
-    @GetMapping("/canteen/{canteenId}")
+    @GetMapping("/{canteenId}")
     public ResponseEntity<?> getMenuForProfessor(
             @PathVariable String canteenId
     ) {

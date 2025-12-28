@@ -1,11 +1,13 @@
 package com.profmojo.controllers;
 
 import com.profmojo.models.CanteenFolder.CanteenOrder;
+import com.profmojo.models.OrderItem;
 import com.profmojo.models.Professor;
 import com.profmojo.models.dto.PlaceOrderRequest;
 import com.profmojo.models.dto.UpdateOrderStatusRequest;
 import com.profmojo.models.enums.OrderStatus;
 import com.profmojo.repositories.CanteenOrderRepository;
+import com.profmojo.repositories.CanteenRepository;
 import com.profmojo.repositories.ProfessorRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +27,7 @@ public class CanteenOrderController {
 
     private final CanteenOrderRepository orderRepository;
     private final ProfessorRepository professorRepository;
-
+    private final CanteenRepository canteenRepository;
     // ================= PROFESSOR =================
     @PostMapping("/place")
     @PreAuthorize("hasRole('PROFESSOR')")
@@ -38,14 +40,31 @@ public class CanteenOrderController {
         Professor professor = professorRepository.findById(professorId)
                 .orElseThrow(() -> new RuntimeException("Professor not found"));
 
+        // 🔹 NEW: Fetch Canteen details to get the contact number
+        var canteen = canteenRepository.findById(request.getCanteenId())
+                .orElseThrow(() -> new RuntimeException("Canteen not found"));
+
+        List<OrderItem> orderItems = request.getItems().stream()
+                .map(dto -> {
+                    OrderItem item = new OrderItem();
+                    item.setItemId(dto.getItemId());
+                    item.setItemName(dto.getItemName());
+                    item.setQuantity(dto.getQuantity());
+                    return item;
+                })
+                .toList();
+
         CanteenOrder order = CanteenOrder.builder()
                 .professorId(professorId)
                 .professorName(professor.getName())
                 .canteenId(request.getCanteenId())
+                // 🔹 FIXED: Store the contact number in the order entity
+                .canteenContactNo(canteen.getContactNo())
                 .cabinLocation(request.getCabinLocation())
-                .items(request.getItems())
+                .paymentMode(request.getPaymentMode())
+                .items(orderItems)
                 .totalAmount(request.getTotalAmount())
-                .status(PLACED)
+                .status(OrderStatus.PLACED)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -130,5 +149,22 @@ public class CanteenOrderController {
 
         return ResponseEntity.ok().build();
     }
+
+    // ================= PROFESSOR =================
+    @GetMapping("/my/active")
+    @PreAuthorize("hasRole('PROFESSOR')")
+    public ResponseEntity<?> getMyActiveOrder(HttpServletRequest req) {
+        String professorId = (String) req.getAttribute("username");
+
+        return ResponseEntity.ok(
+                orderRepository
+                        .findTopByProfessorIdAndStatusInOrderByCreatedAtDesc(
+                                professorId,
+                                List.of(PLACED, PREPARING, READY)
+                        )
+                        .orElse(null)
+        );
+    }
+
 }
 

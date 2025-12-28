@@ -25,8 +25,41 @@ export default function ProfessorDashboard() {
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [showNoticeSuccess, setShowNoticeSuccess] = useState(false);
   const [noticeSentClasses, setNoticeSentClasses] = useState([]);
+  // ================= CANTEEN (PROFESSOR) =================
+  const [canteens, setCanteens] = useState([]);
+  const [selectedCanteen, setSelectedCanteen] = useState(null);
+  const [canteenMenu, setCanteenMenu] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [cabinLocation, setCabinLocation] = useState("");
+  const [paymentMode, setPaymentMode] = useState("CASH");
+  const [cartStep, setCartStep] = useState(null);
+  const [professorName, setProfessorName] = useState("");
+  const [contactNo, setContactNo] = useState("");
+  const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState(null);
+  const [showTrackOrder, setShowTrackOrder] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
 
+  useEffect(() => {
+    loadProfessorProfile();
+  }, []);
+
+  const loadProfessorProfile = async () => {
+    try {
+      const res = await api.get("/professors/me");
+      setProfessorName(res.data.name);
+      setContactNo(res.data.contactNo || "");
+    } catch (err) {
+      console.error("Failed to load professor profile", err);
+    }
+  };
+
+  const hasOngoingOrder =
+    placedOrder &&
+    ["PLACED", "PREPARING", "READY"].includes(placedOrder.status);
+
+  const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
 
   const [notices, setNotices] = useState([]);
 
@@ -36,7 +69,137 @@ export default function ProfessorDashboard() {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab === "canteen") {
+      loadCanteens();
+    }
+  }, [activeTab]);
 
+  const loadCanteens = async () => {
+    try {
+      const res = await api.get("/canteen/active"); // list of canteens
+      setCanteens(res.data);
+    } catch {
+      alert("Failed to load canteens");
+    }
+  };
+  const loadActiveOrder = async () => {
+    try {
+      const res = await api.get("/orders/my/active");
+      setPlacedOrder(res.data); // may be null
+    } catch (err) {
+      console.error("Failed to load active order", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "canteen") {
+      loadCanteens();
+      loadActiveOrder(); // ✅ THIS IS THE KEY LINE
+    }
+  }, [activeTab]);
+
+
+  const openCanteen = async (canteen) => {
+    setSelectedCanteen(canteen);
+    setCanteenMenu([]);
+    setCart([]);
+    setLoading(true);
+
+    try {
+      const res = await api.get(
+        `canteen/menu/${canteen.canteenId}`
+      );
+      setCanteenMenu(res.data);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load menu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const addToCart = (item) => {
+    setCart(prev => {
+      const found = prev.find(i => i.id === item.id);
+      if (found) {
+        return prev.map(i =>
+          i.id === item.id
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (itemId) => {
+    setCart(prev =>
+      prev
+        .map(i =>
+          i.id === itemId
+            ? { ...i, quantity: i.quantity - 1 }
+            : i
+        )
+        .filter(i => i.quantity > 0)
+    );
+  };
+
+
+  const cartTotal = cart.reduce(
+    (sum, i) => sum + i.price * i.quantity,
+    0
+  );
+
+  const placeOrder = async () => {
+    if (!cabinLocation.trim()) {
+      alert("Enter cabin location");
+      return;
+    }
+
+    if (cart.length === 0) {
+      alert("Cart is empty");
+      return;
+    }
+
+    try {
+      const res = await api.post("/orders/place", {
+        canteenId: selectedCanteen.canteenId,
+        cabinLocation,
+        contactNo, // This is the professor's contact
+        paymentMode,
+        items: cart.map(i => ({
+          itemId: i.id,
+          itemName: i.name,
+          quantity: i.quantity
+        })),
+        totalAmount: cartTotal
+      });
+
+      // ✅ FIX: Manually attach canteen info if backend response lacks it
+      setPlacedOrder({
+        ...res.data,
+        canteenContactNo: res.data.canteenContactNo || selectedCanteen.contactNo || selectedCanteen.contact
+      });
+
+      setShowOrderSuccess(true);
+
+      // reset cart UI
+      setCart([]);
+      setCabinLocation("");
+      setPaymentMode("CASH");
+      setCartStep(null);
+
+    } catch (err) {
+      alert("Failed to place order");
+    }
+  };
+
+
+  const filteredMenu = canteenMenu.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
 
   const [markedMap, setMarkedMap] = useState({});
@@ -288,6 +451,14 @@ export default function ProfessorDashboard() {
 
     return acc;
   }, {});
+
+  const StatusStep = ({ label, active }) => (
+    <div className={`status-step ${active ? "active" : ""}`}>
+      <div className="dot" />
+      <span>{label}</span>
+    </div>
+  );
+
 
 
 
@@ -543,7 +714,7 @@ export default function ProfessorDashboard() {
                       </tbody>
                     </table>
                   ) : (
-                    /* ================= MARK ATTENDANCE (UNCHANGED) ================= */
+                    /* ================= MARK ATTENDANCE ================= */
                     attendance.length > 0 ? (
                       attendance.map((a) => (
                         <div key={a.studentRegNo} className="student-row">
@@ -623,6 +794,105 @@ export default function ProfessorDashboard() {
             )}
           </>
         )}
+        {activeTab === "canteen" && !selectedCanteen && (
+          <>
+            <div className="header">
+              <h1>Select Canteen</h1>
+            </div>
+
+            <div className="class-grid">
+              {canteens.map(c => (
+                <div
+                  key={c.canteenId}
+                  className="canteen-card"
+                  onClick={() => openCanteen(c)}
+                >
+                  <h3 style={{ textAlign: "center" }}>{c.canteenName}</h3>
+                  <p style={{ textAlign: "center" }}>📍 {c.location}</p>
+                  <span className="enter-pill">ENTER →</span>
+                </div>
+
+
+              ))}
+            </div>
+          </>
+        )}
+        {activeTab === "canteen" && selectedCanteen && (
+          <>
+            <div className="header canteen-header">
+              <h1>{selectedCanteen.canteenName}</h1>
+
+              <div className="search-container">
+                <input
+                  type="text"
+                  className="menu-search-bar"
+                  placeholder="Search for dishes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="header-actions">
+                {hasOngoingOrder && (
+                  <button
+                    className="track-btn"
+                    onClick={() => setShowTrackOrder(true)}
+                  >
+                    📦 Track Order
+                  </button>
+                )}
+
+                <button
+                  className="back-btn"
+                  onClick={() => setSelectedCanteen(null)}
+                >
+                  ← Back
+                </button>
+              </div>
+            </div>
+
+
+            <div className="menu-grid">
+              {filteredMenu.length > 0 ? (
+                filteredMenu.map(item => (
+                  <div key={item.id} className="menu-item-card">
+                    <div className="menu-card-top">
+                      <h4>{item.name}</h4>
+                      <div className="price-tag">
+                        <span className="currency">₹</span>
+                        <span className="amount">{item.price}</span>
+                      </div>
+                    </div>
+
+                    <button className="add-btn" onClick={() => addToCart(item)}>
+                      <span>+</span> Add to Cart
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="no-results">No items found matching "{searchTerm}"</p>
+              )}
+            </div>
+
+
+            {cart.length > 0 && cartStep === null && (
+              <div className="floating-cart">
+                <div className="cart-left">
+                  <span className="cart-icon">🛒</span>
+                  <span>{totalItems} items</span>
+                </div>
+
+                <div className="cart-right">
+                  <strong>₹{cartTotal}</strong>
+                  <button onClick={() => setCartStep("CART")}>
+                    View Cart →
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </>
+        )}
 
         {activeTab === "notice" && (
           <div className="notice-board">
@@ -670,8 +940,6 @@ export default function ProfessorDashboard() {
               </div>
             )}
 
-
-
             {showNoticeModal && (
               <div className="modal-overlay">
                 <div className="modal">
@@ -711,9 +979,6 @@ export default function ProfessorDashboard() {
                     </div>
                   </div>
 
-
-
-
                   <div className="modal-actions">
                     <button className="cancel" onClick={() => setShowNoticeModal(false)}>
                       Cancel
@@ -725,13 +990,11 @@ export default function ProfessorDashboard() {
                 </div>
               </div>
             )}
+
             {showNoticeSuccess && (
               <div className="modal-overlay">
                 <div className="modal">
                   <h2>Notice Sent ✅</h2>
-
-                  <p>This notice has been sent to:</p>
-
                   <div className="sent-classes">
                     {noticeSentClasses.map((cls) => (
                       <span key={cls} className="class-pill">
@@ -739,7 +1002,6 @@ export default function ProfessorDashboard() {
                       </span>
                     ))}
                   </div>
-
                   <button
                     className="confirm"
                     onClick={() => setShowNoticeSuccess(false)}
@@ -749,12 +1011,104 @@ export default function ProfessorDashboard() {
                 </div>
               </div>
             )}
-
           </div>
         )}
 
+        {/* ================= MODALS ================= */}
+
+        {/* CART FLOW */}
+        {cartStep && (
+          <div className="modal-overlay">
+            <div className="modal cart-modal">
+              <h2>
+                {cartStep === "CART" && "Your Order"}
+                {cartStep === "ADDRESS" && "Delivery Details"}
+                {cartStep === "PAYMENT" && "Payment Method"}
+              </h2>
+
+              {cartStep === "CART" && cart.map(i => (
+                <div key={i.id} className="cart-row">
+                  <span>{i.name}</span>
+                  <div className="qty-controls">
+                    <button onClick={() => removeFromCart(i.id)}>-</button>
+                    <span>{i.quantity}</span>
+                    <button onClick={() => addToCart(i)}>+</button>
+                  </div>
+                  <span>₹{i.price * i.quantity}</span>
+                </div>
+              ))}
+
+              {cartStep === "ADDRESS" && (
+                <div className="address-form">
+                  <div className="form-group"><label>Professor Name</label><input className="modal-input" value={professorName} disabled /></div>
+                  <div className="form-group"><label>Cabin Location</label><input className="modal-input" placeholder="e.g. CS-302" value={cabinLocation} onChange={e => setCabinLocation(e.target.value)} /></div>
+                  <div className="form-group"><label>Contact Number</label><input className="modal-input" placeholder="10-digit mobile number" value={contactNo} onChange={e => setContactNo(e.target.value)} /></div>
+                </div>
+              )}
+
+              {cartStep === "PAYMENT" && (
+                <div className="payment-options">
+                  {["CASH", "UPI"].map(mode => (
+                    <label key={mode} className={`payment-option ${paymentMode === mode ? "active" : ""}`}>
+                      <input type="radio" checked={paymentMode === mode} onChange={() => setPaymentMode(mode)} />
+                      <span>{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button className="cancel" onClick={() => cartStep === "CART" ? setCartStep(null) : setCartStep(cartStep === "ADDRESS" ? "CART" : "ADDRESS")}>
+                  {cartStep === "CART" ? "Close" : "Back"}
+                </button>
+                <button className="confirm" onClick={() => cartStep === "PAYMENT" ? placeOrder() : setCartStep(cartStep === "CART" ? "ADDRESS" : "PAYMENT")}>
+                  {cartStep === "PAYMENT" ? "Place Order" : "Next"}
+                </button>
+              </div>
+              <div className="cart-total">Total: ₹{cartTotal}</div>
+            </div>
+          </div>
+        )}
+
+        {/* ORDER SUCCESS MODAL */}
+        {showOrderSuccess && placedOrder && (
+          <div className="modal-overlay">
+            <div className="modal success-modal">
+              <h2>✅ Order Placed Successfully</h2>
+              <p className="order-id">Order ID: <strong>{placedOrder.id}</strong></p>
+              <p>Sent to: <strong>{selectedCanteen?.canteenName || placedOrder.canteenId}</strong></p>
+              <div className="canteen-contact">
+                📞 Contact canteen at:
+                <strong> {placedOrder.canteenContactNo || selectedCanteen?.contactNo || "N/A"}</strong>
+              </div>
+              <div className="modal-actions">
+                <button className="confirm" onClick={() => { setShowOrderSuccess(false); setShowTrackOrder(true); }}>Track Order →</button>
+                <button className="cancel" onClick={() => setShowOrderSuccess(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TRACK ORDER MODAL */}
+        {showTrackOrder && placedOrder && (
+          <div className="modal-overlay">
+            <div className="modal track-modal">
+              <h2>📦 Order Status</h2>
+              <div className="order-status">
+                <StatusStep label="Placed" active />
+                <StatusStep label="Preparing" active={placedOrder.status !== "PLACED"} />
+                <StatusStep label="Ready" active={placedOrder.status === "READY"} />
+                <StatusStep label="Delivered" active={placedOrder.status === "DELIVERED"} />
+              </div>
+              <div className="track-footer">
+                <p>📍 Delivery Location: <strong> {placedOrder.cabinLocation}</strong></p>
+                <p>📞 Canteen Contact: <strong> {placedOrder.canteenContactNo || selectedCanteen?.contactNo || "N/A"}</strong></p>
+              </div>
+              <button className="confirm" onClick={() => setShowTrackOrder(false)}>Done</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-
   );
 }

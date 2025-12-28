@@ -225,7 +225,6 @@
   z-index: 1000;
 }
 
-
 /* ================= MENU ================= */
 .menu-card {
   background: #ffffff;
@@ -239,8 +238,9 @@
 }
 
 .menu-name {
-  font-weight: 600;
-  color: #111827;
+  font-size: 16px;
+  max-width: 70%;
+  text-align: left;
 }
 
 .menu-price {
@@ -302,7 +302,6 @@
 }
 
 /* ================= ORDER HISTORY ================= */
-
 .history-list {
   display: flex;
   flex-direction: column;
@@ -356,8 +355,7 @@
   color: #111827;
 }
 
-/* ===== MODAL CENTER FIX ===== */
-
+  /* ===== MODAL CENTER FIX ===== */
 .modal-overlay .order-card {
   text-align: center;
 }
@@ -375,7 +373,6 @@
 }
 
 /* ================= MENU (PRO) ================= */
-
 .menu-header {
   display: flex;
   justify-content: space-between;
@@ -406,9 +403,12 @@
 .menu-item-card {
   background: #ffffff;
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 18px 22px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.06);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
 }
 
 .menu-item-card:hover {
@@ -416,16 +416,20 @@
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
 
+/* Top row: Item name on left, price on right */
 .menu-item-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 20px;
 }
 
 .menu-item-top h3 {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+  margin: 0;
+  text-align: left;
 }
 
 .menu-price-pill {
@@ -435,102 +439,26 @@
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
-}
-
-.menu-subtext {
-  margin-top: 10px;
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* ================= ADD ITEM MODAL ================= */
-
-.add-item-modal {
-  background: #ffffff;
-  color:#000000;
-  border-radius: 16px;
-  padding: 24px;
-  width: 360px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  min-width: 60px;
   text-align: center;
 }
 
-.add-item-modal h3 {
-  margin-bottom: 16px;
-  font-size: 18px;
-}
-
-.add-item-modal input {
-  width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  font-size: 14px;
-  background: #f9fafb;
-  color:#010205
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.menu-subtext.available {
-  color: #16a34a;
-  font-weight: 500;
-}
-
-.menu-subtext.unavailable {
-  color: #dc2626;
-  font-weight: 500;
-}
-
-.availability-btn {
-  margin-top: 10px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-}
-
-.availability-btn.enable {
-  background-color: #16a34a;
-  color: white;
-}
-
-.availability-btn.disable {
-  background-color: #dc2626;
-  color: white;
-}
-
-.menu-subtext.available {
-  color: #16a34a;
-  font-weight: 500;
-}
-
-.menu-subtext.unavailable {
-  color: #dc2626;
-  font-weight: 500;
-}
-
+/* Bottom row: "Available" text on left, toggle on right */
 .menu-item-footer {
-  margin-top: 14px;
+  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* Status pill */
+/* Status text styling */
 .status-pill {
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 500;
   border-radius: 999px;
+  background-color: #ecfdf5;
+  color: #047857;
 }
 
 .status-pill.on {
@@ -549,6 +477,7 @@
   display: inline-block;
   width: 38px;
   height: 20px;
+  margin-left: auto;
 }
 
 .switch input {
@@ -586,11 +515,25 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
-/* Disabled card effect */
+/* Unavailable items styling */
+.item-disabled .menu-item-top h3 {
+  color: #9ca3af;
+}
+
+.item-disabled .menu-price-pill {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
 .item-disabled {
+  opacity: 0.7;
+}
+
+.unavailable-grid .menu-item-card {
   opacity: 0.6;
 }
 
+/* Section titles */
 .menu-section-title {
   margin: 28px 0 14px;
   font-size: 18px;
@@ -602,8 +545,69 @@ input:checked + .slider:before {
   color: #6b7280;
 }
 
-.unavailable-grid .menu-item-card {
-  opacity: 0.6;
+/* ================= ADD ITEM MODAL ================= */
+.add-item-modal {
+  background: #ffffff;
+  color:#000000;
+  border-radius: 16px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  text-align: center;
+}
+
+.add-item-modal h3 {
+  margin-bottom: 16px;
+  font-size: 18px;
+}
+
+.add-item-modal input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  background: #f9fafb;
+  color:#010205
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* ================= AVAILABILITY TOGGLE STYLES ================= */
+.menu-subtext.available {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.menu-subtext.unavailable {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.availability-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.availability-btn.enable {
+  background-color: #16a34a;
+  color: white;
+}
+
+.availability-btn.disable {
+  background-color: #dc2626;
+  color: white;
 }
 
 .availability-toggle {
@@ -648,14 +652,6 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
-.availability-row {
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-}
-
 .availability-label {
   font-weight: 500;
   transition: color 0.2s ease;
@@ -668,21 +664,3 @@ input:checked + .slider:before {
 .availability-label.off {
   color: #b91c1c; /* red */
 }
-
-/* Small toggle (reuse existing switch styles) */
-.switch.small {
-  width: 36px;
-  height: 18px;
-}
-
-.switch.small .slider:before {
-  width: 14px;
-  height: 14px;
-  left: 2px;
-  bottom: 2px;
-}
-
-.switch.small input:checked + .slider:before {
-  transform: translateX(18px);
-}
-

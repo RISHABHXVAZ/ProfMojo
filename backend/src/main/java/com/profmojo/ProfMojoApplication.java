@@ -11,3 +11,4 @@ ProfMojoApplication {
 		SpringApplication.run(ProfMojoApplication.class, args);
 	}
 }
+ 

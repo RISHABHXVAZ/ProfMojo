@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CanteenOrderRepository
         extends JpaRepository<CanteenOrder, Long> {
@@ -27,6 +28,11 @@ AND o.status IN ('PLACED', 'PREPARING', 'READY')
 ORDER BY o.createdAt DESC
 """)
     List<CanteenOrder> findActiveOrders(String canteenId);
+
+    Optional<CanteenOrder> findTopByProfessorIdAndStatusInOrderByCreatedAtDesc(
+            String professorId,
+            List<OrderStatus> statuses
+    );
 
 
 }
