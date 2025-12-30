@@ -41,9 +41,18 @@ export default function ProfessorDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
 
 
+  const DELIVERY_CHARGE = 20;
+
   useEffect(() => {
     loadProfessorProfile();
   }, []);
+
+  useEffect(() => {
+  if (cart.length === 0 && cartStep !== null) {
+    setCartStep(null);
+  }
+}, [cart, cartStep]);
+
 
   const loadProfessorProfile = async () => {
     try {
@@ -152,7 +161,16 @@ export default function ProfessorDashboard() {
     0
   );
 
+  const grandTotal = cartTotal + (cart.length > 0 ? DELIVERY_CHARGE : 0);
+
+
+
   const placeOrder = async () => {
+    if (grandTotal < DELIVERY_CHARGE) {
+      alert("Please add items to cart");
+      return;
+    }
+
     if (!cabinLocation.trim()) {
       alert("Enter cabin location");
       return;
@@ -167,15 +185,16 @@ export default function ProfessorDashboard() {
       const res = await api.post("/orders/place", {
         canteenId: selectedCanteen.canteenId,
         cabinLocation,
-        contactNo, // This is the professor's contact
+        contactNo,
         paymentMode,
         items: cart.map(i => ({
           itemId: i.id,
           itemName: i.name,
           quantity: i.quantity
         })),
-        totalAmount: cartTotal
+        totalAmount: grandTotal
       });
+
 
       // ✅ FIX: Manually attach canteen info if backend response lacks it
       setPlacedOrder({
@@ -883,7 +902,7 @@ export default function ProfessorDashboard() {
                 </div>
 
                 <div className="cart-right">
-                  <strong>₹{cartTotal}</strong>
+                  <strong>₹{grandTotal}</strong>
                   <button onClick={() => setCartStep("CART")}>
                     View Cart →
                   </button>
@@ -1049,23 +1068,63 @@ export default function ProfessorDashboard() {
               {cartStep === "PAYMENT" && (
                 <div className="payment-options">
                   {["CASH", "UPI"].map(mode => (
-                    <label key={mode} className={`payment-option ${paymentMode === mode ? "active" : ""}`}>
-                      <input type="radio" checked={paymentMode === mode} onChange={() => setPaymentMode(mode)} />
-                      <span>{mode}</span>
+                    <label
+                      key={mode}
+                      className={`payment-option ${paymentMode === mode ? "active" : ""}`}
+                      onClick={() => setPaymentMode(mode)}
+                    >
+                      <div className="payment-left">
+                        <input
+                          type="radio"
+                          checked={paymentMode === mode}
+                          readOnly
+                        />
+                        <span>{mode}</span>
+                      </div>
                     </label>
                   ))}
                 </div>
               )}
 
+
               <div className="modal-actions">
                 <button className="cancel" onClick={() => cartStep === "CART" ? setCartStep(null) : setCartStep(cartStep === "ADDRESS" ? "CART" : "ADDRESS")}>
                   {cartStep === "CART" ? "Close" : "Back"}
                 </button>
-                <button className="confirm" onClick={() => cartStep === "PAYMENT" ? placeOrder() : setCartStep(cartStep === "CART" ? "ADDRESS" : "PAYMENT")}>
+                <button
+                  className="confirm"
+                  disabled={cartStep === "PAYMENT" && grandTotal < DELIVERY_CHARGE}
+                  onClick={() =>
+                    cartStep === "PAYMENT"
+                      ? placeOrder()
+                      : setCartStep(cartStep === "CART" ? "ADDRESS" : "PAYMENT")
+                  }
+                >
                   {cartStep === "PAYMENT" ? "Place Order" : "Next"}
                 </button>
+
               </div>
-              <div className="cart-total">Total: ₹{cartTotal}</div>
+              <div className="cart-summary">
+                <div className="summary-row">
+                  <span>Items Total</span>
+                  <span>₹{cartTotal}</span>
+                </div>
+
+                {cart.length > 0 && (
+                  <div className="summary-row">
+                    <span>Delivery Charges</span>
+                    <span>₹{DELIVERY_CHARGE}</span>
+                  </div>
+                )}
+
+                <div className="summary-row total">
+                  <span>Total</span>
+                  <span>₹{grandTotal}</span>
+                </div>
+              </div>
+
+
+
             </div>
           </div>
         )}
