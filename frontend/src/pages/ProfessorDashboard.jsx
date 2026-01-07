@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./ProfessorDashboard.css";
+import { QRCodeCanvas } from "qrcode.react";
+
 
 export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -39,6 +41,52 @@ export default function ProfessorDashboard() {
   const [placedOrder, setPlacedOrder] = useState(null);
   const [showTrackOrder, setShowTrackOrder] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [canteenUpi, setCanteenUpi] = useState(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [upiOpened, setUpiOpened] = useState(false);
+  useEffect(() => {
+    if (paymentMode === "UPI" && canteenUpi) {
+      setUpiOpened(true);
+    }
+  }, [paymentMode, canteenUpi]);
+
+
+
+  useEffect(() => {
+    if (
+      cartStep === "PAYMENT" &&
+      paymentMode === "UPI" &&
+      selectedCanteen
+    ) {
+      fetchCanteenUpi();
+    }
+  }, [cartStep, paymentMode, selectedCanteen]);
+
+  const fetchCanteenUpi = async () => {
+    try {
+      const res = await api.get(
+        `/canteen/${selectedCanteen.canteenId}/upi`
+      );
+      setCanteenUpi(res.data);
+    } catch (err) {
+      console.error("Failed to fetch UPI ID", err);
+    }
+  };
+
+  const getUpiPaymentString = () => {
+    if (!canteenUpi) return "";
+
+    const params = new URLSearchParams({
+      pa: canteenUpi.upiId,
+      pn: canteenUpi.canteenName,
+      am: grandTotal.toString(),
+      cu: "INR",
+      tn: `Order Payment`
+    });
+
+    return `upi://pay?${params.toString()}`;
+  };
+
 
 
   const DELIVERY_CHARGE = 20;
@@ -48,10 +96,10 @@ export default function ProfessorDashboard() {
   }, []);
 
   useEffect(() => {
-  if (cart.length === 0 && cartStep !== null) {
-    setCartStep(null);
-  }
-}, [cart, cartStep]);
+    if (cart.length === 0 && cartStep !== null) {
+      setCartStep(null);
+    }
+  }, [cart, cartStep]);
 
 
   const loadProfessorProfile = async () => {
@@ -109,8 +157,25 @@ export default function ProfessorDashboard() {
   }, [activeTab]);
 
 
+  const confirmPayment = async () => {
+    try {
+      setConfirmingPayment(true);
+
+      const res = await api.put(
+        `/orders/${placedOrder.id}/confirm-payment`
+      );
+
+      setPlacedOrder(res.data); // update local state
+    } catch (err) {
+      alert("Failed to confirm payment");
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
   const openCanteen = async (canteen) => {
     setSelectedCanteen(canteen);
+    setCanteenUpi(null);
     setCanteenMenu([]);
     setCart([]);
     setLoading(true);
@@ -208,6 +273,7 @@ export default function ProfessorDashboard() {
       setCart([]);
       setCabinLocation("");
       setPaymentMode("CASH");
+      setUpiOpened(false);
       setCartStep(null);
 
     } catch (err) {
@@ -1067,6 +1133,7 @@ export default function ProfessorDashboard() {
 
               {cartStep === "PAYMENT" && (
                 <div className="payment-options">
+
                   {["CASH", "UPI"].map(mode => (
                     <label
                       key={mode}
@@ -1083,8 +1150,60 @@ export default function ProfessorDashboard() {
                       </div>
                     </label>
                   ))}
+
+                  {paymentMode === "UPI" && canteenUpi && (
+                    <div className="upi-box">
+                      <p><strong>Pay via UPI</strong></p>
+
+                      <div className="upi-id">
+                        <span>{canteenUpi.upiId}</span>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText(canteenUpi.upiId)
+                          }
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      <a
+                        href={`upi://pay?pa=${canteenUpi.upiId}&pn=${canteenUpi.canteenName}&am=${grandTotal}&cu=INR`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="upi-pay-btn"
+                        onClick={() => setUpiOpened(true)}
+                      >
+                        Open UPI App
+                      </a>
+                      <div className="upi-qr-section">
+                        <p><strong>Scan & Pay</strong></p>
+
+                        <QRCodeCanvas
+                          value={getUpiPaymentString()}
+                          size={180}
+                          bgColor="#ffffff"
+                          fgColor="#000000"
+                          level="H"
+                          includeMargin
+                        />
+
+
+
+                        <p className="upi-note">
+                          Scan with any UPI app (GPay, PhonePe, Paytm)
+                        </p>
+                      </div>
+
+
+                      <p className="upi-note">
+                        After payment, click <strong>Place Order</strong>
+                      </p>
+                    </div>
+                  )}
+
                 </div>
               )}
+
 
 
               <div className="modal-actions">
@@ -1093,7 +1212,11 @@ export default function ProfessorDashboard() {
                 </button>
                 <button
                   className="confirm"
-                  disabled={cartStep === "PAYMENT" && grandTotal < DELIVERY_CHARGE}
+                  disabled={
+                    cartStep === "PAYMENT" &&
+                    paymentMode === "UPI" &&
+                    !upiOpened
+                  }
                   onClick={() =>
                     cartStep === "PAYMENT"
                       ? placeOrder()
@@ -1102,6 +1225,7 @@ export default function ProfessorDashboard() {
                 >
                   {cartStep === "PAYMENT" ? "Place Order" : "Next"}
                 </button>
+
 
               </div>
               <div className="cart-summary">
@@ -1159,10 +1283,30 @@ export default function ProfessorDashboard() {
                 <StatusStep label="Ready" active={placedOrder.status === "READY"} />
                 <StatusStep label="Delivered" active={placedOrder.status === "DELIVERED"} />
               </div>
+              {placedOrder.paymentMode === "UPI" &&
+                placedOrder.paymentStatus === "PENDING" && !confirmingPayment && (
+                  <button
+                    className="confirm"
+                    onClick={confirmPayment}
+                  >
+                    I have paid
+                  </button>
+                )}
+
+
               <div className="track-footer">
                 <p>📍 Delivery Location: <strong> {placedOrder.cabinLocation}</strong></p>
                 <p>📞 Canteen Contact: <strong> {placedOrder.canteenContactNo || selectedCanteen?.contactNo || "N/A"}</strong></p>
               </div>
+              {placedOrder.paymentMode === "UPI" && (
+                <p>
+                  💳 Payment Status:{" "}
+                  <strong>
+                    {placedOrder.paymentStatus === "PAID" ? "Paid ✅" : "Pending ⏳"}
+                  </strong>
+                </p>
+              )}
+
               <button className="confirm" onClick={() => setShowTrackOrder(false)}>Done</button>
             </div>
           </div>

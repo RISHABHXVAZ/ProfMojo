@@ -79,6 +79,21 @@ public class CanteenController {
         return ResponseEntity.ok(Map.of("canRegister", true));
     }
 
+    @GetMapping("/{canteenId}/upi")
+    public ResponseEntity<?> getUpi(@PathVariable String canteenId) {
+
+        CanteenMaster master =
+                canteenMasterRepository.findById(canteenId).orElseThrow();
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "upiId", master.getUpiId(),
+                        "canteenName", master.getCanteenName()
+                )
+        );
+    }
+
+
     @GetMapping("/active")
     public ResponseEntity<?> getActiveCanteens() {
 
