@@ -18,5 +18,7 @@ public class CanteenMaster {
 
     private String location;
 
+    private String upiId;
+
     private boolean active = true;
 }

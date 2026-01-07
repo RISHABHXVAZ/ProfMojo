@@ -6,6 +6,7 @@ import com.profmojo.models.Professor;
 import com.profmojo.models.dto.PlaceOrderRequest;
 import com.profmojo.models.dto.UpdateOrderStatusRequest;
 import com.profmojo.models.enums.OrderStatus;
+import com.profmojo.models.enums.PaymentStatus;
 import com.profmojo.repositories.CanteenOrderRepository;
 import com.profmojo.repositories.CanteenRepository;
 import com.profmojo.repositories.ProfessorRepository;
@@ -58,15 +59,20 @@ public class CanteenOrderController {
                 .professorId(professorId)
                 .professorName(professor.getName())
                 .canteenId(request.getCanteenId())
-                // 🔹 FIXED: Store the contact number in the order entity
                 .canteenContactNo(canteen.getContactNo())
                 .cabinLocation(request.getCabinLocation())
                 .paymentMode(request.getPaymentMode())
+                .paymentStatus(
+                        request.getPaymentMode().equals("UPI")
+                                ? PaymentStatus.PENDING
+                                : PaymentStatus.PAID
+                )
                 .items(orderItems)
                 .totalAmount(request.getTotalAmount())
                 .status(OrderStatus.PLACED)
                 .createdAt(LocalDateTime.now())
                 .build();
+
 
         return ResponseEntity.ok(orderRepository.save(order));
     }
@@ -165,6 +171,41 @@ public class CanteenOrderController {
                         .orElse(null)
         );
     }
+
+    @PutMapping("/{orderId}/confirm-payment")
+    @PreAuthorize("hasRole('PROFESSOR')")
+    public ResponseEntity<?> confirmUpiPayment(
+            @PathVariable Long orderId,
+            HttpServletRequest request
+    ) {
+        String professorId = (String) request.getAttribute("username");
+
+        CanteenOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // 1️⃣ Ownership check
+        if (!order.getProfessorId().equals(professorId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        // 2️⃣ Only UPI orders allowed
+        if (!"UPI".equalsIgnoreCase(order.getPaymentMode())) {
+            return ResponseEntity.badRequest()
+                    .body("Payment confirmation only allowed for UPI orders");
+        }
+
+        // 3️⃣ Already paid check
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            return ResponseEntity.ok(order);
+        }
+
+        // 4️⃣ Mark as PAID
+        order.setPaymentStatus(PaymentStatus.PAID);
+        orderRepository.save(order);
+
+        return ResponseEntity.ok(order);
+    }
+
 
 }
 

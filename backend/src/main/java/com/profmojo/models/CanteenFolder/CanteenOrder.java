@@ -2,6 +2,7 @@ package com.profmojo.models.CanteenFolder;
 
 import com.profmojo.models.OrderItem;
 import com.profmojo.models.enums.OrderStatus;
+import com.profmojo.models.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,6 +42,10 @@ public class CanteenOrder {
     private String canteenContactNo;
 
     private String paymentMode;
+
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus paymentStatus;
+
 
     @Enumerated(EnumType.STRING)
     private OrderStatus status;

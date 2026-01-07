@@ -36,7 +36,8 @@ public class SecurityConfig {
                                 "/api/professors/register",
                                 "/api/canteen/login",
                                 "/api/canteen/register",
-                                "/api/canteen/check-id/**"
+                                "/api/canteen/check-id/**",
+                                "/api/canteen/*/upi"
                         ).permitAll()
 
                         // 👀 PROFESSOR / STUDENT
@@ -61,6 +62,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
                         .requestMatchers("/api/orders/place").hasRole("PROFESSOR")
                         .requestMatchers("/api/orders/**").authenticated()
+                        .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
+
+
 
 
                         .anyRequest().authenticated()
