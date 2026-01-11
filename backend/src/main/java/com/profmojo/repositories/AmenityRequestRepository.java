@@ -9,11 +9,16 @@ import java.util.List;
 public interface AmenityRequestRepository
         extends JpaRepository<AmenityRequest, Long> {
 
+    List<AmenityRequest> findByProfessorId(String professorId);
+
     List<AmenityRequest> findByDepartmentAndStatus(
             String department,
             RequestStatus status
     );
 
-    List<AmenityRequest> findByProfessorId(String professorId);
-}
+    List<AmenityRequest> findByAssignedStaff_StaffIdAndStatus(
+            String staffId,
+            RequestStatus status
+    );
 
+}

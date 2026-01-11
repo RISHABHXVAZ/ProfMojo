@@ -37,8 +37,13 @@ public class SecurityConfig {
                                 "/api/canteen/login",
                                 "/api/canteen/register",
                                 "/api/canteen/check-id/**",
-                                "/api/canteen/*/upi"
+                                "/api/canteen/*/upi",
+                                "/api/admin/auth/**",
+                                "/api/staff/auth/**"
                         ).permitAll()
+
+                        // 🛠️ ADMIN APIs
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // 👀 PROFESSOR / STUDENT
                         .requestMatchers("/api/canteen/active")
@@ -64,7 +69,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/**").authenticated()
                         .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
 
-
+                        .requestMatchers("/api/staff/dashboard/**").hasRole("STAFF")
+                        .requestMatchers("/api/staff/amenities/**").hasRole("STAFF")
 
 
                         .anyRequest().authenticated()

@@ -1,0 +1,103 @@
+.staff-dashboard {
+    padding: 40px;
+    background: #f5f7fb;
+    min-height: 100vh;
+}
+
+.staff-header {
+    margin-bottom: 30px;
+}
+
+.staff-header h1 {
+    font-size: 26px;
+    margin-bottom: 6px;
+}
+
+.staff-header p {
+    color: #555;
+}
+
+.task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.task-card {
+    background: white;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.task-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.classroom {
+    font-weight: 600;
+}
+
+.status.assigned {
+    background: #e0e7ff;
+    color: #3f51b5;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.prof {
+    font-size: 14px;
+}
+
+.items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.item-chip {
+    background: #eef2ff;
+    color: #3f51b5;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.deliver-btn {
+    margin-top: auto;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: #4caf50;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.deliver-btn:hover {
+    background: #3e8e41;
+}
+
+.staff-status {
+    text-align: center;
+    margin-top: 100px;
+    font-size: 16px;
+}
+
+.staff-status.error {
+    color: red;
+}
+
+.empty-text {
+    text-align: center;
+    margin-top: 80px;
+    font-size: 15px;
+    color: #555;
+}

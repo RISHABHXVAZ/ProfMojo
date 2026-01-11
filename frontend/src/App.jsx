@@ -9,6 +9,10 @@ import StudentDashboard from "./pages/StudentDashboard";
 import CanteenLogin from "./pages/CanteenLogin";
 import CanteenRegister from "./pages/CanteenRegister";
 import CanteenDashboard from "./pages/CanteenDashboard";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+import StaffLogin from "./pages//StaffLogin";
+import StaffDashboard from "./pages/StaffDashboard";
 
 
 function App() {
@@ -35,6 +39,15 @@ function App() {
         <Route path="/canteen/login" element={<CanteenLogin />} />
         <Route path="/canteen/register" element={<CanteenRegister />} />
         <Route path="/canteen/dashboard" element={<CanteenDashboard />} />
+
+        {/* Admin Auth */}
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+        {/* Staff Auth */}
+        <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/dashboard" element={<StaffDashboard />} />
 
       </Routes>
     </BrowserRouter>

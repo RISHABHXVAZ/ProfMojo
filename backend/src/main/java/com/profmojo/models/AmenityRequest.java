@@ -8,11 +8,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Table(name = "amenity_request")
 public class AmenityRequest {
 
     @Id
@@ -22,18 +22,35 @@ public class AmenityRequest {
     private String professorId;
     private String professorName;
 
-    private String classRoom;
     private String department;
+    private String classRoom;
 
     @ElementCollection
-    private List<String> items; // chalk, duster, projector
+    @CollectionTable(
+            name = "amenity_request_items",
+            joinColumns = @JoinColumn(name = "amenity_request_id")
+    )
+    @Column(name = "item")
+    private List<String> items;
 
     @Enumerated(EnumType.STRING)
     private RequestStatus status;
 
     private LocalDateTime createdAt;
+
+    // ===== ADMIN =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "assigned_staff_id",
+            referencedColumnName = "staffId"
+    )
+    private Staff assignedStaff;
+
     private LocalDateTime assignedAt;
+    private LocalDateTime slaDeadline;
+
+    // ===== STAFF =====
     private LocalDateTime deliveredAt;
 
-    private Long assignedStaffId;
+    private boolean slaBreached = false;
 }
