@@ -2,10 +2,9 @@ package com.profmojo.security.jwt;
 
 import com.profmojo.models.CanteenFolder.Canteen;
 import com.profmojo.models.Professor;
+import com.profmojo.models.Staff;
 import com.profmojo.models.Student;
-import com.profmojo.repositories.CanteenRepository;
-import com.profmojo.repositories.ProfessorRepository;
-import com.profmojo.repositories.StudentRepository;
+import com.profmojo.repositories.*;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
@@ -22,6 +21,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import com.profmojo.models.Admin;
+
 
 @Component
 @RequiredArgsConstructor
@@ -31,6 +32,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final ProfessorRepository professorRepository;
     private final StudentRepository studentRepository;
     private final CanteenRepository canteenRepository;
+    private final AdminRepository adminRepository;
+    private final StaffRepository staffRepository;
+
 
 
     @Override
@@ -102,6 +106,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
+            if ("STAFF".equals(role)) {
+                Staff staff = staffRepository.findById(username).orElse(null);
+
+                if (staff != null) {
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    staff,
+                                    null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_STAFF"))
+                            );
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+
+            if ("ADMIN".equals(role) || "ROLE_ADMIN".equals(role)) {
+
+                Admin admin = adminRepository.findById(username).orElse(null);
+
+                if (admin != null && admin.isActive()) {
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    admin,
+                                    null,
+                                    List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                            );
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+
 
 
         } catch (ExpiredJwtException e) {

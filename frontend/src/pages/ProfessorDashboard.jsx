@@ -40,6 +40,14 @@ export default function ProfessorDashboard() {
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [placedOrder, setPlacedOrder] = useState(null);
   const [showTrackOrder, setShowTrackOrder] = useState(false);
+  // ===== AMENITIES =====
+  const [amenityRequests, setAmenityRequests] = useState([]);
+  const [showAmenityModal, setShowAmenityModal] = useState(false);
+  const [department, setDepartment] = useState("");
+  const [classroom, setClassroom] = useState("");
+  const [items, setItems] = useState([]);
+  const [itemInput, setItemInput] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [canteenUpi, setCanteenUpi] = useState(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -49,6 +57,47 @@ export default function ProfessorDashboard() {
       setUpiOpened(true);
     }
   }, [paymentMode, canteenUpi]);
+
+
+  useEffect(() => {
+    if (activeTab === "amenities") {
+      loadAmenityRequests();
+    }
+  }, [activeTab]);
+
+  const loadAmenityRequests = async () => {
+    try {
+      const res = await api.get("/amenities/my");
+      setAmenityRequests(res.data);
+    } catch (err) {
+      console.error("Failed to load amenity requests", err);
+    }
+  };
+
+  const submitAmenityRequest = async () => {
+    if (!department || !classroom || items.length === 0) {
+      alert("Fill all fields");
+      return;
+    }
+
+    try {
+      await api.post("/amenities/request", {
+        department,
+        classroom,
+        items
+      });
+
+      setShowAmenityModal(false);
+      setDepartment("");
+      setClassroom("");
+      setItems([]);
+      setItemInput("");
+
+      loadAmenityRequests();
+    } catch {
+      alert("Failed to submit request");
+    }
+  };
 
 
 
@@ -581,6 +630,13 @@ export default function ProfessorDashboard() {
         >
           Notice Board
         </button>
+        <button
+          className={`nav-item ${activeTab === "amenities" ? "active" : ""}`}
+          onClick={() => setActiveTab("amenities")}
+        >
+          Missing Amenity ?
+        </button>
+
       </div>
 
       {/* ================= MAIN ================= */}
@@ -1098,6 +1154,106 @@ export default function ProfessorDashboard() {
             )}
           </div>
         )}
+        {activeTab === "amenities" && (
+          <div className="amenity-board">
+            <div className="header">
+              <h1>Missing Amenities</h1>
+              <button
+                className="create-btn"
+                onClick={() => setShowAmenityModal(true)}
+              >
+                + Raise Request
+              </button>
+            </div>
+
+            {amenityRequests.length === 0 ? (
+              <p className="empty">No requests raised yet</p>
+            ) : (
+              <div className="amenity-list">
+                {amenityRequests.map(req => (
+                  <div key={req.id} className="amenity-card">
+                    <div className="amenity-top">
+                      <strong>{req.department}</strong>
+                      <span className={`status-pill ${req.status.toLowerCase()}`}>
+                        {req.status}
+                      </span>
+                    </div>
+
+                    <p>📍 Classroom: <strong>{req.classRoom}</strong></p>
+
+                    <div className="item-list">
+                      {req.items.map(i => (
+                        <span key={i} className="item-pill">{i}</span>
+                      ))}
+                    </div>
+
+                    <small>
+                      Raised on {new Date(req.createdAt).toLocaleString()}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {showAmenityModal && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h2>Raise Amenity Request</h2>
+
+              <select
+                value={department}
+                onChange={e => setDepartment(e.target.value)}
+              >
+                <option value="">Select Department</option>
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="ME">ME</option>
+              </select>
+
+              <input
+                placeholder="Classroom (e.g. GS7, Lab L1)"
+                value={classroom}
+                onChange={e => setClassroom(e.target.value)}
+              />
+
+              <div className="item-input">
+                <input
+                  placeholder="Add item (e.g. Chalk)"
+                  value={itemInput}
+                  onChange={e => setItemInput(e.target.value)}
+                />
+                <button
+                  onClick={() => {
+                    if (itemInput.trim()) {
+                      setItems([...items, itemInput]);
+                      setItemInput("");
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+
+              <div className="item-list">
+                {items.map((i, idx) => (
+                  <span key={idx} className="item-pill">{i}</span>
+                ))}
+              </div>
+
+              <div className="modal-actions">
+                <button className="cancel" onClick={() => setShowAmenityModal(false)}>
+                  Cancel
+                </button>
+                <button className="confirm" onClick={submitAmenityRequest}>
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
 
         {/* ================= MODALS ================= */}
 
