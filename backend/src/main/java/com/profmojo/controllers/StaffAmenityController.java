@@ -22,21 +22,16 @@ public class StaffAmenityController {
     private final AmenityRequestRepository amenityRepo;
     private final StaffRepository staffRepo;
 
-    @PutMapping("/{requestId}/delivered/{staffId}")
+    @PutMapping("/{requestId}/delivered")
     public ResponseEntity<AmenityRequest> markDelivered(
             @PathVariable Long requestId,
-            @PathVariable String staffId
+            @AuthenticationPrincipal Staff staff
     ) {
-
         AmenityRequest request = amenityRepo.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
-        Staff staff = staffRepo.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
-
-        // ✅ Safety check
         if (request.getAssignedStaff() == null ||
-                !request.getAssignedStaff().getStaffId().equals(staffId)) {
+                !request.getAssignedStaff().getStaffId().equals(staff.getStaffId())) {
             throw new RuntimeException("This request is not assigned to you");
         }
 
@@ -50,12 +45,13 @@ public class StaffAmenityController {
 
         return ResponseEntity.ok(saved);
     }
+
     @GetMapping("/my")
-    public List<AmenityRequest> myAssignments(
+    public List<AmenityRequest> getMyAssignedRequests(
             @AuthenticationPrincipal Staff staff
     ) {
-        return amenityRepo.findByAssignedStaff_StaffIdAndStatus(
-                staff.getStaffId(),
+        return amenityRepo.findByAssignedStaffAndStatus(
+                staff,
                 RequestStatus.ASSIGNED
         );
     }

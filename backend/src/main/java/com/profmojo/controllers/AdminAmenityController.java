@@ -73,4 +73,11 @@ public class AdminAmenityController {
 
         return ResponseEntity.ok(saved);
     }
+
+    @GetMapping("/staff/all")
+    public List<Staff> getAllStaff(
+            @AuthenticationPrincipal Admin admin
+    ) {
+        return staffRepo.findByDepartment(admin.getDepartment());
+    }
 }

@@ -3,7 +3,6 @@ import axios from "axios";
 import "./StaffDashboard.css";
 
 export default function StaffDashboard() {
-
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -43,62 +42,77 @@ export default function StaffDashboard() {
                     }
                 }
             );
-            fetchAssignedRequests(); // refresh
+            fetchAssignedRequests();
         } catch (err) {
             alert("Failed to mark as delivered");
         }
     };
 
-    if (loading) return <p className="staff-status">Loading...</p>;
-    if (error) return <p className="staff-status error">{error}</p>;
+    if (loading) {
+        return (
+            <div className="staff-page">
+                <p className="staff-status">Loading...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="staff-page">
+                <p className="staff-status error">{error}</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="staff-dashboard">
-
-            <div className="staff-header">
-                <h1>My Assigned Tasks</h1>
-                <p>Complete assigned amenity requests</p>
-            </div>
-
-            {requests.length === 0 ? (
-                <p className="empty-text">No active assignments</p>
-            ) : (
-                <div className="task-grid">
-                    {requests.map(req => (
-                        <div className="task-card" key={req.id}>
-
-                            <div className="task-top">
-                                <span className="classroom">
-                                    {req.classRoom}
-                                </span>
-                                <span className="status assigned">
-                                    ASSIGNED
-                                </span>
-                            </div>
-
-                            <p className="prof">
-                                Requested by: <b>{req.professorName}</b>
-                            </p>
-
-                            <div className="items">
-                                {req.items.map((item, i) => (
-                                    <span className="item-chip" key={i}>
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-
-                            <button
-                                className="deliver-btn"
-                                onClick={() => markDelivered(req.id)}
-                            >
-                                Mark Delivered
-                            </button>
-
-                        </div>
-                    ))}
+        <div className="staff-page">
+            <div className="staff-dashboard">
+                <div className="staff-header">
+                    <h1>My Assigned Tasks</h1>
+                    <p>Complete assigned amenity requests</p>
                 </div>
-            )}
+
+                {requests.length === 0 ? (
+                    <p className="empty-text">No active assignments</p>
+                ) : (
+                    <div className="task-grid">
+                        {requests.map((req) => (
+                            <div className="task-card" key={req.id}>
+                                <div className="task-top">
+                                    <span className="classroom">
+                                        {req.classRoom}
+                                    </span>
+                                    <span className="status assigned">
+                                        ASSIGNED
+                                    </span>
+                                </div>
+
+                                <p className="prof">
+                                    Requested by:{" "}
+                                    <b>{req.professorName}</b>
+                                </p>
+
+                                <div className="items">
+                                    {req.items.map((item, i) => (
+                                        <span className="item-chip" key={i}>
+                                            {item}
+                                        </span>
+                                    ))}
+                                </div>
+
+                                <button
+                                    className="deliver-btn"
+                                    onClick={() =>
+                                        markDelivered(req.id)
+                                    }
+                                >
+                                    Mark Delivered
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

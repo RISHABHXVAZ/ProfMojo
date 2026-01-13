@@ -42,7 +42,8 @@ public class StaffAuthServiceImpl implements StaffAuthService {
         if (!passwordEncoder.matches(request.getPassword(), staff.getPassword())) {
             throw new RuntimeException("Invalid password");
         }
-
+        staff.setOnline(true);
+        staffRepository.save(staff);
         String token = jwtUtil.generateToken(
                 staff.getStaffId(),
                 staff.getRole()   // "STAFF"

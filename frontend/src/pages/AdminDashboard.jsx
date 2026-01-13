@@ -7,6 +7,12 @@ export default function AdminDashboard() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [showStaffModal, setShowStaffModal] = useState(false);
+    const [selectedRequestId, setSelectedRequestId] = useState(null);
+    const [staffList, setStaffList] = useState([]);
+    const [staffLoading, setStaffLoading] = useState(false);
+
+
 
     const token = localStorage.getItem("token");
 
@@ -40,6 +46,43 @@ export default function AdminDashboard() {
     if (error) {
         return <div className="admin-error">{error}</div>;
     }
+    const fetchStaff = async () => {
+        setStaffLoading(true);
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/staff/available",
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            setStaffList(res.data);
+        } catch (err) {
+            alert("Failed to load staff");
+        } finally {
+            setStaffLoading(false);
+        }
+    };
+    const assignStaff = async (staffId) => {
+        try {
+            await axios.put(
+                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/assign/${staffId}`,
+                {},
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            setShowStaffModal(false);
+            fetchPendingRequests(); // refresh cards
+        } catch (err) {
+            alert("Assignment failed");
+        }
+    };
+
+
 
     return (
         <div className="admin-dashboard">
@@ -77,12 +120,54 @@ export default function AdminDashboard() {
                                 Requested by <strong>{req.professorName}</strong>
                             </p>
 
-                            <button className="assign-btn">
+                            <button
+                                className="assign-btn"
+                                onClick={() => {
+                                    setSelectedRequestId(req.id);
+                                    setShowStaffModal(true);
+                                    fetchStaff();
+                                }}
+                            >
                                 Assign Staff
                             </button>
 
+
                         </div>
                     ))}
+                </div>
+            )}
+            {showStaffModal && (
+                <div className="modal-overlay">
+                    <div className="modal">
+
+                        <h3>Assign Staff</h3>
+
+                        {staffLoading ? (
+                            <p>Loading staff...</p>
+                        ) : (
+                            <div className="staff-list">
+                                {staffList.map(staff => (
+                                    <button
+                                        key={staff.staffId}
+                                        className={`staff-btn ${staff.online ? "online" : "offline"}`}
+                                        disabled={!staff.online}
+                                        onClick={() => assignStaff(staff.staffId)}
+                                    >
+                                        {staff.name}
+                                        {!staff.online && " (offline)"}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <button
+                            className="close-btn"
+                            onClick={() => setShowStaffModal(false)}
+                        >
+                            Cancel
+                        </button>
+
+                    </div>
                 </div>
             )}
 

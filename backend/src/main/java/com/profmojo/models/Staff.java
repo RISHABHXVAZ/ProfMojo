@@ -19,6 +19,8 @@ public class Staff {
     private String department;
 
     private boolean available = true;
+    private boolean passwordSet = false;
+    private boolean online = true;
 
     private String role = "STAFF";
 }
