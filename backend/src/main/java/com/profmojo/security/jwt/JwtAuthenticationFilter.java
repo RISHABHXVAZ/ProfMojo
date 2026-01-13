@@ -106,22 +106,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
-            if ("STAFF".equals(role)) {
+            if ("ROLE_STAFF".equals(role) || "STAFF".equals(role)) {
                 Staff staff = staffRepository.findById(username).orElse(null);
 
                 if (staff != null) {
+                    System.out.println("DEBUG: Staff Authenticated: " + username); // Add this
                     UsernamePasswordAuthenticationToken auth =
                             new UsernamePasswordAuthenticationToken(
                                     staff,
                                     null,
                                     List.of(new SimpleGrantedAuthority("ROLE_STAFF"))
                             );
-
                     SecurityContextHolder.getContext().setAuthentication(auth);
+                } else {
+                    System.out.println("DEBUG: Staff NOT found in DB for username: " + username); // Add this
                 }
             }
 
-            if ("ADMIN".equals(role) || "ROLE_ADMIN".equals(role)) {
+
+            if ("ROLE_ADMIN".equals(role) || "ADMIN".equals(role)) {
 
                 Admin admin = adminRepository.findById(username).orElse(null);
 

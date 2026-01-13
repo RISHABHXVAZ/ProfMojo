@@ -9,5 +9,6 @@ public interface StaffRepository
         extends JpaRepository<Staff, String> {
 
     List<Staff> findByDepartmentAndAvailableTrue(String department);
+    List<Staff> findByDepartment(String department);
 }
 

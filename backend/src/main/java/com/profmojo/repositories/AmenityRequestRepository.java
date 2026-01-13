@@ -1,6 +1,7 @@
 package com.profmojo.repositories;
 
 import com.profmojo.models.AmenityRequest;
+import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -21,4 +22,8 @@ public interface AmenityRequestRepository
             RequestStatus status
     );
 
+    List<AmenityRequest> findByAssignedStaffAndStatus(
+            Staff staff,
+            RequestStatus status
+    );
 }
