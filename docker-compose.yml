@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: profmojo-db
+    environment:
+      POSTGRES_DB: profmojo
+      POSTGRES_USER: profmojo
+      POSTGRES_PASSWORD: profmojo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d   # 👈 SEED DATA
+
+  backend:
+    build: ./backend
+    container_name: profmojo-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profmojo
+      SPRING_DATASOURCE_USERNAME: profmojo
+      SPRING_DATASOURCE_PASSWORD: profmojo
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: profmojo-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

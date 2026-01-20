@@ -45,6 +45,21 @@ public class AmenityRequest {
             referencedColumnName = "staffId"
     )
     private Staff assignedStaff;
+    // ===== SLA TRACKING =====
+
+    // Admin must assign within 2 minutes
+    private LocalDateTime assignmentDeadline;
+
+
+    // Staff must deliver before this
+    private LocalDateTime deliveryDeadline;
+
+    @Column(nullable = true)
+    private Boolean assignmentSlaBreached = false;
+
+    @Column(nullable = true)
+    private Boolean deliverySlaBreached = false;
+
 
     private LocalDateTime assignedAt;
     private LocalDateTime slaDeadline;

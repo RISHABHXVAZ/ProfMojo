@@ -1,145 +1,324 @@
-/* ===== FULL PAGE WRAPPER (CRITICAL FIX) ===== */
+/* ===============================
+    PAGE LAYOUT (Scoped)
+================================ */
 .staff-page {
-    width: 100vw;
-    min-height: 100vh;
-    display: flex;
     background: #f5f7fb;
-}
-
-/* ===== DASHBOARD CONTAINER ===== */
-.staff-dashboard {
-    flex: 1;
-    width: 100%;
+    min-height: 100vh;
     padding: 40px;
-    box-sizing: border-box;
-
-    display: flex;
-    flex-direction: column;
-}
-
-/* ===== HEADER ===== */
-.staff-header {
-    margin-bottom: 30px;
-}
-
-.staff-header h1 {
-    font-size: 26px;
-    margin-bottom: 6px;
-    color: #222;
-}
-
-.staff-header p {
-    color: #555;
-    font-size: 14px;
-}
-
-/* ===== GRID ===== */
-.task-grid {
     width: 100%;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
 }
 
-/* ===== CARD ===== */
-.task-card {
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-
+/* Scoped to only affect the dashboard inside .staff-page */
+.staff-page .staff-dashboard {
+    width: calc(100vw - 80px) !important;
+    max-width: 100% !important;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    margin: 0 auto;
 }
 
-/* ===== CARD TOP ===== */
-.task-top {
+/* ===============================
+    PROFILE / HEADER CARD
+================================ */
+.staff-page .profile-card {
+    background: #ffffff;
+    padding: 28px 32px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 32px;
+    width: 100% !important;
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    gap: 24px;
 }
 
-.classroom {
+.staff-page .profile-left {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.staff-page .staff-name {
+    font-size: 20px;
     font-weight: 600;
-    font-size: 15px;
-    color: #333;
+    color: #0f172a;
+    margin: 0;
 }
 
-/* ===== STATUS ===== */
-.status.assigned {
-    background: #e0e7ff;
-    color: #3f51b5;
-    padding: 4px 12px;
-    border-radius: 20px;
+.staff-page .status {
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
     font-size: 12px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.staff-page .status.online { background: #ecfdf5; color: #047857; }
+.staff-page .status.offline { background: #f3f4f6; color: #6b7280; }
+
+/* ===============================
+    PROFILE STATS
+================================ */
+.staff-page .profile-stats {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+}
+
+.staff-page .stat-box {
+    min-width: 120px;
+    text-align: right;
+}
+
+.staff-page .stat-box strong {
+    display: block;
+    font-size: 22px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.staff-page .stat-box span {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.staff-page .level.bronze strong { color: #7c2d12; }
+.staff-page .level.silver strong { color: #334155; }
+.staff-page .level.gold strong { color: #92400e; }
+
+/* ===============================
+    SECTION TITLE
+================================ */
+.staff-page .section-title {
+    margin: 32px 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    text-align: left;
+    width: 100%;
+}
+
+/* ===============================
+    EMPTY STATE
+================================ */
+.staff-page .empty-state {
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box;
+    padding: 80px 40px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px dashed #e5e7eb;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.staff-page .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.staff-page .empty-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    max-width: 480px;
+    line-height: 1.6;
+}
+
+/* ===============================
+    TASK GRID & CARD (FIXED ALIGNMENT)
+================================ */
+.staff-page .task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 28px;
+    width: 100%;
+    margin-top: 10px;
+
+    /* ✅ FIX: align cards with rest of layout */
+    justify-items: start;
+}
+
+.staff-page .task-card {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 20px;
+    border: 1px solid #eef0f2;
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+
+    /* ✅ FIX: prevent floating / center look */
+    width: 100%;
+    max-width: 520px;
+}
+
+.staff-page .task-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.staff-page .room {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.staff-page .badge {
+    background: #f1f5f9;
+    color: #6366f1;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid #e2e8f0;
+}
+
+.staff-page .task-card p {
+    margin: 6px 0;
+    font-size: 15px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.staff-page .task-card b {
+    color: #0f172a;
     font-weight: 600;
 }
 
-/* ===== PROFESSOR ===== */
-.prof {
-    font-size: 14px;
-    color: #444;
-}
-
-/* ===== ITEMS ===== */
-.items {
+/* ===============================
+    ITEMS
+================================ */
+.staff-page .items {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin: 18px 0;
 }
 
-.item-chip {
-    background: #eef2ff;
-    color: #3f51b5;
-    padding: 6px 12px;
-    border-radius: 20px;
+.staff-page .chip {
+    background: #ffffff;
+    color: #475569;
+    padding: 8px 14px;
+    border-radius: 10px;
     font-size: 13px;
-    white-space: nowrap;
-}
-
-/* ===== BUTTON ===== */
-.deliver-btn {
-    margin-top: auto;
-    padding: 10px;
-    border-radius: 8px;
-    border: none;
-    background: #4caf50;
-    color: white;
     font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
+    border: 1px solid #e2e8f0;
 }
 
-.deliver-btn:hover {
-    background: #3e8e41;
+/* ===============================
+    SLA
+================================ */
+.staff-page .sla {
+    font-size: 14px;
+    margin-bottom: 24px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    font-weight: 500;
 }
 
-/* ===== STATES ===== */
-.staff-status {
-    margin: auto;
+.staff-page .sla.safe {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #dcfce7;
+}
+
+.staff-page .sla.danger {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fee2e2;
+    font-weight: 700;
+}
+
+/* ===============================
+    BUTTON
+================================ */
+.staff-page button:not(.info-btn) {
+    margin-top: auto;
+    width: 100%;
+    padding: 14px;
+    background: #4f46e5;
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
     font-size: 16px;
-    color: #444;
+    cursor: pointer;
 }
 
-.staff-status.error {
-    color: red;
+/* ===============================
+    INFO BUTTON & POPUP
+================================ */
+.staff-page .service-level-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    position: relative;
 }
 
-.empty-text {
-    margin-top: 80px;
-    text-align: center;
-    font-size: 15px;
-    color: #555;
+.staff-page .info-btn {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 10px;
+    cursor: pointer;
+    border: none;
 }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-    .staff-dashboard {
-        padding: 20px;
-    }
-
-    .task-grid {
-        grid-template-columns: 1fr;
-    }
+.staff-page .levels-popup {
+    position: absolute;
+    top: 25px;
+    right: 0;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    z-index: 100;
+    width: 160px;
 }
+
+.staff-page .levels-popup h4 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #1e293b;
+}
+
+.staff-page .levels-popup ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.staff-page .levels-popup li {
+    font-size: 11px;
+    margin-bottom: 4px;
+    color: #64748b;
+}
+
+.staff-page .gold-text { color: #92400e; font-weight: bold; }
+.staff-page .silver-text { color: #334155; font-weight: bold; }
+.staff-page .bronze-text { color: #7c2d12; font-weight: bold; }

@@ -25,6 +25,8 @@ public class AmenityRequestServiceImpl
             Professor professor
     ) {
 
+        LocalDateTime now = LocalDateTime.now();
+
         AmenityRequest request = AmenityRequest.builder()
                 .professorId(professor.getProfId())
                 .professorName(professor.getName())
@@ -32,7 +34,10 @@ public class AmenityRequestServiceImpl
                 .department(dto.getDepartment())
                 .items(dto.getItems())
                 .status(RequestStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .createdAt(now)
+
+                .assignmentDeadline(now.plusMinutes(2))
+
                 .build();
 
         return repository.save(request);
@@ -40,6 +45,22 @@ public class AmenityRequestServiceImpl
 
     @Override
     public List<AmenityRequest> getMyRequests(String professorId) {
-        return repository.findByProfessorId(professorId);
+        return repository
+                .findByProfessorIdAndStatusNot(
+                        professorId,
+                        RequestStatus.DELIVERED
+                );
+
     }
+
+    @Override
+    public List<AmenityRequest> getMyDeliveredRequests(String professorId) {
+        return repository
+                .findByProfessorIdAndStatusOrderByDeliveredAtDesc(
+                        professorId,
+                        RequestStatus.DELIVERED
+                );
+    }
+
+
 }
