@@ -44,7 +44,11 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
 
         request.setAssignedStaff(staff);
         request.setAssignedAt(LocalDateTime.now());
+
+        request.setSlaDeadline(LocalDateTime.now().plusMinutes(10));
+
         request.setStatus(RequestStatus.ASSIGNED);
+
 
         staffRepo.save(staff);
         return requestRepo.save(request);

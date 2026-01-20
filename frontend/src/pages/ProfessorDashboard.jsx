@@ -47,11 +47,36 @@ export default function ProfessorDashboard() {
   const [classroom, setClassroom] = useState("");
   const [items, setItems] = useState([]);
   const [itemInput, setItemInput] = useState("");
+  const [showAmenityHistory, setShowAmenityHistory] = useState(false);
+  const [amenityHistory, setAmenityHistory] = useState([]);
+  const [now, setNow] = useState(Date.now());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [canteenUpi, setCanteenUpi] = useState(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [upiOpened, setUpiOpened] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatRemaining = (targetTime) => {
+    if (!targetTime) return null;
+
+    const diff = new Date(targetTime).getTime() - Date.now();
+    if (diff <= 0) return "Time expired";
+
+    const mins = Math.floor(diff / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+
+    return `${mins}m ${secs}s`;
+  };
+
+
   useEffect(() => {
     if (paymentMode === "UPI" && canteenUpi) {
       setUpiOpened(true);
@@ -67,12 +92,18 @@ export default function ProfessorDashboard() {
 
   const loadAmenityRequests = async () => {
     try {
-      const res = await api.get("/amenities/my");
-      setAmenityRequests(res.data);
+      const [activeRes, historyRes] = await Promise.all([
+        api.get("/amenities/my"),
+        api.get("/amenities/my/history"),
+      ]);
+
+      setAmenityRequests(activeRes.data);
+      setAmenityHistory(historyRes.data);
     } catch (err) {
       console.error("Failed to load amenity requests", err);
     }
   };
+
 
   const submitAmenityRequest = async () => {
     if (!department || !classroom || items.length === 0) {
@@ -1156,18 +1187,32 @@ export default function ProfessorDashboard() {
         )}
         {activeTab === "amenities" && (
           <div className="amenity-board">
-            <div className="header">
+            <div className="header amenity-header">
               <h1>Missing Amenities</h1>
-              <button
-                className="create-btn"
-                onClick={() => setShowAmenityModal(true)}
-              >
-                + Raise Request
-              </button>
+
+              <div className="amenity-header-actions">
+                <button
+                  className="history-btn"
+                  onClick={() => setShowAmenityHistory(true)}
+                >
+                  Previous Requests
+                </button>
+
+                <button
+                  className="create-btn"
+                  onClick={() => setShowAmenityModal(true)}
+                >
+                  + Raise Request
+                </button>
+              </div>
             </div>
 
+
+            {/* ===== ACTIVE REQUESTS ===== */}
+            <h2 className="section-title" style={{ color: "#111827" }}>Active Requests</h2>
+
             {amenityRequests.length === 0 ? (
-              <p className="empty">No requests raised yet</p>
+              <p className="empty">No active requests</p>
             ) : (
               <div className="amenity-list">
                 {amenityRequests.map(req => (
@@ -1179,7 +1224,38 @@ export default function ProfessorDashboard() {
                       </span>
                     </div>
 
-                    <p>📍 Classroom: <strong>{req.classRoom}</strong></p>
+                    <p>
+                      📍 Classroom: <strong>{req.classRoom}</strong>
+                    </p>
+                    {req.assignedStaff && (
+                      <div className="assigned-staff">
+                        <p>
+                          👷 Assigned to: <strong>{req.assignedStaff.name}</strong>
+                        </p>
+                        {req.assignedStaff.contactNo && (
+                          <p>
+                            📞 Contact: <strong>{req.assignedStaff.contactNo}</strong>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {/* Admin assignment SLA */}
+                    {req.status === "PENDING" && (
+                      <p className="sla pending">
+                        Assignment SLA: {formatRemaining(
+                          new Date(req.createdAt).getTime() + 2 * 60 * 1000
+                        )}
+                      </p>
+                    )}
+
+                    {/* Delivery SLA */}
+                    {req.status === "ASSIGNED" && (
+                      <p className="sla delivery">
+                        Delivery SLA: {formatRemaining(req.slaDeadline)}
+                      </p>
+                    )}
+
+
 
                     <div className="item-list">
                       {req.items.map(i => (
@@ -1194,8 +1270,65 @@ export default function ProfessorDashboard() {
                 ))}
               </div>
             )}
+
+
+          </div>
+
+        )}
+        {activeTab === "amenities" && showAmenityHistory && (
+          <div
+            className="history-overlay"
+            onClick={() => setShowAmenityHistory(false)}
+          >
+            <div
+              className="history-card"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="history-header">
+                <h3> Request History</h3>
+                <button onClick={() => setShowAmenityHistory(false)}>✕</button>
+              </div>
+
+              {amenityHistory.length === 0 ? (
+                <p className="empty">No delivered amenities yet</p>
+              ) : (
+                <div className="history-list">
+                  {amenityHistory.map(req => (
+                    <div key={req.id} className="history-item">
+                      <strong>{req.department}</strong>
+                      <p>📍 {req.classRoom}</p>
+                      {req.assignedStaff && (
+                        <div className="assigned-staff">
+                          <p>
+                            👷 Delivered by: <strong>{req.assignedStaff.name}</strong>
+                          </p>
+                          {req.assignedStaff.contactNo && (
+                            <p>
+                              📞 Contact: <strong>{req.assignedStaff.contactNo}</strong>
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+
+                      <div className="item-list">
+                        {req.items.map(i => (
+                          <span key={i} className="item-pill">{i}</span>
+                        ))}
+                      </div>
+
+                      <small>
+                        Delivered on{" "}
+                        {new Date(req.deliveredAt).toLocaleString()}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
+
         {showAmenityModal && (
           <div className="modal-overlay">
             <div className="modal">

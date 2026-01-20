@@ -44,35 +44,38 @@ public class AdminAmenityController {
         );
     }
 
-    // 3️⃣ Assign staff to request
-    @PutMapping("/{requestId}/assign/{staffId}")
-    public ResponseEntity<AmenityRequest> assignStaff(
-            @PathVariable Long requestId,
+    @PutMapping("/{id}/assign/{staffId}")
+    public ResponseEntity<?> assignStaff(
+            @PathVariable Long id,
             @PathVariable String staffId
     ) {
 
-        AmenityRequest request = amenityRepo.findById(requestId)
+        AmenityRequest request = amenityRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
         Staff staff = staffRepo.findById(staffId)
                 .orElseThrow(() -> new RuntimeException("Staff not found"));
 
-        if (!staff.isAvailable()) {
-            throw new RuntimeException("Staff not available");
-        }
+        LocalDateTime now = LocalDateTime.now();
 
-        // ✅ CORRECT MAPPING
         request.setAssignedStaff(staff);
-        request.setAssignedAt(LocalDateTime.now());
+        request.setAssignedAt(now);
         request.setStatus(RequestStatus.ASSIGNED);
 
-        staff.setAvailable(false);
+        // ✅ CHECK ADMIN ASSIGNMENT SLA
+        if (request.getAssignmentDeadline() != null &&
+                now.isAfter(request.getAssignmentDeadline())) {
+            request.setAssignmentSlaBreached(true);
+        }
 
-        staffRepo.save(staff);
-        AmenityRequest saved = amenityRepo.save(request);
+        // ✅ START DELIVERY SLA (example: 10 mins)
+        request.setDeliveryDeadline(now.plusMinutes(10));
 
-        return ResponseEntity.ok(saved);
+        amenityRepo.save(request);
+
+        return ResponseEntity.ok("Staff assigned");
     }
+
 
     @GetMapping("/staff/all")
     public List<Staff> getAllStaff(

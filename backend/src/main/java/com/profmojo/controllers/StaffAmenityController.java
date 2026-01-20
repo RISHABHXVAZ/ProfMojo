@@ -23,28 +23,52 @@ public class StaffAmenityController {
     private final StaffRepository staffRepo;
 
     @PutMapping("/{requestId}/delivered")
-    public ResponseEntity<AmenityRequest> markDelivered(
+    public ResponseEntity<?> markDelivered(
             @PathVariable Long requestId,
             @AuthenticationPrincipal Staff staff
     ) {
+
         AmenityRequest request = amenityRepo.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
+        // Safety check
         if (request.getAssignedStaff() == null ||
                 !request.getAssignedStaff().getStaffId().equals(staff.getStaffId())) {
-            throw new RuntimeException("This request is not assigned to you");
+            throw new RuntimeException("Not authorized to deliver this request");
         }
 
-        request.setStatus(RequestStatus.DELIVERED);
-        request.setDeliveredAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
 
+        // 1️⃣ Update request
+        request.setStatus(RequestStatus.DELIVERED);
+        request.setDeliveredAt(now);
+
+        // 2️⃣ Update staff deliveries
+        staff.setTotalDeliveries(staff.getTotalDeliveries() + 1);
+
+        // 3️⃣ SLA check
+        if (request.getDeliveryDeadline() != null && now.isAfter(request.getDeliveryDeadline())) {
+            // SLA breached → lose star
+            staff.setStars(Math.max(0, staff.getStars() - 1));
+            request.setDeliverySlaBreached(true);
+        } else {
+            // SLA met → gain star
+            staff.setStars(staff.getStars() + 1);
+            request.setDeliverySlaBreached(false);
+        }
+
+        // 4️⃣ Mark staff available again
         staff.setAvailable(true);
 
+        // 5️⃣ Persist both
         staffRepo.save(staff);
-        AmenityRequest saved = amenityRepo.save(request);
+        amenityRepo.save(request);
 
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok("Delivered successfully");
     }
+
+
+
 
     @GetMapping("/my")
     public List<AmenityRequest> getMyAssignedRequests(
@@ -55,4 +79,12 @@ public class StaffAmenityController {
                 RequestStatus.ASSIGNED
         );
     }
+
+    @GetMapping("/me")
+    public Staff getMyProfile(
+            @AuthenticationPrincipal Staff staff
+    ) {
+        return staff;
+    }
+
 }

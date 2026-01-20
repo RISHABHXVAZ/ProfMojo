@@ -39,4 +39,14 @@ public class AmenityRequestController {
                 professor.getProfId()
         );
     }
+    // PROFESSOR → View delivered (history)
+    @GetMapping("/my/history")
+    public List<AmenityRequest> myDeliveredRequests(
+            @AuthenticationPrincipal Professor professor
+    ) {
+        return amenityRequestService.getMyDeliveredRequests(
+                professor.getProfId()
+        );
+    }
+
 }

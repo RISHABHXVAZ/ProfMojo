@@ -26,4 +26,16 @@ public interface AmenityRequestRepository
             Staff staff,
             RequestStatus status
     );
+    List<AmenityRequest> findByProfessorIdAndStatusOrderByDeliveredAtDesc(
+            String professorId,
+            RequestStatus status
+    );
+    List<AmenityRequest> findByProfessorIdAndStatusNot(
+            String professorId,
+            RequestStatus status
+    );
+
+
+
+
 }
