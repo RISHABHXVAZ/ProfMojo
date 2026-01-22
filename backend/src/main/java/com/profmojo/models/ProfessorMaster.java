@@ -11,8 +11,12 @@ import lombok.*;
 public class ProfessorMaster {
 
     @Id
+    @Column(name = "prof_id")
     private String profId; // professor enters this ID when registering
 
+    @Column(name = "name")
     private String name;
+
+    @Column(name = "department")
     private String department;
 }

@@ -15,6 +15,10 @@ export default function AdminDashboard() {
 
     const [allStaff, setAllStaff] = useState([]);
     const [staffStatsLoading, setStaffStatsLoading] = useState(true);
+    const [ongoingRequests, setOngoingRequests] = useState([]);
+    const [now, setNow] = useState(Date.now());
+
+
 
     const token = localStorage.getItem("token");
 
@@ -34,6 +38,35 @@ export default function AdminDashboard() {
             setLoading(false);
         }
     };
+    const fetchOngoingRequests = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/ongoing",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setOngoingRequests(res.data);
+        } catch (err) {
+            console.error("Failed to load ongoing requests");
+        }
+    };
+    const diff = new Date(deadline).getTime() - now;
+
+
+    const formatRemaining = (deadline) => {
+        if (!deadline) return "—";
+
+        const diff = new Date(deadline).getTime() - now;
+        if (diff <= 0) return "SLA BREACHED";
+
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+
+        return `${m}m ${s}s`;
+    };
+
+
 
     /* ================= FETCH ALL STAFF (RIGHT PANEL) ================= */
     const fetchAllStaff = async () => {
@@ -87,12 +120,22 @@ export default function AdminDashboard() {
             alert("Assignment failed");
         }
     };
+    useEffect(() => {
+    const interval = setInterval(() => {
+        setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+}, []);
+
 
     /* ================= INITIAL LOAD ================= */
     useEffect(() => {
         fetchPendingRequests();
+        fetchOngoingRequests();
         fetchAllStaff();
     }, []);
+
 
     /* ================= RENDER ================= */
     return (
@@ -151,6 +194,38 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     )}
+                    <h2 className="section-title">Ongoing Tasks</h2>
+
+                    {ongoingRequests.length === 0 ? (
+                        <p className="empty-text">No ongoing tasks</p>
+                    ) : (
+                        <div className="request-grid">
+                            {ongoingRequests.map(req => (
+                                <div className="request-card ongoing" key={req.id}>
+                                    <div className="card-header">
+                                        <span className="department">{req.department}</span>
+                                        <span className="status assigned">ASSIGNED</span>
+                                    </div>
+
+                                    <p>
+                                        📍 <b>{req.classRoom}</b>
+                                    </p>
+
+                                    <p>
+                                        👤 Staff: <b>{req.assignedStaff?.name}</b>
+                                    </p>
+
+                                    <p className={`sla ${formatRemaining(req.deliveryDeadline).includes("BREACHED")
+                                            ? "danger"
+                                            : "safe"
+                                        }`}>
+                                        ⏱ SLA Left: {formatRemaining(req.deliveryDeadline)}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                 </div>
 
                 {/* ================= RIGHT PANEL ================= */}

@@ -642,8 +642,6 @@ export default function ProfessorDashboard() {
         >
           Attendance
         </button>
-
-        <button className="nav-item">Class Schedule</button>
         <button
           className={`nav-item ${activeTab === "canteen" ? "active" : ""}`}
           onClick={() => setActiveTab("canteen")}
@@ -651,7 +649,6 @@ export default function ProfessorDashboard() {
           Canteen
         </button>
 
-        <button className="nav-item">Library</button>
         <button
           className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
           onClick={() => {
