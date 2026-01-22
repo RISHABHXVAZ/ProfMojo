@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.8'
 
 services:
   postgres:
@@ -12,7 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db-init:/docker-entrypoint-initdb.d   # 👈 SEED DATA
+      - ./db-init:/docker-entrypoint-initdb.d
 
   backend:
     build: ./backend
@@ -22,9 +22,12 @@ services:
     depends_on:
       - postgres
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profmojo
+      # This overrides the hardcoded values in application.properties
+      SPRING_DATASOURCE_URL: jdbc:postgresql://profmojo-db:5432/profmojo
       SPRING_DATASOURCE_USERNAME: profmojo
       SPRING_DATASOURCE_PASSWORD: profmojo
+      # Add wait time for database connection
+      SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
     restart: always
 
   frontend:
@@ -32,6 +35,8 @@ services:
     container_name: profmojo-frontend
     ports:
       - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://profmojo-backend:8080
     depends_on:
       - backend
 

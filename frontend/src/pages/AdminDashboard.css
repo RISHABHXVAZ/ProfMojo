@@ -310,3 +310,16 @@ width: 320px;
     width: 100%;
   }
 }
+
+.request-card.ongoing {
+    border-left: 4px solid #2563eb;
+}
+
+.sla.safe {
+    color: #1d4ed8;
+}
+
+.sla.danger {
+    color: #dc2626;
+    font-weight: 600;
+}

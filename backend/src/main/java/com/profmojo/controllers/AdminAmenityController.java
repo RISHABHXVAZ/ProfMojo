@@ -83,4 +83,15 @@ public class AdminAmenityController {
     ) {
         return staffRepo.findByDepartment(admin.getDepartment());
     }
+
+    @GetMapping("/ongoing")
+    public List<AmenityRequest> getOngoing(
+            @AuthenticationPrincipal Admin admin
+    ) {
+        return amenityRepo.findByDepartmentAndStatus(
+                admin.getDepartment(),
+                RequestStatus.ASSIGNED
+        );
+    }
+
 }
