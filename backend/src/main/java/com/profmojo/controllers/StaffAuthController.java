@@ -33,4 +33,14 @@ public class StaffAuthController {
     ) {
         return ResponseEntity.ok(staffAuthService.login(request));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        staffAuthService.logout(authHeader);
+        return ResponseEntity.ok(
+                Map.of("message", "Logged out successfully")
+        );
+    }
 }

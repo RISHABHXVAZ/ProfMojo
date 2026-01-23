@@ -42,39 +42,30 @@ public class SecurityConfig {
                                 "/api/staff/auth/**"
                         ).permitAll()
 
-                        // 🛠️ ADMIN APIs
+                        // 🛠️ ADMIN — MUST COME FIRST
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // 👀 PROFESSOR / STUDENT
-                        .requestMatchers("/api/canteen/active")
-                        .hasAnyRole("PROFESSOR", "STUDENT")
+                        // 👨‍🏫 PROFESSOR AMENITIES
+                        .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
 
-                        // 🧾 CANTEEN MENU MANAGEMENT (MOST SPECIFIC FIRST)
+                        // 👷 STAFF
+                        .requestMatchers("/api/staff/**").hasRole("STAFF")
+
+                        // 🏪 CANTEEN
                         .requestMatchers("/api/canteen/menu/my").hasRole("CANTEEN")
                         .requestMatchers("/api/canteen/menu/add").hasRole("CANTEEN")
                         .requestMatchers("/api/canteen/menu/availability").hasRole("CANTEEN")
-
-                        // 🍽️ PROFESSOR VIEW MENU
                         .requestMatchers("/api/canteen/menu/**").hasRole("PROFESSOR")
-
-                        // 🏪 OTHER CANTEEN APIs
                         .requestMatchers("/api/canteen/**").hasRole("CANTEEN")
 
                         // OTHER PROTECTED
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
-                        .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
-                        .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
-                        .requestMatchers("/api/orders/place").hasRole("PROFESSOR")
                         .requestMatchers("/api/orders/**").authenticated()
-                        .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
-
-                        .requestMatchers("/api/staff/dashboard/**").hasRole("STAFF")
-                        .requestMatchers("/api/staff/amenities/**").hasRole("STAFF")
-
 
                         .anyRequest().authenticated()
                 )
+
 
 
                 .addFilterBefore(

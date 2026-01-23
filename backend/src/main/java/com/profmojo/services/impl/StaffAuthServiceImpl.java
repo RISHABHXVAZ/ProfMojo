@@ -55,4 +55,21 @@ public class StaffAuthServiceImpl implements StaffAuthService {
                 staff.getDepartment()
         );
     }
+
+    @Override
+    public void logout(String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String staffId = jwtUtil.extractUsername(token);
+
+            Staff staff = staffRepository.findById(staffId)
+                    .orElseThrow(() -> new RuntimeException("Staff not found"));
+
+            staff.setOnline(false);
+            staffRepository.save(staff);
+
+        } catch (Exception e) {
+            System.err.println("Error during logout: " + e.getMessage());
+        }
+    }
 }

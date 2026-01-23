@@ -1,17 +1,11 @@
 package com.profmojo.controllers;
 
-import com.profmojo.models.Admin;
 import com.profmojo.models.AmenityRequest;
-import com.profmojo.models.Staff;
-import com.profmojo.models.enums.RequestStatus;
-import com.profmojo.repositories.AmenityRequestRepository;
-import com.profmojo.repositories.StaffRepository;
+import com.profmojo.models.Staff; // Assuming you have a Staff model
+import com.profmojo.services.AdminAmenityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -20,78 +14,47 @@ import java.util.List;
 @CrossOrigin("http://localhost:5173")
 public class AdminAmenityController {
 
-    private final AmenityRequestRepository amenityRepo;
-    private final StaffRepository staffRepo;
+    private final AdminAmenityService adminAmenityService;
 
-    // 1️⃣ View pending requests
+    // ================= PENDING REQUESTS =================
     @GetMapping("/pending")
-    public List<AmenityRequest> getPending(
-            @AuthenticationPrincipal Admin admin
-    ) {
-        return amenityRepo.findByDepartmentAndStatus(
-                admin.getDepartment(),
-                RequestStatus.PENDING
-        );
+    public List<AmenityRequest> getPendingRequests(@RequestParam String department) {
+        return adminAmenityService.getPendingRequests(department);
     }
 
-    // 2️⃣ View available staff
-    @GetMapping("/staff/available")
-    public List<Staff> getAvailableStaff(
-            @AuthenticationPrincipal Admin admin
-    ) {
-        return staffRepo.findByDepartmentAndAvailableTrue(
-                admin.getDepartment()
-        );
+    // ================= ONGOING REQUESTS =================
+    @GetMapping("/ongoing")
+    public List<AmenityRequest> getOngoingRequests(@RequestParam String department) {
+        return adminAmenityService.getOngoingRequests(department);
     }
 
-    @PutMapping("/{id}/assign/{staffId}")
-    public ResponseEntity<?> assignStaff(
-            @PathVariable Long id,
+    // ================= COMPLETED REQUESTS =================
+    @GetMapping("/completed")
+    public List<AmenityRequest> getCompletedRequests(@RequestParam String department) {
+        return adminAmenityService.getCompletedRequests(department);
+    }
+
+    // ================= ASSIGN STAFF =================
+    @PutMapping("/{requestId}/assign/{staffId}")
+    public AmenityRequest assignStaff(
+            @PathVariable Long requestId,
             @PathVariable String staffId
     ) {
-
-        AmenityRequest request = amenityRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Request not found"));
-
-        Staff staff = staffRepo.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Staff not found"));
-
-        LocalDateTime now = LocalDateTime.now();
-
-        request.setAssignedStaff(staff);
-        request.setAssignedAt(now);
-        request.setStatus(RequestStatus.ASSIGNED);
-
-        // ✅ CHECK ADMIN ASSIGNMENT SLA
-        if (request.getAssignmentDeadline() != null &&
-                now.isAfter(request.getAssignmentDeadline())) {
-            request.setAssignmentSlaBreached(true);
-        }
-
-        // ✅ START DELIVERY SLA (example: 10 mins)
-        request.setDeliveryDeadline(now.plusMinutes(10));
-
-        amenityRepo.save(request);
-
-        return ResponseEntity.ok("Staff assigned");
+        return adminAmenityService.assignStaff(requestId, staffId);
     }
 
+    // ================= STAFF MANAGEMENT (ADDED) =================
 
     @GetMapping("/staff/all")
-    public List<Staff> getAllStaff(
-            @AuthenticationPrincipal Admin admin
-    ) {
-        return staffRepo.findByDepartment(admin.getDepartment());
+    public List<Staff> getAllStaff() {
+        // Since your frontend fetchAllStaff() doesn't pass a param,
+        // the service should ideally fetch all or handle filtering.
+        return adminAmenityService.getAllStaff();
     }
 
-    @GetMapping("/ongoing")
-    public List<AmenityRequest> getOngoing(
-            @AuthenticationPrincipal Admin admin
-    ) {
-        return amenityRepo.findByDepartmentAndStatus(
-                admin.getDepartment(),
-                RequestStatus.ASSIGNED
-        );
+    @GetMapping("/staff/available")
+    public List<Staff> getAvailableStaff() {
+        // Used by your Assign Staff Modal
+        return adminAmenityService.getAvailableStaff();
     }
-
 }

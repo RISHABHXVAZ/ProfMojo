@@ -53,4 +53,32 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         staffRepo.save(staff);
         return requestRepo.save(request);
     }
+
+    @Override
+    public List<AmenityRequest> getOngoingRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(
+                department,
+                RequestStatus.ASSIGNED
+        );
+    }
+
+    @Override
+    public List<AmenityRequest> getCompletedRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(
+                department,
+                RequestStatus.DELIVERED
+        );
+    }
+
+    @Override
+    public List<Staff> getAllStaff() {
+        return staffRepo.findAll();
+    }
+
+    @Override
+    public List<Staff> getAvailableStaff() {
+        // You might want to filter by available=true AND online=true
+        return staffRepo.findByAvailableTrue();
+    }
+
 }
