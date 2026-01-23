@@ -1,14 +1,35 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import {
+    Users,
+    Clock,
+    CheckCircle,
+    AlertCircle,
+    UserCheck,
+    Shield,
+    Package,
+    BarChart3,
+    LogOut,
+    Search,
+    Eye,
+    RefreshCw,
+    X,
+    FileText,
+    Wifi,
+    WifiOff
+} from "lucide-react";
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [activeTab, setActiveTab] = useState("pending");
 
     const [showStaffModal, setShowStaffModal] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
+    const [selectedRequest, setSelectedRequest] = useState(null);
 
     const [staffList, setStaffList] = useState([]);
     const [staffLoading, setStaffLoading] = useState(false);
@@ -16,44 +37,38 @@ export default function AdminDashboard() {
     const [allStaff, setAllStaff] = useState([]);
     const [staffStatsLoading, setStaffStatsLoading] = useState(true);
     const [ongoingRequests, setOngoingRequests] = useState([]);
+    const [completedRequests, setCompletedRequests] = useState([]);
     const [now, setNow] = useState(Date.now());
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
+    // Get department from admin ID (extract from localStorage or token)
+    const adminId = localStorage.getItem("adminId") || "";
+    const adminDepartment = extractDepartmentFromAdminId(adminId);
 
+    const [stats, setStats] = useState({
+        totalPending: 0,
+        totalOngoing: 0,
+        totalCompleted: 0,
+        totalStaff: 0,
+        onlineStaff: 0
+    });
 
     const token = localStorage.getItem("token");
+    const navigate = useNavigate();
 
-    /* ================= FETCH PENDING REQUESTS ================= */
-    const fetchPendingRequests = async () => {
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/pending",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
-            setRequests(res.data);
-        } catch (err) {
-            setError("Failed to load pending requests");
-        } finally {
-            setLoading(false);
+    // Helper function to extract department from admin ID
+    function extractDepartmentFromAdminId(adminId) {
+        if (!adminId) return "";
+        // Assuming admin ID format like "ADM-CSE-001" or "ADM-ECE-001"
+        const parts = adminId.split('-');
+        if (parts.length >= 2) {
+            return parts[1]; // Return department code (CSE, ECE, etc.)
         }
-    };
-    const fetchOngoingRequests = async () => {
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/ongoing",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
-            setOngoingRequests(res.data);
-        } catch (err) {
-            console.error("Failed to load ongoing requests");
-        }
-    };
-    const diff = new Date(deadline).getTime() - now;
+        return "";
+    }
 
-
+    /* ================= FORMAT REMAINING TIME ================= */
     const formatRemaining = (deadline) => {
         if (!deadline) return "—";
 
@@ -63,21 +78,85 @@ export default function AdminDashboard() {
         const m = Math.floor(diff / 60000);
         const s = Math.floor((diff % 60000) / 1000);
 
+        if (m > 60) {
+            const h = Math.floor(m / 60);
+            const remainingM = m % 60;
+            return `${h}h ${remainingM}m`;
+        }
         return `${m}m ${s}s`;
     };
 
+    /* ================= FETCH ALL DATA ================= */
+    const fetchAllData = async () => {
+        try {
+            setLoading(true);
+            await Promise.all([
+                fetchPendingRequests(),
+                fetchOngoingRequests(),
+                fetchCompletedRequests(),
+                fetchAllStaff()
+            ]);
+        } catch (err) {
+            console.error("Failed to fetch data", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        calculateStats();
+    }, [requests, ongoingRequests, completedRequests, allStaff]);
 
 
-    /* ================= FETCH ALL STAFF (RIGHT PANEL) ================= */
+    /* ================= FETCH PENDING REQUESTS (Department Specific) ================= */
+    const fetchPendingRequests = async () => {
+        const res = await axios.get(
+            "http://localhost:8080/api/admin/amenities/pending",
+            {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { department: adminDepartment }
+            }
+        );
+        setRequests(res.data);
+    };
+
+
+    const fetchOngoingRequests = async () => {
+        const res = await axios.get(
+            "http://localhost:8080/api/admin/amenities/ongoing",
+            {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { department: adminDepartment }
+            }
+        );
+        setOngoingRequests(res.data);
+    };
+
+
+    const fetchCompletedRequests = async () => {
+        const res = await axios.get(
+            "http://localhost:8080/api/admin/amenities/completed",
+            {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { department: adminDepartment }
+            }
+        );
+        setCompletedRequests(res.data);
+    };
+
+
+    /* ================= FETCH ALL STAFF (Department Specific) ================= */
     const fetchAllStaff = async () => {
         try {
             const res = await axios.get(
                 "http://localhost:8080/api/admin/amenities/staff/all",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-            setAllStaff(res.data);
+            // Filter staff by department (or general staff)
+            const departmentStaff = res.data.filter(staff =>
+                staff.department === adminDepartment || staff.department === "general"
+            );
+            setAllStaff(departmentStaff);
         } catch (err) {
             console.error("Failed to load staff list");
         } finally {
@@ -85,19 +164,27 @@ export default function AdminDashboard() {
         }
     };
 
-    /* ================= FETCH AVAILABLE STAFF (MODAL) ================= */
-    const fetchStaff = async () => {
+    /* ================= FETCH AVAILABLE STAFF ================= */
+    const fetchStaff = async (requestId) => {
         setStaffLoading(true);
         try {
             const res = await axios.get(
                 "http://localhost:8080/api/admin/amenities/staff/available",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
-            setStaffList(res.data);
+            // Filter available staff by department
+            const departmentStaff = res.data.filter(staff =>
+                staff.department === adminDepartment || staff.department === "general"
+            );
+            setStaffList(departmentStaff);
+
+            // Find the selected request from all possible states
+            const req = requests.find(r => r.id === requestId) ||
+                ongoingRequests.find(r => r.id === requestId) ||
+                completedRequests.find(r => r.id === requestId);
+            setSelectedRequest(req);
         } catch {
-            alert("Failed to load staff");
+            console.error("Failed to load staff");
         } finally {
             setStaffLoading(false);
         }
@@ -109,200 +196,781 @@ export default function AdminDashboard() {
             await axios.put(
                 `http://localhost:8080/api/admin/amenities/${selectedRequestId}/assign/${staffId}`,
                 {},
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             setShowStaffModal(false);
-            fetchPendingRequests();
-            fetchAllStaff();
+            // Refresh data to show updated status
+            fetchAllData();
         } catch {
-            alert("Assignment failed");
+            console.error("Assignment failed");
         }
     };
+
+    /* ================= VIEW REQUEST DETAILS ================= */
+    const viewRequestDetails = (request) => {
+        const details = `
+Request Details:
+----------------
+Request ID: #${request.id || request.requestId}
+Classroom: ${request.classRoom}
+Professor: ${request.professorName}
+Department: ${request.department}
+Status: ${getStatusText(request.status)}
+Items: ${request.items?.join(", ") || "No items specified"}
+${request.message ? `Message: ${request.message}` : ""}
+${request.assignedStaff ? `Assigned To: ${request.assignedStaff.name} (${request.assignedStaff.staffId || "N/A"})` : ""}
+${request.createdAt ? `Requested: ${new Date(request.createdAt).toLocaleString()}` : ""}
+${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDeadline).toLocaleString()}` : ""}
+        `.trim();
+
+        alert(details);
+    };
+
+    /* ================= CALCULATE STATS ================= */
+    const calculateStats = () => {
+        const onlineStaff = allStaff.filter(staff => staff.online).length;
+        setStats({
+            totalPending: requests.length,
+            totalOngoing: ongoingRequests.length,
+            totalCompleted: completedRequests.length,
+            totalStaff: allStaff.length,
+            onlineStaff: onlineStaff
+        });
+    };
+
+    /* ================= HANDLE LOGOUT ================= */
+    const handleLogout = () => {
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+        localStorage.removeItem("adminId");
+        navigate("/admin/login");
+    };
+
+    /* ================= SETUP REAL-TIME UPDATES ================= */
+    const setupRealTimeUpdates = () => {
+        // Polling for updates every 10 seconds for more real-time feel
+        const pollInterval = setInterval(() => {
+            fetchAllData();
+        }, 10000); // 10 seconds
+
+        return () => clearInterval(pollInterval);
+    };
+
+    /* ================= CHECK STAFF ONLINE STATUS ================= */
+    const checkStaffOnlineStatus = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/staff/status",
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            // Update staff online status
+            const updatedStaff = allStaff.map(staff => {
+                const statusData = res.data.find(s => s.staffId === staff.staffId || s.id === staff.id);
+                return {
+                    ...staff,
+                    online: statusData?.online || false,
+                    lastActive: statusData?.lastActive
+                };
+            });
+
+            setAllStaff(updatedStaff);
+        } catch (err) {
+            console.error("Failed to fetch staff status", err);
+        }
+    };
+
+    /* ================= GET STATUS COLOR ================= */
+    const getStatusColor = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'pending':
+                return '#f59e0b';
+            case 'assigned':
+                return '#3b82f6';
+            case 'delivered':
+                return '#10b981';
+            default:
+                return '#64748b';
+        }
+    };
+
+
+    /* ================= GET STATUS TEXT ================= */
+  const getStatusText = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'pending':
+            return 'Pending';
+        case 'assigned':
+            return 'Assigned';
+        case 'delivered':
+            return 'Delivered';
+        default:
+            return status || 'Unknown';
+    }
+};
+
+
+    /* ================= FORMAT LAST ACTIVE TIME ================= */
+    const formatLastActive = (timestamp) => {
+        if (!timestamp) return "Unknown";
+
+        const lastActive = new Date(timestamp).getTime();
+        const diff = now - lastActive;
+
+        if (diff < 60000) return "Just now";
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        return `${Math.floor(diff / 86400000)}d ago`;
+    };
+
+    /* ================= UPDATE TIME AND CHECK STATUS ================= */
     useEffect(() => {
-    const interval = setInterval(() => {
-        setNow(Date.now());
-    }, 1000);
-
-    return () => clearInterval(interval);
-}, []);
-
+        const interval = setInterval(() => {
+            setNow(Date.now());
+            // Check staff status every 30 seconds
+            if (now % 30000 < 1000) { // Every ~30 seconds
+                checkStaffOnlineStatus();
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [now, allStaff]);
 
     /* ================= INITIAL LOAD ================= */
     useEffect(() => {
-        fetchPendingRequests();
-        fetchOngoingRequests();
-        fetchAllStaff();
+        fetchAllData();
+
+        // Setup real-time updates
+        const cleanup = setupRealTimeUpdates();
+        return cleanup;
     }, []);
 
+    /* ================= FILTERED REQUESTS ================= */
+    const getFilteredRequests = () => {
+        let filtered = [];
+        switch (activeTab) {
+            case "pending":
+                filtered = requests;
+                break;
+            case "ongoing":
+                filtered = ongoingRequests;
+                break;
+            case "completed":
+                filtered = completedRequests;
+                break;
+            default:
+                filtered = requests;
+        }
 
-    /* ================= RENDER ================= */
+        if (searchQuery) {
+            filtered = filtered.filter(req =>
+                req.classRoom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                req.professorName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                req.status?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (req.assignedStaff?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+        }
+
+        return filtered;
+    };
+
+    if (loading) {
+        return (
+            <div className="admin-loading-screen">
+                <div className="admin-loading-spinner"></div>
+                <p>Loading admin dashboard...</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="admin-page">
-            <div className="admin-dashboard split">
-
-                {/* ================= LEFT PANEL ================= */}
-                <div className="admin-left">
-                    <header className="admin-header">
-                        <h1>Admin Dashboard</h1>
-                        <p>Pending Amenity Requests</p>
-                    </header>
-
-                    {loading ? (
-                        <p className="admin-loading">Loading...</p>
-                    ) : error ? (
-                        <p className="admin-error">{error}</p>
-                    ) : requests.length === 0 ? (
-                        <p className="empty-text">No pending requests 🎉</p>
-                    ) : (
-                        <div className="request-grid">
-                            {requests.map(req => (
-                                <div className="request-card" key={req.id}>
-                                    <div className="card-header">
-                                        <span className="department">{req.department}</span>
-                                        <span className="status pending">{req.status}</span>
-                                    </div>
-
-                                    <p className="classroom">
-                                        📍 Classroom: <strong>{req.classRoom}</strong>
-                                    </p>
-
-                                    <div className="items">
-                                        {req.items.map((item, idx) => (
-                                            <span key={idx} className="item-chip">
-                                                {item}
-                                            </span>
-                                        ))}
-                                    </div>
-
-                                    <p className="meta">
-                                        Requested by <strong>{req.professorName}</strong>
-                                    </p>
-
-                                    <button
-                                        className="assign-btn"
-                                        onClick={() => {
-                                            setSelectedRequestId(req.id);
-                                            setShowStaffModal(true);
-                                            fetchStaff();
-                                        }}
-                                    >
-                                        Assign Staff
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <h2 className="section-title">Ongoing Tasks</h2>
-
-                    {ongoingRequests.length === 0 ? (
-                        <p className="empty-text">No ongoing tasks</p>
-                    ) : (
-                        <div className="request-grid">
-                            {ongoingRequests.map(req => (
-                                <div className="request-card ongoing" key={req.id}>
-                                    <div className="card-header">
-                                        <span className="department">{req.department}</span>
-                                        <span className="status assigned">ASSIGNED</span>
-                                    </div>
-
-                                    <p>
-                                        📍 <b>{req.classRoom}</b>
-                                    </p>
-
-                                    <p>
-                                        👤 Staff: <b>{req.assignedStaff?.name}</b>
-                                    </p>
-
-                                    <p className={`sla ${formatRemaining(req.deliveryDeadline).includes("BREACHED")
-                                            ? "danger"
-                                            : "safe"
-                                        }`}>
-                                        ⏱ SLA Left: {formatRemaining(req.deliveryDeadline)}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
+        <div className="admin-dashboard">
+            {/* Sidebar */}
+            <div className="admin-sidebar">
+                <div className="admin-sidebar-header">
+                    <div className="admin-logo">
+                        <Shield size={32} />
+                        <h2>ProfMojo</h2>
+                    </div>
+                    <p className="admin-role">{adminDepartment} Department Admin</p>
                 </div>
 
-                {/* ================= RIGHT PANEL ================= */}
-                <div className="admin-right">
-                    <h2>Staff Performance</h2>
+                <nav className="admin-nav">
+                    <button
+                        className={`admin-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
+                        onClick={() => setActiveTab("dashboard")}
+                    >
+                        <BarChart3 size={20} />
+                        <span>Dashboard</span>
+                    </button>
+                    <button
+                        className={`admin-nav-item ${activeTab === "pending" ? "active" : ""}`}
+                        onClick={() => setActiveTab("pending")}
+                    >
+                        <AlertCircle size={20} />
+                        <span>Pending Requests</span>
+                        {stats.totalPending > 0 && (
+                            <span className="admin-nav-badge">{stats.totalPending}</span>
+                        )}
+                    </button>
+                    <button
+                        className={`admin-nav-item ${activeTab === "ongoing" ? "active" : ""}`}
+                        onClick={() => setActiveTab("ongoing")}
+                    >
+                        <Clock size={20} />
+                        <span>Ongoing Tasks</span>
+                        {stats.totalOngoing > 0 && (
+                            <span className="admin-nav-badge ongoing">{stats.totalOngoing}</span>
+                        )}
+                    </button>
+                    <button
+                        className={`admin-nav-item ${activeTab === "completed" ? "active" : ""}`}
+                        onClick={() => setActiveTab("completed")}
+                    >
+                        <CheckCircle size={20} />
+                        <span>Completed</span>
+                        {stats.totalCompleted > 0 && (
+                            <span className="admin-nav-badge completed">{stats.totalCompleted}</span>
+                        )}
+                    </button>
+                    <button
+                        className={`admin-nav-item ${activeTab === "staff" ? "active" : ""}`}
+                        onClick={() => setActiveTab("staff")}
+                    >
+                        <Users size={20} />
+                        <span>Staff</span>
+                    </button>
+                </nav>
 
-                    {staffStatsLoading ? (
-                        <p>Loading staff...</p>
-                    ) : allStaff.length === 0 ? (
-                        <p>No staff found</p>
-                    ) : (
-                        <div className="staff-performance-list">
-                            {allStaff.map(staff => (
-                                <div key={staff.staffId} className="staff-performance-card">
-                                    <div className="staff-top">
-                                        <span className="staff-name">{staff.name}</span>
-                                        <span
-                                            className={`staff-status ${staff.online ? "online" : "offline"
-                                                }`}
-                                        >
-                                            {staff.online ? "Online" : "Offline"}
+                <div className="admin-sidebar-footer">
+                    <div className="admin-user-info">
+                        <div className="admin-avatar">
+                            <Shield size={24} />
+                        </div>
+                        <div className="admin-user-details">
+                            <strong>{adminId}</strong>
+                            <span>{adminDepartment} Admin</span>
+                        </div>
+                    </div>
+                    <button
+                        className="admin-logout-btn"
+                        onClick={() => setShowLogoutConfirm(true)}
+                    >
+                        <LogOut size={18} />
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="admin-main">
+                {/* Header */}
+                <header className="admin-header">
+                    <div className="admin-header-left">
+                        <h1 className="admin-title">
+                            {activeTab === "dashboard" && "Dashboard Overview"}
+                            {activeTab === "pending" && "Pending Requests"}
+                            {activeTab === "ongoing" && "Ongoing Tasks"}
+                            {activeTab === "completed" && "Completed Requests"}
+                            {activeTab === "staff" && "Staff Management"}
+                        </h1>
+                        <p className="admin-subtitle">
+                            {adminDepartment} Department • Manage amenity requests
+                        </p>
+                    </div>
+
+                    <div className="admin-header-right">
+                        <div className="admin-search">
+                            <Search size={18} />
+                            <input
+                                type="text"
+                                placeholder="Search requests..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && fetchAllData()}
+                            />
+                        </div>
+                        <button
+                            className="admin-refresh-btn"
+                            onClick={fetchAllData}
+                            title="Refresh data"
+                        >
+                            <RefreshCw size={18} />
+                        </button>
+                    </div>
+                </header>
+
+                {/* Stats Overview */}
+                {activeTab === "dashboard" && (
+                    <div className="admin-stats-grid">
+                        <div className="admin-stat-card purple">
+                            <div className="admin-stat-icon">
+                                <AlertCircle size={24} />
+                            </div>
+                            <div className="admin-stat-content">
+                                <h3>{stats.totalPending}</h3>
+                                <p>Pending Requests</p>
+                            </div>
+                        </div>
+                        <div className="admin-stat-card blue">
+                            <div className="admin-stat-icon">
+                                <Clock size={24} />
+                            </div>
+                            <div className="admin-stat-content">
+                                <h3>{stats.totalOngoing}</h3>
+                                <p>Ongoing Tasks</p>
+                            </div>
+                        </div>
+                        <div className="admin-stat-card green">
+                            <div className="admin-stat-icon">
+                                <CheckCircle size={24} />
+                            </div>
+                            <div className="admin-stat-content">
+                                <h3>{stats.totalCompleted}</h3>
+                                <p>Completed</p>
+                            </div>
+                        </div>
+                        <div className="admin-stat-card orange">
+                            <div className="admin-stat-icon">
+                                <Users size={24} />
+                            </div>
+                            <div className="admin-stat-content">
+                                <h3>{stats.onlineStaff}/{stats.totalStaff}</h3>
+                                <p>Staff Online</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Content Area */}
+                <div className="admin-content-area">
+                    {(activeTab === "pending" || activeTab === "ongoing" || activeTab === "completed") && (
+                        <>
+                            <div className="admin-content-header">
+                                <h2 className="admin-section-title">
+                                    {activeTab === "pending" && `Pending Requests (${stats.totalPending})`}
+                                    {activeTab === "ongoing" && `Ongoing Tasks (${stats.totalOngoing})`}
+                                    {activeTab === "completed" && `Completed Requests (${stats.totalCompleted})`}
+                                </h2>
+                                <div className="admin-search-info">
+                                    {searchQuery && (
+                                        <span className="admin-search-results">
+                                            Found {getFilteredRequests().length} results for "{searchQuery}"
                                         </span>
-                                    </div>
-
-                                    <div className="staff-metrics">
-                                        <span>⭐ {staff.stars}</span>
-                                        <span>📦 {staff.totalDeliveries}</span>
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                            </div>
 
-                {/* ================= ASSIGN MODAL ================= */}
-                {showStaffModal && (
-                    <div className="modal-overlay">
-                        <div className="modal">
-                            <h3>Assign Staff</h3>
-
-                            {staffLoading ? (
-                                <p>Loading staff...</p>
-                            ) : (
-                                <div className="staff-list">
-                                    {staffList.map(staff => (
-                                        <button
-                                            key={staff.staffId}
-                                            className={`staff-btn ${staff.online ? "online" : "offline"
-                                                }`}
-                                            disabled={!staff.online}
-                                            onClick={() => assignStaff(staff.staffId)}
-                                        >
-                                            <div className="staff-stats">
-                                                <p>⭐ Stars: {staff.stars}</p>
-                                                <p>📦 Deliveries: {staff.totalDeliveries}</p>
-                                            </div>
-                                            <div>
-                                                <div className="staff-name">{staff.name}</div>
-                                                <div className="staff-status">
-                                                    {staff.online ? "Available" : "Unavailable"}
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
+                            {error && (
+                                <div className="admin-error-message">
+                                    <AlertCircle size={20} />
+                                    <span>{error}</span>
+                                    <button
+                                        className="admin-retry-btn"
+                                        onClick={fetchAllData}
+                                    >
+                                        Retry
+                                    </button>
                                 </div>
                             )}
 
+                            {getFilteredRequests().length === 0 ? (
+                                <div className="admin-empty-state">
+                                    <Package size={48} />
+                                    <h3>No requests found</h3>
+                                    <p>
+                                        {searchQuery
+                                            ? "No requests match your search"
+                                            : activeTab === "pending"
+                                                ? "All requests have been assigned!"
+                                                : activeTab === "ongoing"
+                                                    ? "No ongoing tasks at the moment"
+                                                    : "No completed requests yet"
+                                        }
+                                    </p>
+
+                                </div>
+                            ) : (
+                                <div className="admin-requests-grid">
+                                    {getFilteredRequests().map(req => (
+                                        <div
+                                            className={`admin-request-card ${req.status?.toLowerCase()}`}
+                                            key={req.id}
+                                        >
+                                            <div className="admin-card-header">
+                                                <div className="admin-card-badges">
+                                                    <span className="admin-department-badge">
+                                                        {req.department}
+                                                    </span>
+                                                    <span
+                                                        className="admin-status-badge"
+                                                        style={{
+                                                            backgroundColor: getStatusColor(req.status),
+                                                            color: req.status?.toLowerCase() === 'pending' ? '#92400e' :
+                                                                req.status?.toLowerCase() === 'completed' ? '#065f46' :
+                                                                    req.status?.toLowerCase() === 'delivered' ? '#065f46' :
+                                                                        '#1e40af'
+                                                        }}
+                                                    >
+                                                        {getStatusText(req.status)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="admin-card-content">
+                                                <h4 className="admin-classroom">
+                                                    <span className="admin-card-icon">📍</span>
+                                                    {req.classRoom}
+                                                </h4>
+                                                <p className="admin-request-message">
+                                                    {req.message || "No additional message"}
+                                                </p>
+
+                                                <div className="admin-items-list">
+                                                    {req.items?.map((item, idx) => (
+                                                        <span key={idx} className="admin-item-tag">
+                                                            {item}
+                                                        </span>
+                                                    ))}
+                                                </div>
+
+                                                <div className="admin-card-meta">
+                                                    <div className="admin-meta-item">
+                                                        <span className="admin-meta-label">Professor:</span>
+                                                        <span className="admin-meta-value">{req.professorName}</span>
+                                                    </div>
+                                                    <div className="admin-meta-item">
+                                                        <span className="admin-meta-label">Request ID:</span>
+                                                        <span className="admin-meta-value">#{req.id || req.requestId}</span>
+                                                    </div>
+                                                    {req.assignedStaff && (
+                                                        <div className="admin-meta-item">
+                                                            <span className="admin-meta-label">Assigned To:</span>
+                                                            <span className="admin-meta-value staff">
+                                                                {req.assignedStaff.name}
+                                                                {req.assignedStaff.online === false && (
+                                                                    <span className="staff-offline-badge"> (Offline)</span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {req.createdAt && (
+                                                        <div className="admin-meta-item">
+                                                            <span className="admin-meta-label">Requested:</span>
+                                                            <span className="admin-meta-value">
+                                                                {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {activeTab === "ongoing" && req.deliveryDeadline && (
+                                                    <div className={`admin-sla-indicator ${formatRemaining(req.deliveryDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
+                                                        <Clock size={14} />
+                                                        <span>SLA: {formatRemaining(req.deliveryDeadline)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="admin-card-footer">
+                                                {activeTab === "pending" && (
+                                                    <button
+                                                        className="admin-assign-btn"
+                                                        onClick={() => {
+                                                            setSelectedRequestId(req.id || req.requestId);
+                                                            setShowStaffModal(true);
+                                                            fetchStaff(req.id || req.requestId);
+                                                        }}
+                                                    >
+                                                        <UserCheck size={16} />
+                                                        <span>Assign Staff</span>
+                                                    </button>
+                                                )}
+                                                {activeTab === "ongoing" && (
+                                                    <>
+                                                        <button
+                                                            className="admin-view-btn"
+                                                            onClick={() => viewRequestDetails(req)}
+                                                        >
+                                                            <Eye size={16} />
+                                                            <span>View Details</span>
+                                                        </button>
+
+                                                    </>
+                                                )}
+                                                {activeTab === "completed" && (
+                                                    <button
+                                                        className="admin-view-btn"
+                                                        onClick={() => viewRequestDetails(req)}
+                                                    >
+                                                        <FileText size={16} />
+                                                        <span>View Details</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Staff Management Tab */}
+                    {activeTab === "staff" && (
+                        <div className="admin-staff-management">
+                            <div className="admin-content-header">
+                                <h2 className="admin-section-title">Department Staff</h2>
+                                <div className="admin-staff-stats">
+                                    <div className="admin-staff-stat">
+                                        <span className="admin-staff-stat-value">{stats.onlineStaff}</span>
+                                        <span className="admin-staff-stat-label">Online</span>
+                                    </div>
+                                    <div className="admin-staff-stat">
+                                        <span className="admin-staff-stat-value">{stats.totalStaff}</span>
+                                        <span className="admin-staff-stat-label">Total Staff</span>
+                                    </div>
+                                    <div className="admin-staff-stat">
+                                        <span className="admin-staff-stat-value">
+                                            {allStaff.reduce((sum, staff) => sum + (staff.totalDeliveries || 0), 0)}
+                                        </span>
+                                        <span className="admin-staff-stat-label">Total Deliveries</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {staffStatsLoading ? (
+                                <div className="admin-loading">Loading staff...</div>
+                            ) : allStaff.length === 0 ? (
+                                <div className="admin-empty-state">
+                                    <Users size={48} />
+                                    <h3>No staff members</h3>
+                                    <p>No staff assigned to {adminDepartment} department</p>
+                                    <button
+                                        className="admin-refresh-empty-btn"
+                                        onClick={fetchAllStaff}
+                                    >
+                                        <RefreshCw size={16} />
+                                        Refresh Staff List
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="admin-staff-grid">
+                                    {allStaff.map(staff => (
+                                        <div className="admin-staff-card" key={staff.staffId || staff.id}>
+                                            <div className="admin-staff-header">
+                                                <div className="admin-staff-avatar">
+                                                    {staff.name?.charAt(0).toUpperCase() || 'S'}
+                                                    <div className={`admin-staff-avatar-status ${staff.online ? "online" : "offline"}`}>
+                                                        {staff.online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                                                    </div>
+                                                </div>
+                                                <div className="admin-staff-info">
+                                                    <h4 className="admin-staff-name">{staff.name || 'Staff Member'}</h4>
+                                                    <div className="admin-staff-details">
+                                                        <span className="admin-staff-id">ID: {staff.staffId || staff.id}</span>
+                                                        <span className={`admin-staff-status ${staff.online ? "online" : "offline"}`}>
+                                                            {staff.online ? "● Online" : "○ Offline"}
+                                                            {!staff.online && staff.lastActive && (
+                                                                <span className="admin-staff-last-active">
+                                                                    Last active: {formatLastActive(staff.lastActive)}
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="admin-staff-metrics">
+                                                <div className="admin-staff-metric">
+                                                    <div className="admin-metric-icon">⭐</div>
+                                                    <div className="admin-metric-content">
+                                                        <span className="admin-metric-value">{staff.stars || staff.rating || 0}</span>
+                                                        <span className="admin-metric-label">Rating</span>
+                                                    </div>
+                                                </div>
+                                                <div className="admin-staff-metric">
+                                                    <div className="admin-metric-icon">📦</div>
+                                                    <div className="admin-metric-content">
+                                                        <span className="admin-metric-value">{staff.totalDeliveries || staff.completedTasks || 0}</span>
+                                                        <span className="admin-metric-label">Deliveries</span>
+                                                    </div>
+                                                </div>
+                                                <div className="admin-staff-metric">
+                                                    <div className="admin-metric-icon">🏅</div>
+                                                    <div className="admin-metric-content">
+                                                        <span className="admin-metric-value">
+                                                            {staff.department || 'General'}
+                                                        </span>
+                                                        <span className="admin-metric-label">Department</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="admin-staff-actions">
+                                                <button
+                                                    className="admin-staff-view-btn"
+                                                    onClick={() => {
+                                                        const staffDetails = `
+Staff Details:
+---------------
+Name: ${staff.name || 'N/A'}
+Staff ID: ${staff.staffId || staff.id || 'N/A'}
+Department: ${staff.department || 'General'}
+Status: ${staff.online ? 'Online' : 'Offline'}
+Rating: ${staff.stars || staff.rating || 0} ⭐
+Total Deliveries: ${staff.totalDeliveries || staff.completedTasks || 0}
+${staff.lastActive && !staff.online ? `Last Active: ${formatLastActive(staff.lastActive)}` : ''}
+${staff.email ? `Email: ${staff.email}` : ''}
+${staff.phone ? `Phone: ${staff.phone}` : ''}
+                                                        `.trim();
+                                                        alert(staffDetails);
+                                                    }}
+                                                >
+                                                    View Profile
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Assign Staff Modal */}
+            {showStaffModal && selectedRequest && (
+                <div className="admin-modal-overlay">
+                    <div className="admin-modal">
+                        <div className="admin-modal-header">
+                            <h3>Assign Staff Member</h3>
                             <button
-                                className="close-btn"
+                                className="admin-modal-close"
+                                onClick={() => setShowStaffModal(false)}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="admin-modal-content">
+                            <div className="admin-request-preview">
+                                <h4>Request Details</h4>
+                                <p><strong>Classroom:</strong> {selectedRequest.classRoom}</p>
+                                <p><strong>Items:</strong> {selectedRequest.items?.join(", ") || "No items specified"}</p>
+                                <p><strong>Professor:</strong> {selectedRequest.professorName}</p>
+                                <p><strong>Department:</strong> {selectedRequest.department}</p>
+                                <p><strong>Status:</strong> {getStatusText(selectedRequest.status)}</p>
+                            </div>
+
+                            <div className="admin-staff-selection">
+                                <h4>
+                                    Available Staff ({staffList.filter(s => s.online).length}/{staffList.length})
+                                    <span className="admin-staff-availability">
+                                        {staffList.filter(s => s.online).length === 0 && " - All staff offline"}
+                                    </span>
+                                </h4>
+                                {staffLoading ? (
+                                    <div className="admin-loading">Loading staff...</div>
+                                ) : staffList.length === 0 ? (
+                                    <div className="admin-empty-state">
+                                        <Users size={32} />
+                                        <p>No staff available at the moment</p>
+                                        <button
+                                            className="admin-refresh-empty-btn"
+                                            onClick={() => fetchStaff(selectedRequestId)}
+                                        >
+                                            <RefreshCw size={16} />
+                                            Refresh Staff List
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="admin-staff-options">
+                                        {staffList.map(staff => (
+                                            <button
+                                                key={staff.staffId || staff.id}
+                                                className={`admin-staff-option ${staff.online ? "online" : "offline"}`}
+                                                disabled={!staff.online}
+                                                onClick={() => staff.online && assignStaff(staff.staffId || staff.id)}
+                                                title={!staff.online ? "Staff is currently offline" : "Click to assign"}
+                                            >
+                                                <div className="admin-staff-option-avatar">
+                                                    {staff.name?.charAt(0).toUpperCase() || 'S'}
+                                                    <div className={`admin-staff-option-avatar-status ${staff.online ? "online" : "offline"}`}>
+                                                        {staff.online ? <Wifi size={10} /> : <WifiOff size={10} />}
+                                                    </div>
+                                                </div>
+                                                <div className="admin-staff-option-info">
+                                                    <strong>{staff.name || 'Staff Member'}</strong>
+                                                    <div className="admin-staff-option-stats">
+                                                        <span>⭐ {staff.stars || staff.rating || 0}</span>
+                                                        <span>📦 {staff.totalDeliveries || staff.completedTasks || 0}</span>
+                                                        <span>{staff.department || 'General'}</span>
+                                                    </div>
+                                                    {!staff.online && staff.lastActive && (
+                                                        <div className="admin-staff-option-last-active">
+                                                            Last active: {formatLastActive(staff.lastActive)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="admin-staff-option-status">
+                                                    {staff.online ? (
+                                                        <>
+                                                            <Wifi size={14} />
+                                                            <span>Available</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <WifiOff size={14} />
+                                                            <span>Offline</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="admin-modal-footer">
+                            <button
+                                className="admin-modal-cancel"
                                 onClick={() => setShowStaffModal(false)}
                             >
                                 Cancel
                             </button>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="admin-modal-overlay">
+                    <div className="admin-modal logout-modal">
+                        <div className="admin-modal-header">
+                            <h3>Confirm Logout</h3>
+                        </div>
+                        <div className="admin-modal-content">
+                            <AlertCircle size={48} className="logout-icon" />
+                            <p>Are you sure you want to log out from the admin dashboard?</p>
+                        </div>
+                        <div className="admin-modal-footer">
+                            <button
+                                className="admin-modal-cancel"
+                                onClick={() => setShowLogoutConfirm(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="admin-modal-confirm"
+                                onClick={handleLogout}
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

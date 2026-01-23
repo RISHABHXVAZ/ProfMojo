@@ -4,6 +4,5 @@ public enum RequestStatus {
     PENDING,
     ASSIGNED,
     DELIVERED,
-    DELAYED
 }
 

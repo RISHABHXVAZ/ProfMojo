@@ -8,4 +8,5 @@ public interface StaffAuthService {
     void setPassword(StaffSetPasswordRequest request);
 
     StaffLoginResponse login(StaffLoginRequest request);
+    void logout(String authHeader);
 }

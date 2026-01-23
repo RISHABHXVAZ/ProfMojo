@@ -10,5 +10,6 @@ public interface StaffRepository
 
     List<Staff> findByDepartmentAndAvailableTrue(String department);
     List<Staff> findByDepartment(String department);
+    List<Staff> findByAvailableTrue();
 }
 

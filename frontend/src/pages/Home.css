@@ -1,107 +1,393 @@
-/* Background */
-.home-container {
-  width: 100vw;
-  height: 100vh;
-
-  background: radial-gradient(circle at 10% 20%, #dbeafe 0%, transparent 40%),
-              radial-gradient(circle at 90% 80%, #fde68a 0%, transparent 45%),
-              radial-gradient(circle at 80% 10%, #fecaca 0%, transparent 45%),
-              #f8fafc;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* ========== OVERRIDE App.css #root styles ========== */
+/* This MUST come BEFORE the original #root styles */
+#root {
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-height: 100vh !important;
 }
 
-/* Main Card – soft white glassmorphic */
-.home-card {
-  width: 1100px;
-  padding: 50px 60px;
-
-  background: rgba(251, 249, 249, 0.75);
-  backdrop-filter: blur(12px);
-
-  border-radius: 22px;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
-
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  transition: 0.3s ease;
+/* ========== HOME PAGE SPECIFIC STYLES ========== */
+.home-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    font-family: "Inter", "Segoe UI", sans-serif;
 }
 
-.home-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 28px 55px rgba(0, 0, 0, 0.15);
+/* Header - Centered */
+.home-header {
+    padding: 40px 20px 20px 20px;
+    text-align: center;
+    border-bottom: 1px solid #e2e8f0;
+    background: white;
+    margin: 0;
+    width: 100%;
 }
 
-/* LEFT SECTION */
-.left-section {
-  width: 25%;
+.header-content {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
 }
 
-.logo {
-  font-size: 34px;
-  font-weight: 800;
-  color: #1e293b;
+.home-logo {
+    font-size: 48px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+    margin: 0 0 12px 0;
+    text-align: center;
+    display: block;
 }
 
-.tagline {
-  margin-top: 8px;
-  font-size: 15px;
-  color: #64748b;
+.home-subtitle {
+    font-size: 18px;
+    color: #64748b;
+    font-weight: 500;
+    margin: 0;
+    text-align: center;
+    display: block;
 }
 
-/* CENTER SECTION */
-.center-section {
-  width: 35%;
+/* Main Content - Centered */
+.home-main {
+    flex: 1;
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.main-content {
+    max-width: 800px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    padding: 0;
+}
+
+/* Welcome Section - Centered */
+.welcome-section {
+    text-align: center;
+    margin-bottom: 50px;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.welcome-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 16px 0;
+    text-align: center;
+    display: block;
+}
+
+.welcome-text {
+    font-size: 18px;
+    color: #64748b;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+    text-align: center;
+    display: block;
+}
+
+/* Role Selection - Centered Grid */
+.role-section {
+    width: 100%;
+    margin-bottom: 60px;
+    padding: 0 20px;
 }
 
 .role-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 150px);
-  justify-content: center;
-  gap: 22px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+    margin: 0 auto;
 }
 
-/* Role cards */
 .role-card {
-  background: white;
-  padding: 18px 0;
-  border-radius: 14px;
-  text-align: center;
-
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-
-  text-decoration: none;
-
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.10);
-  transition: all 0.25s ease;
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-decoration: none;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    text-align: left;
+    margin: 0;
+    box-sizing: border-box;
 }
 
 .role-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.20);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
-/* RIGHT SECTION */
-.right-section {
-  width: 25%;
+/* Role Colors */
+.role-card.professor:hover {
+    border-color: #60a5fa;
 }
 
-.right-section h2 {
-  font-size: 30px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 10px;
+.role-card.professor .role-icon {
+    background: #dbeafe;
+    color: #2563eb;
 }
 
-.sub-text {
-  font-size: 16px;
-  color: #64748b;
-  max-width: 250px;
+.role-card.student:hover {
+    border-color: #34d399;
 }
 
+.role-card.student .role-icon {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.role-card.staff:hover {
+    border-color: #fbbf24;
+}
+
+.role-card.staff .role-icon {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.role-card.admin:hover {
+    border-color: #8b5cf6;
+}
+
+.role-card.admin .role-icon {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+.role-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.role-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 6px 0;
+    text-align: left;
+}
+
+.role-info p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+    text-align: left;
+}
+
+/* Instructions - Centered */
+.instructions-section {
+    width: 100%;
+    text-align: center;
+    margin-top: 40px;
+    padding: 0 20px;
+}
+
+.instructions-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 30px 0;
+    text-align: center;
+}
+
+.steps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0 10px;
+    margin: 0;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.step h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+
+.step p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* Footer - Centered */
+.home-footer {
+    padding: 30px 20px;
+    text-align: center;
+    border-top: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    font-size: 14px;
+    margin: 0;
+    width: 100%;
+}
+
+.home-footer p {
+    margin: 8px 0;
+    text-align: center;
+}
+
+.footer-links a {
+    color: #64748b;
+    text-decoration: none;
+    margin: 0 10px;
+    transition: color 0.2s ease;
+}
+
+.footer-links a:hover {
+    color: #2563eb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .home-header {
+        padding: 30px 20px 20px 20px;
+    }
+    
+    .home-logo {
+        font-size: 36px;
+    }
+    
+    .home-main {
+        padding: 30px 20px;
+    }
+    
+    .welcome-title {
+        font-size: 28px;
+    }
+    
+    .role-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .role-card {
+        padding: 20px;
+        gap: 16px;
+    }
+    
+    .role-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .role-info h3 {
+        font-size: 16px;
+    }
+    
+    .role-info p {
+        font-size: 13px;
+    }
+    
+    .steps-grid {
+        grid-template-columns: 1fr;
+        gap: 25px;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .step {
+        padding: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .home-header {
+        padding: 20px 16px;
+    }
+    
+    .home-logo {
+        font-size: 32px;
+    }
+    
+    .home-subtitle {
+        font-size: 16px;
+    }
+    
+    .welcome-title {
+        font-size: 24px;
+    }
+    
+    .welcome-text {
+        font-size: 16px;
+    }
+    
+    .instructions-title {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .step-number {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .step h4 {
+        font-size: 16px;
+    }
+    
+    .step p {
+        font-size: 13px;
+    }
+}

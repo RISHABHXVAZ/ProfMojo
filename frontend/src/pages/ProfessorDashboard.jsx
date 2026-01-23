@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./ProfessorDashboard.css";
-import { QRCodeCanvas } from "qrcode.react";
-
+import { useNavigate } from "react-router-dom";
 
 export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -27,19 +26,8 @@ export default function ProfessorDashboard() {
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [showNoticeSuccess, setShowNoticeSuccess] = useState(false);
   const [noticeSentClasses, setNoticeSentClasses] = useState([]);
-  // ================= CANTEEN (PROFESSOR) =================
-  const [canteens, setCanteens] = useState([]);
-  const [selectedCanteen, setSelectedCanteen] = useState(null);
-  const [canteenMenu, setCanteenMenu] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [cabinLocation, setCabinLocation] = useState("");
-  const [paymentMode, setPaymentMode] = useState("CASH");
-  const [cartStep, setCartStep] = useState(null);
-  const [professorName, setProfessorName] = useState("");
-  const [contactNo, setContactNo] = useState("");
-  const [showOrderSuccess, setShowOrderSuccess] = useState(false);
-  const [placedOrder, setPlacedOrder] = useState(null);
-  const [showTrackOrder, setShowTrackOrder] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   // ===== AMENITIES =====
   const [amenityRequests, setAmenityRequests] = useState([]);
   const [showAmenityModal, setShowAmenityModal] = useState(false);
@@ -51,11 +39,6 @@ export default function ProfessorDashboard() {
   const [amenityHistory, setAmenityHistory] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [canteenUpi, setCanteenUpi] = useState(null);
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [upiOpened, setUpiOpened] = useState(false);
-
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now());
@@ -63,6 +46,19 @@ export default function ProfessorDashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // remove token
+    localStorage.removeItem("token");
+
+    // clear axios header
+    delete api.defaults.headers.common["Authorization"];
+
+    // redirect to professor login (ABSOLUTE path)
+    navigate("/professor/login");
+  };
 
   const formatRemaining = (targetTime) => {
     if (!targetTime) return null;
@@ -76,13 +72,42 @@ export default function ProfessorDashboard() {
     return `${mins}m ${secs}s`;
   };
 
+  // Reset functions for different modals
+  const resetAmenityForm = () => {
+    setDepartment("");
+    setClassroom("");
+    setItems([]);
+    setItemInput("");
+  };
+
+  const resetNoticeForm = () => {
+    setNoticeTitle("");
+    setNoticeMessage("");
+    setSelectedClasses([]);
+  };
+
+  const resetCreateClassForm = () => {
+    setNewClassName("");
+  };
+
+  // Reset forms when modals close
+  useEffect(() => {
+    if (!showAmenityModal) {
+      resetAmenityForm();
+    }
+  }, [showAmenityModal]);
 
   useEffect(() => {
-    if (paymentMode === "UPI" && canteenUpi) {
-      setUpiOpened(true);
+    if (!showNoticeModal) {
+      resetNoticeForm();
     }
-  }, [paymentMode, canteenUpi]);
+  }, [showNoticeModal]);
 
+  useEffect(() => {
+    if (!showCreateModal) {
+      resetCreateClassForm();
+    }
+  }, [showCreateModal]);
 
   useEffect(() => {
     if (activeTab === "amenities") {
@@ -104,7 +129,6 @@ export default function ProfessorDashboard() {
     }
   };
 
-
   const submitAmenityRequest = async () => {
     if (!department || !classroom || items.length === 0) {
       alert("Fill all fields");
@@ -119,253 +143,13 @@ export default function ProfessorDashboard() {
       });
 
       setShowAmenityModal(false);
-      setDepartment("");
-      setClassroom("");
-      setItems([]);
-      setItemInput("");
+      // Form will reset via useEffect
 
       loadAmenityRequests();
     } catch {
       alert("Failed to submit request");
     }
   };
-
-
-
-  useEffect(() => {
-    if (
-      cartStep === "PAYMENT" &&
-      paymentMode === "UPI" &&
-      selectedCanteen
-    ) {
-      fetchCanteenUpi();
-    }
-  }, [cartStep, paymentMode, selectedCanteen]);
-
-  const fetchCanteenUpi = async () => {
-    try {
-      const res = await api.get(
-        `/canteen/${selectedCanteen.canteenId}/upi`
-      );
-      setCanteenUpi(res.data);
-    } catch (err) {
-      console.error("Failed to fetch UPI ID", err);
-    }
-  };
-
-  const getUpiPaymentString = () => {
-    if (!canteenUpi) return "";
-
-    const params = new URLSearchParams({
-      pa: canteenUpi.upiId,
-      pn: canteenUpi.canteenName,
-      am: grandTotal.toString(),
-      cu: "INR",
-      tn: `Order Payment`
-    });
-
-    return `upi://pay?${params.toString()}`;
-  };
-
-
-
-  const DELIVERY_CHARGE = 20;
-
-  useEffect(() => {
-    loadProfessorProfile();
-  }, []);
-
-  useEffect(() => {
-    if (cart.length === 0 && cartStep !== null) {
-      setCartStep(null);
-    }
-  }, [cart, cartStep]);
-
-
-  const loadProfessorProfile = async () => {
-    try {
-      const res = await api.get("/professors/me");
-      setProfessorName(res.data.name);
-      setContactNo(res.data.contactNo || "");
-    } catch (err) {
-      console.error("Failed to load professor profile", err);
-    }
-  };
-
-  const hasOngoingOrder =
-    placedOrder &&
-    ["PLACED", "PREPARING", "READY"].includes(placedOrder.status);
-
-  const totalItems = cart.reduce((sum, i) => sum + i.quantity, 0);
-
-  const [notices, setNotices] = useState([]);
-
-  useEffect(() => {
-    if (activeTab === "notice") {
-      loadProfessorNotices();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === "canteen") {
-      loadCanteens();
-    }
-  }, [activeTab]);
-
-  const loadCanteens = async () => {
-    try {
-      const res = await api.get("/canteen/active"); // list of canteens
-      setCanteens(res.data);
-    } catch {
-      alert("Failed to load canteens");
-    }
-  };
-  const loadActiveOrder = async () => {
-    try {
-      const res = await api.get("/orders/my/active");
-      setPlacedOrder(res.data); // may be null
-    } catch (err) {
-      console.error("Failed to load active order", err);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "canteen") {
-      loadCanteens();
-      loadActiveOrder(); // ✅ THIS IS THE KEY LINE
-    }
-  }, [activeTab]);
-
-
-  const confirmPayment = async () => {
-    try {
-      setConfirmingPayment(true);
-
-      const res = await api.put(
-        `/orders/${placedOrder.id}/confirm-payment`
-      );
-
-      setPlacedOrder(res.data); // update local state
-    } catch (err) {
-      alert("Failed to confirm payment");
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
-
-  const openCanteen = async (canteen) => {
-    setSelectedCanteen(canteen);
-    setCanteenUpi(null);
-    setCanteenMenu([]);
-    setCart([]);
-    setLoading(true);
-
-    try {
-      const res = await api.get(
-        `canteen/menu/${canteen.canteenId}`
-      );
-      setCanteenMenu(res.data);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to load menu");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const addToCart = (item) => {
-    setCart(prev => {
-      const found = prev.find(i => i.id === item.id);
-      if (found) {
-        return prev.map(i =>
-          i.id === item.id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      }
-      return [...prev, { ...item, quantity: 1 }];
-    });
-  };
-
-  const removeFromCart = (itemId) => {
-    setCart(prev =>
-      prev
-        .map(i =>
-          i.id === itemId
-            ? { ...i, quantity: i.quantity - 1 }
-            : i
-        )
-        .filter(i => i.quantity > 0)
-    );
-  };
-
-
-  const cartTotal = cart.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
-
-  const grandTotal = cartTotal + (cart.length > 0 ? DELIVERY_CHARGE : 0);
-
-
-
-  const placeOrder = async () => {
-    if (grandTotal < DELIVERY_CHARGE) {
-      alert("Please add items to cart");
-      return;
-    }
-
-    if (!cabinLocation.trim()) {
-      alert("Enter cabin location");
-      return;
-    }
-
-    if (cart.length === 0) {
-      alert("Cart is empty");
-      return;
-    }
-
-    try {
-      const res = await api.post("/orders/place", {
-        canteenId: selectedCanteen.canteenId,
-        cabinLocation,
-        contactNo,
-        paymentMode,
-        items: cart.map(i => ({
-          itemId: i.id,
-          itemName: i.name,
-          quantity: i.quantity
-        })),
-        totalAmount: grandTotal
-      });
-
-
-      // ✅ FIX: Manually attach canteen info if backend response lacks it
-      setPlacedOrder({
-        ...res.data,
-        canteenContactNo: res.data.canteenContactNo || selectedCanteen.contactNo || selectedCanteen.contact
-      });
-
-      setShowOrderSuccess(true);
-
-      // reset cart UI
-      setCart([]);
-      setCabinLocation("");
-      setPaymentMode("CASH");
-      setUpiOpened(false);
-      setCartStep(null);
-
-    } catch (err) {
-      alert("Failed to place order");
-    }
-  };
-
-
-  const filteredMenu = canteenMenu.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
 
   const [markedMap, setMarkedMap] = useState({});
 
@@ -403,7 +187,6 @@ export default function ProfessorDashboard() {
     }
   };
 
-
   /* ================= SUMMARY ================= */
   const loadSummary = async (classCode) => {
     const res = await api.get(`/attendance/${classCode}/summary`);
@@ -422,14 +205,13 @@ export default function ProfessorDashboard() {
       setCreatedClass(res.data);      // { className, classCode }
       setShowCreateModal(false);
       setShowSuccessModal(true);
-      setNewClassName("");
+      // Form will reset via useEffect
 
       loadClasses(); // refresh class list
     } catch {
       alert("Failed to create class");
     }
   };
-
 
   /* ================= OPEN CLASS ================= */
   const openClass = async (cls) => {
@@ -567,6 +349,14 @@ export default function ProfessorDashboard() {
     }
   };
 
+  const [notices, setNotices] = useState([]);
+
+  useEffect(() => {
+    if (activeTab === "notice") {
+      loadProfessorNotices();
+    }
+  }, [activeTab]);
+
   const publishNotice = async () => {
     if (!noticeTitle || !noticeMessage || selectedClasses.length === 0) {
       return;
@@ -588,10 +378,7 @@ export default function ProfessorDashboard() {
 
       setShowNoticeModal(false);
       setShowNoticeSuccess(true);
-
-      setNoticeTitle("");
-      setNoticeMessage("");
-      setSelectedClasses([]);
+      // Form will reset via useEffect
 
       loadProfessorNotices(); // refresh list
     } catch {
@@ -624,47 +411,46 @@ export default function ProfessorDashboard() {
     </div>
   );
 
-
-
-
   return (
     <div className="prof-dashboard">
       {/* ================= SIDEBAR ================= */}
       <div className="sidebar">
         <h2 className="sidebar-logo">ProfMojo</h2>
 
-        <button
-          className={`nav-item ${activeTab === "attendance" ? "active" : ""}`}
-          onClick={() => {
-            setActiveTab("attendance");
-            setSelectedClass(null);
-          }}
-        >
-          Attendance
-        </button>
-        <button
-          className={`nav-item ${activeTab === "canteen" ? "active" : ""}`}
-          onClick={() => setActiveTab("canteen")}
-        >
-          Canteen
-        </button>
+        <nav>
+          <button
+            className={`nav-item ${activeTab === "attendance" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("attendance");
+              setSelectedClass(null);
+            }}
+          >
+            Attendance
+          </button>
 
-        <button
-          className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
-          onClick={() => {
-            setActiveTab("notice");
-            setSelectedClass(null); // reset attendance view
-          }}
-        >
-          Notice Board
-        </button>
-        <button
-          className={`nav-item ${activeTab === "amenities" ? "active" : ""}`}
-          onClick={() => setActiveTab("amenities")}
-        >
-          Missing Amenity ?
-        </button>
+          <button
+            className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("notice");
+              setSelectedClass(null);
+            }}
+          >
+            Notice Board
+          </button>
 
+          <button
+            className={`nav-item ${activeTab === "amenities" ? "active" : ""}`}
+            onClick={() => setActiveTab("amenities")}
+          >
+            Missing Amenity ?
+          </button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <button className="logout-btn" onClick={() => setShowLogoutConfirm(true)}>
+            <span>Logout</span>
+          </button>
+        </div>
       </div>
 
       {/* ================= MAIN ================= */}
@@ -790,8 +576,6 @@ export default function ProfessorDashboard() {
                   </div>
                 </div>
 
-
-
                 {summary && (
                   <div className="attendance-summary">
                     <div>
@@ -828,7 +612,6 @@ export default function ProfessorDashboard() {
                     📊 View Analytics
                   </button>
                 </div>
-
 
                 <div className="attendance-toolbar">
                   <div className="date-picker">
@@ -955,111 +738,10 @@ export default function ProfessorDashboard() {
                     ) : (
                       <p className="empty">No students joined yet</p>
                     )
-
                   )}
                 </div>
-
               </>
             )}
-          </>
-        )}
-        {activeTab === "canteen" && !selectedCanteen && (
-          <>
-            <div className="header">
-              <h1>Select Canteen</h1>
-            </div>
-
-            <div className="class-grid">
-              {canteens.map(c => (
-                <div
-                  key={c.canteenId}
-                  className="canteen-card"
-                  onClick={() => openCanteen(c)}
-                >
-                  <h3 style={{ textAlign: "center" }}>{c.canteenName}</h3>
-                  <p style={{ textAlign: "center" }}>📍 {c.location}</p>
-                  <span className="enter-pill">ENTER →</span>
-                </div>
-
-
-              ))}
-            </div>
-          </>
-        )}
-        {activeTab === "canteen" && selectedCanteen && (
-          <>
-            <div className="header canteen-header">
-              <h1>{selectedCanteen.canteenName}</h1>
-
-              <div className="search-container">
-                <input
-                  type="text"
-                  className="menu-search-bar"
-                  placeholder="Search for dishes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <div className="header-actions">
-                {hasOngoingOrder && (
-                  <button
-                    className="track-btn"
-                    onClick={() => setShowTrackOrder(true)}
-                  >
-                    📦 Track Order
-                  </button>
-                )}
-
-                <button
-                  className="back-btn"
-                  onClick={() => setSelectedCanteen(null)}
-                >
-                  ← Back
-                </button>
-              </div>
-            </div>
-
-
-            <div className="menu-grid">
-              {filteredMenu.length > 0 ? (
-                filteredMenu.map(item => (
-                  <div key={item.id} className="menu-item-card">
-                    <div className="menu-card-top">
-                      <h4>{item.name}</h4>
-                      <div className="price-tag">
-                        <span className="currency">₹</span>
-                        <span className="amount">{item.price}</span>
-                      </div>
-                    </div>
-
-                    <button className="add-btn" onClick={() => addToCart(item)}>
-                      <span>+</span> Add to Cart
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="no-results">No items found matching "{searchTerm}"</p>
-              )}
-            </div>
-
-
-            {cart.length > 0 && cartStep === null && (
-              <div className="floating-cart">
-                <div className="cart-left">
-                  <span className="cart-icon">🛒</span>
-                  <span>{totalItems} items</span>
-                </div>
-
-                <div className="cart-right">
-                  <strong>₹{grandTotal}</strong>
-                  <button onClick={() => setCartStep("CART")}>
-                    View Cart →
-                  </button>
-                </div>
-              </div>
-            )}
-
           </>
         )}
 
@@ -1182,6 +864,7 @@ export default function ProfessorDashboard() {
             )}
           </div>
         )}
+
         {activeTab === "amenities" && (
           <div className="amenity-board">
             <div className="header amenity-header">
@@ -1203,7 +886,6 @@ export default function ProfessorDashboard() {
                 </button>
               </div>
             </div>
-
 
             {/* ===== ACTIVE REQUESTS ===== */}
             <h2 className="section-title" style={{ color: "#111827" }}>Active Requests</h2>
@@ -1252,8 +934,6 @@ export default function ProfessorDashboard() {
                       </p>
                     )}
 
-
-
                     <div className="item-list">
                       {req.items.map(i => (
                         <span key={i} className="item-pill">{i}</span>
@@ -1267,11 +947,9 @@ export default function ProfessorDashboard() {
                 ))}
               </div>
             )}
-
-
           </div>
-
         )}
+
         {activeTab === "amenities" && showAmenityHistory && (
           <div
             className="history-overlay"
@@ -1306,7 +984,6 @@ export default function ProfessorDashboard() {
                           )}
                         </div>
                       )}
-
 
                       <div className="item-list">
                         {req.items.map(i => (
@@ -1383,217 +1060,26 @@ export default function ProfessorDashboard() {
           </div>
         )}
 
-
-
-        {/* ================= MODALS ================= */}
-
-        {/* CART FLOW */}
-        {cartStep && (
+        {showLogoutConfirm && (
           <div className="modal-overlay">
-            <div className="modal cart-modal">
-              <h2>
-                {cartStep === "CART" && "Your Order"}
-                {cartStep === "ADDRESS" && "Delivery Details"}
-                {cartStep === "PAYMENT" && "Payment Method"}
-              </h2>
-
-              {cartStep === "CART" && cart.map(i => (
-                <div key={i.id} className="cart-row">
-                  <span>{i.name}</span>
-                  <div className="qty-controls">
-                    <button onClick={() => removeFromCart(i.id)}>-</button>
-                    <span>{i.quantity}</span>
-                    <button onClick={() => addToCart(i)}>+</button>
-                  </div>
-                  <span>₹{i.price * i.quantity}</span>
-                </div>
-              ))}
-
-              {cartStep === "ADDRESS" && (
-                <div className="address-form">
-                  <div className="form-group"><label>Professor Name</label><input className="modal-input" value={professorName} disabled /></div>
-                  <div className="form-group"><label>Cabin Location</label><input className="modal-input" placeholder="e.g. CS-302" value={cabinLocation} onChange={e => setCabinLocation(e.target.value)} /></div>
-                  <div className="form-group"><label>Contact Number</label><input className="modal-input" placeholder="10-digit mobile number" value={contactNo} onChange={e => setContactNo(e.target.value)} /></div>
-                </div>
-              )}
-
-              {cartStep === "PAYMENT" && (
-                <div className="payment-options">
-
-                  {["CASH", "UPI"].map(mode => (
-                    <label
-                      key={mode}
-                      className={`payment-option ${paymentMode === mode ? "active" : ""}`}
-                      onClick={() => setPaymentMode(mode)}
-                    >
-                      <div className="payment-left">
-                        <input
-                          type="radio"
-                          checked={paymentMode === mode}
-                          readOnly
-                        />
-                        <span>{mode}</span>
-                      </div>
-                    </label>
-                  ))}
-
-                  {paymentMode === "UPI" && canteenUpi && (
-                    <div className="upi-box">
-                      <p><strong>Pay via UPI</strong></p>
-
-                      <div className="upi-id">
-                        <span>{canteenUpi.upiId}</span>
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(canteenUpi.upiId)
-                          }
-                        >
-                          Copy
-                        </button>
-                      </div>
-
-                      <a
-                        href={`upi://pay?pa=${canteenUpi.upiId}&pn=${canteenUpi.canteenName}&am=${grandTotal}&cu=INR`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="upi-pay-btn"
-                        onClick={() => setUpiOpened(true)}
-                      >
-                        Open UPI App
-                      </a>
-                      <div className="upi-qr-section">
-                        <p><strong>Scan & Pay</strong></p>
-
-                        <QRCodeCanvas
-                          value={getUpiPaymentString()}
-                          size={180}
-                          bgColor="#ffffff"
-                          fgColor="#000000"
-                          level="H"
-                          includeMargin
-                        />
-
-
-
-                        <p className="upi-note">
-                          Scan with any UPI app (GPay, PhonePe, Paytm)
-                        </p>
-                      </div>
-
-
-                      <p className="upi-note">
-                        After payment, click <strong>Place Order</strong>
-                      </p>
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-
+            <div className="modal logout-modal">
+              <h2>Log out?</h2>
+              <p>You will be signed out of your professor account.</p>
 
               <div className="modal-actions">
-                <button className="cancel" onClick={() => cartStep === "CART" ? setCartStep(null) : setCartStep(cartStep === "ADDRESS" ? "CART" : "ADDRESS")}>
-                  {cartStep === "CART" ? "Close" : "Back"}
+                <button
+                  className="cancel"
+                  onClick={() => setShowLogoutConfirm(false)}
+                >
+                  Cancel
                 </button>
                 <button
-                  className="confirm"
-                  disabled={
-                    cartStep === "PAYMENT" &&
-                    paymentMode === "UPI" &&
-                    !upiOpened
-                  }
-                  onClick={() =>
-                    cartStep === "PAYMENT"
-                      ? placeOrder()
-                      : setCartStep(cartStep === "CART" ? "ADDRESS" : "PAYMENT")
-                  }
+                  className="confirm logout-confirm"
+                  onClick={handleLogout}
                 >
-                  {cartStep === "PAYMENT" ? "Place Order" : "Next"}
+                  Yes, Logout
                 </button>
-
-
               </div>
-              <div className="cart-summary">
-                <div className="summary-row">
-                  <span>Items Total</span>
-                  <span>₹{cartTotal}</span>
-                </div>
-
-                {cart.length > 0 && (
-                  <div className="summary-row">
-                    <span>Delivery Charges</span>
-                    <span>₹{DELIVERY_CHARGE}</span>
-                  </div>
-                )}
-
-                <div className="summary-row total">
-                  <span>Total</span>
-                  <span>₹{grandTotal}</span>
-                </div>
-              </div>
-
-
-
-            </div>
-          </div>
-        )}
-
-        {/* ORDER SUCCESS MODAL */}
-        {showOrderSuccess && placedOrder && (
-          <div className="modal-overlay">
-            <div className="modal success-modal">
-              <h2>✅ Order Placed Successfully</h2>
-              <p className="order-id">Order ID: <strong>{placedOrder.id}</strong></p>
-              <p>Sent to: <strong>{selectedCanteen?.canteenName || placedOrder.canteenId}</strong></p>
-              <div className="canteen-contact">
-                📞 Contact canteen at:
-                <strong> {placedOrder.canteenContactNo || selectedCanteen?.contactNo || "N/A"}</strong>
-              </div>
-              <div className="modal-actions">
-                <button className="confirm" onClick={() => { setShowOrderSuccess(false); setShowTrackOrder(true); }}>Track Order →</button>
-                <button className="cancel" onClick={() => setShowOrderSuccess(false)}>Close</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TRACK ORDER MODAL */}
-        {showTrackOrder && placedOrder && (
-          <div className="modal-overlay">
-            <div className="modal track-modal">
-              <h2>📦 Order Status</h2>
-              <div className="order-status">
-                <StatusStep label="Placed" active />
-                <StatusStep label="Preparing" active={placedOrder.status !== "PLACED"} />
-                <StatusStep label="Ready" active={placedOrder.status === "READY"} />
-                <StatusStep label="Delivered" active={placedOrder.status === "DELIVERED"} />
-              </div>
-              {placedOrder.paymentMode === "UPI" &&
-                placedOrder.paymentStatus === "PENDING" && !confirmingPayment && (
-                  <button
-                    className="confirm"
-                    onClick={confirmPayment}
-                  >
-                    I have paid
-                  </button>
-                )}
-
-
-              <div className="track-footer">
-                <p>📍 Delivery Location: <strong> {placedOrder.cabinLocation}</strong></p>
-                <p>📞 Canteen Contact: <strong> {placedOrder.canteenContactNo || selectedCanteen?.contactNo || "N/A"}</strong></p>
-              </div>
-              {placedOrder.paymentMode === "UPI" && (
-                <p>
-                  💳 Payment Status:{" "}
-                  <strong>
-                    {placedOrder.paymentStatus === "PAID" ? "Paid ✅" : "Pending ⏳"}
-                  </strong>
-                </p>
-              )}
-
-              <button className="confirm" onClick={() => setShowTrackOrder(false)}>Done</button>
             </div>
           </div>
         )}
