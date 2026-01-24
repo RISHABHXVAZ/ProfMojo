@@ -54,10 +54,10 @@ public class AmenityRequest {
     // Staff must deliver before this
     private LocalDateTime deliveryDeadline;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private Boolean assignmentSlaBreached = false;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private Boolean deliverySlaBreached = false;
 
 

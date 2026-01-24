@@ -17,8 +17,10 @@ import {
     X,
     FileText,
     Wifi,
-    WifiOff
+    WifiOff,
+    Star
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import "./AdminDashboard.css";
 
 export default function AdminDashboard() {
@@ -42,6 +44,15 @@ export default function AdminDashboard() {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
+    // Chart data state
+    const [chartData, setChartData] = useState({
+        staffRatings: [],
+        deliveryDistribution: []
+    });
+
+    // Colors for pie chart
+    const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+
     // Get department from admin ID (extract from localStorage or token)
     const adminId = localStorage.getItem("adminId") || "";
     const adminDepartment = extractDepartmentFromAdminId(adminId);
@@ -60,13 +71,45 @@ export default function AdminDashboard() {
     // Helper function to extract department from admin ID
     function extractDepartmentFromAdminId(adminId) {
         if (!adminId) return "";
-        // Assuming admin ID format like "ADM-CSE-001" or "ADM-ECE-001"
         const parts = adminId.split('-');
         if (parts.length >= 2) {
-            return parts[1]; // Return department code (CSE, ECE, etc.)
+            return parts[1];
         }
         return "";
     }
+
+    /* ================= GENERATE CHART DATA ================= */
+    const generateChartData = () => {
+        if (allStaff.length === 0) return;
+
+        // Prepare staff ratings data for bar chart
+        const ratingsData = allStaff
+            .map(staff => ({
+                name: staff.name?.split(' ')[0] || staff.staffId?.slice(-4) || 'Staff',
+                stars: staff.stars || staff.rating || 0,
+                deliveries: staff.totalDeliveries || staff.completedTasks || 0,
+                fullName: staff.name || 'Staff Member'
+            }))
+            .sort((a, b) => b.stars - a.stars)
+            .slice(0, 8);
+
+        // Prepare delivery distribution for pie chart
+        const deliveryData = allStaff
+            .filter(staff => (staff.totalDeliveries || staff.completedTasks || 0) > 0)
+            .map(staff => ({
+                name: staff.name?.split(' ')[0] || staff.staffId?.slice(-4) || 'Staff',
+                value: staff.totalDeliveries || staff.completedTasks || 0,
+                department: staff.department || 'General',
+                fullName: staff.name || 'Staff Member'
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 6);
+
+        setChartData({
+            staffRatings: ratingsData,
+            deliveryDistribution: deliveryData
+        });
+    };
 
     /* ================= FORMAT REMAINING TIME ================= */
     const formatRemaining = (deadline) => {
@@ -105,6 +148,7 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         calculateStats();
+        generateChartData();
     }, [requests, ongoingRequests, completedRequests, allStaff]);
 
 
@@ -145,20 +189,17 @@ export default function AdminDashboard() {
     };
 
 
-    /* ================= FETCH ALL STAFF (Department Specific) ================= */
+    /* ================= FETCH ALL STAFF ================= */
     const fetchAllStaff = async () => {
         try {
             const res = await axios.get(
                 "http://localhost:8080/api/admin/amenities/staff/all",
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // Filter staff by department (or general staff)
-            const departmentStaff = res.data.filter(staff =>
-                staff.department === adminDepartment || staff.department === "general"
-            );
-            setAllStaff(departmentStaff);
+            setAllStaff(res.data);
+            generateChartData();
         } catch (err) {
-            console.error("Failed to load staff list");
+            console.error("Failed to load staff list", err);
         } finally {
             setStaffStatsLoading(false);
         }
@@ -172,13 +213,8 @@ export default function AdminDashboard() {
                 "http://localhost:8080/api/admin/amenities/staff/available",
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // Filter available staff by department
-            const departmentStaff = res.data.filter(staff =>
-                staff.department === adminDepartment || staff.department === "general"
-            );
-            setStaffList(departmentStaff);
+            setStaffList(res.data);
 
-            // Find the selected request from all possible states
             const req = requests.find(r => r.id === requestId) ||
                 ongoingRequests.find(r => r.id === requestId) ||
                 completedRequests.find(r => r.id === requestId);
@@ -199,7 +235,6 @@ export default function AdminDashboard() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setShowStaffModal(false);
-            // Refresh data to show updated status
             fetchAllData();
         } catch {
             console.error("Assignment failed");
@@ -246,40 +281,6 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
         navigate("/admin/login");
     };
 
-    /* ================= SETUP REAL-TIME UPDATES ================= */
-    const setupRealTimeUpdates = () => {
-        // Polling for updates every 10 seconds for more real-time feel
-        const pollInterval = setInterval(() => {
-            fetchAllData();
-        }, 10000); // 10 seconds
-
-        return () => clearInterval(pollInterval);
-    };
-
-    /* ================= CHECK STAFF ONLINE STATUS ================= */
-    const checkStaffOnlineStatus = async () => {
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/staff/status",
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            // Update staff online status
-            const updatedStaff = allStaff.map(staff => {
-                const statusData = res.data.find(s => s.staffId === staff.staffId || s.id === staff.id);
-                return {
-                    ...staff,
-                    online: statusData?.online || false,
-                    lastActive: statusData?.lastActive
-                };
-            });
-
-            setAllStaff(updatedStaff);
-        } catch (err) {
-            console.error("Failed to fetch staff status", err);
-        }
-    };
-
     /* ================= GET STATUS COLOR ================= */
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
@@ -294,21 +295,19 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
         }
     };
 
-
     /* ================= GET STATUS TEXT ================= */
-  const getStatusText = (status) => {
-    switch (status?.toLowerCase()) {
-        case 'pending':
-            return 'Pending';
-        case 'assigned':
-            return 'Assigned';
-        case 'delivered':
-            return 'Delivered';
-        default:
-            return status || 'Unknown';
-    }
-};
-
+    const getStatusText = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'pending':
+                return 'Pending';
+            case 'assigned':
+                return 'Assigned';
+            case 'delivered':
+                return 'Delivered';
+            default:
+                return status || 'Unknown';
+        }
+    };
 
     /* ================= FORMAT LAST ACTIVE TIME ================= */
     const formatLastActive = (timestamp) => {
@@ -323,25 +322,21 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
         return `${Math.floor(diff / 86400000)}d ago`;
     };
 
-    /* ================= UPDATE TIME AND CHECK STATUS ================= */
+    /* ================= UPDATE TIME ================= */
     useEffect(() => {
         const interval = setInterval(() => {
             setNow(Date.now());
-            // Check staff status every 30 seconds
-            if (now % 30000 < 1000) { // Every ~30 seconds
-                checkStaffOnlineStatus();
-            }
         }, 1000);
         return () => clearInterval(interval);
-    }, [now, allStaff]);
+    }, []);
 
     /* ================= INITIAL LOAD ================= */
     useEffect(() => {
         fetchAllData();
-
-        // Setup real-time updates
-        const cleanup = setupRealTimeUpdates();
-        return cleanup;
+        const pollInterval = setInterval(() => {
+            fetchAllData();
+        }, 10000);
+        return () => clearInterval(pollInterval);
     }, []);
 
     /* ================= FILTERED REQUESTS ================= */
@@ -499,194 +494,336 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                     </div>
                 </header>
 
-                {/* Stats Overview */}
+                {/* Dashboard Content */}
                 {activeTab === "dashboard" && (
-                    <div className="admin-stats-grid">
-                        <div className="admin-stat-card purple">
-                            <div className="admin-stat-icon">
-                                <AlertCircle size={24} />
+                    <>
+                        {/* Stats Grid */}
+                        <div className="admin-stats-grid">
+                            <div className="admin-stat-card purple">
+                                <div className="admin-stat-icon">
+                                    <AlertCircle size={24} />
+                                </div>
+                                <div className="admin-stat-content">
+                                    <h3>{stats.totalPending}</h3>
+                                    <p>Pending Requests</p>
+                                </div>
                             </div>
-                            <div className="admin-stat-content">
-                                <h3>{stats.totalPending}</h3>
-                                <p>Pending Requests</p>
+                            <div className="admin-stat-card blue">
+                                <div className="admin-stat-icon">
+                                    <Clock size={24} />
+                                </div>
+                                <div className="admin-stat-content">
+                                    <h3>{stats.totalOngoing}</h3>
+                                    <p>Ongoing Tasks</p>
+                                </div>
+                            </div>
+                            <div className="admin-stat-card green">
+                                <div className="admin-stat-icon">
+                                    <CheckCircle size={24} />
+                                </div>
+                                <div className="admin-stat-content">
+                                    <h3>{stats.totalCompleted}</h3>
+                                    <p>Completed</p>
+                                </div>
+                            </div>
+                            <div className="admin-stat-card orange">
+                                <div className="admin-stat-icon">
+                                    <Users size={24} />
+                                </div>
+                                <div className="admin-stat-content">
+                                    <h3>{stats.onlineStaff}/{stats.totalStaff}</h3>
+                                    <p>Staff Online</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="admin-stat-card blue">
-                            <div className="admin-stat-icon">
-                                <Clock size={24} />
-                            </div>
-                            <div className="admin-stat-content">
-                                <h3>{stats.totalOngoing}</h3>
-                                <p>Ongoing Tasks</p>
-                            </div>
-                        </div>
-                        <div className="admin-stat-card green">
-                            <div className="admin-stat-icon">
-                                <CheckCircle size={24} />
-                            </div>
-                            <div className="admin-stat-content">
-                                <h3>{stats.totalCompleted}</h3>
-                                <p>Completed</p>
-                            </div>
-                        </div>
-                        <div className="admin-stat-card orange">
-                            <div className="admin-stat-icon">
-                                <Users size={24} />
-                            </div>
-                            <div className="admin-stat-content">
-                                <h3>{stats.onlineStaff}/{stats.totalStaff}</h3>
-                                <p>Staff Online</p>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
-                {/* Content Area */}
-                <div className="admin-content-area">
-                    {(activeTab === "pending" || activeTab === "ongoing" || activeTab === "completed") && (
-                        <>
-                            <div className="admin-content-header">
-                                <h2 className="admin-section-title">
-                                    {activeTab === "pending" && `Pending Requests (${stats.totalPending})`}
-                                    {activeTab === "ongoing" && `Ongoing Tasks (${stats.totalOngoing})`}
-                                    {activeTab === "completed" && `Completed Requests (${stats.totalCompleted})`}
-                                </h2>
-                                <div className="admin-search-info">
-                                    {searchQuery && (
-                                        <span className="admin-search-results">
-                                            Found {getFilteredRequests().length} results for "{searchQuery}"
-                                        </span>
+                        {/* Charts Section */}
+                        <div className="admin-charts-section">
+                            {/* Staff Performance Chart */}
+                            <div className="admin-chart-card">
+                                <div className="admin-chart-header">
+                                    <h3 className="admin-chart-title">
+                                        <Star size={20} className="admin-chart-icon" />
+                                        Staff Performance Ratings
+                                    </h3>
+                                    <p className="admin-chart-subtitle">
+                                        Top staff by star ratings
+                                    </p>
+                                </div>
+                                <div className="admin-chart-container">
+                                    {chartData.staffRatings.length === 0 ? (
+                                        <div className="admin-chart-empty">
+                                            <Users size={32} />
+                                            <p>No staff data available</p>
+                                        </div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height={280}>
+                                            <BarChart
+                                                data={chartData.staffRatings}
+                                                margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                <XAxis
+                                                    dataKey="name"
+                                                    angle={-45}
+                                                    textAnchor="end"
+                                                    height={60}
+                                                    tick={{ fill: '#64748b', fontSize: 11 }}
+                                                />
+                                                <YAxis
+                                                    tick={{ fill: '#64748b', fontSize: 12 }}
+                                                    label={{
+                                                        value: 'Stars',
+                                                        angle: -90,
+                                                        position: 'insideLeft',
+                                                        offset: -10,
+                                                        style: { fill: '#64748b' }
+                                                    }}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                                    }}
+                                                    formatter={(value, name) => {
+                                                        if (name === 'stars') return [value, '⭐ Stars'];
+                                                        if (name === 'deliveries') return [value, '📦 Deliveries'];
+                                                        return value;
+                                                    }}
+                                                    labelFormatter={(label, payload) => {
+                                                        if (payload && payload[0]) {
+                                                            return payload[0].payload.fullName;
+                                                        }
+                                                        return label;
+                                                    }}
+                                                />
+                                                <Legend />
+                                                <Bar
+                                                    dataKey="stars"
+                                                    name="Star Rating"
+                                                    fill="#8b5cf6"
+                                                    radius={[4, 4, 0, 0]}
+                                                />
+                                                <Bar
+                                                    dataKey="deliveries"
+                                                    name="Deliveries"
+                                                    fill="#3b82f6"
+                                                    radius={[4, 4, 0, 0]}
+                                                />
+                                            </BarChart>
+                                        </ResponsiveContainer>
                                     )}
                                 </div>
                             </div>
 
-                            {error && (
-                                <div className="admin-error-message">
-                                    <AlertCircle size={20} />
-                                    <span>{error}</span>
-                                    <button
-                                        className="admin-retry-btn"
-                                        onClick={fetchAllData}
-                                    >
-                                        Retry
-                                    </button>
-                                </div>
-                            )}
-
-                            {getFilteredRequests().length === 0 ? (
-                                <div className="admin-empty-state">
-                                    <Package size={48} />
-                                    <h3>No requests found</h3>
-                                    <p>
-                                        {searchQuery
-                                            ? "No requests match your search"
-                                            : activeTab === "pending"
-                                                ? "All requests have been assigned!"
-                                                : activeTab === "ongoing"
-                                                    ? "No ongoing tasks at the moment"
-                                                    : "No completed requests yet"
-                                        }
+                            {/* Delivery Distribution Chart */}
+                            <div className="admin-chart-card">
+                                <div className="admin-chart-header">
+                                    <h3 className="admin-chart-title">
+                                        <Package size={20} className="admin-chart-icon" />
+                                        Delivery Distribution
+                                    </h3>
+                                    <p className="admin-chart-subtitle">
+                                        Top performers by deliveries
                                     </p>
-
                                 </div>
-                            ) : (
-                                <div className="admin-requests-grid">
-                                    {getFilteredRequests().map(req => (
-                                        <div
-                                            className={`admin-request-card ${req.status?.toLowerCase()}`}
-                                            key={req.id}
-                                        >
-                                            <div className="admin-card-header">
-                                                <div className="admin-card-badges">
-                                                    <span className="admin-department-badge">
-                                                        {req.department}
-                                                    </span>
-                                                    <span
-                                                        className="admin-status-badge"
-                                                        style={{
-                                                            backgroundColor: getStatusColor(req.status),
-                                                            color: req.status?.toLowerCase() === 'pending' ? '#92400e' :
-                                                                req.status?.toLowerCase() === 'completed' ? '#065f46' :
-                                                                    req.status?.toLowerCase() === 'delivered' ? '#065f46' :
-                                                                        '#1e40af'
-                                                        }}
-                                                    >
-                                                        {getStatusText(req.status)}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="admin-card-content">
-                                                <h4 className="admin-classroom">
-                                                    <span className="admin-card-icon">📍</span>
-                                                    {req.classRoom}
-                                                </h4>
-                                                <p className="admin-request-message">
-                                                    {req.message || "No additional message"}
-                                                </p>
-
-                                                <div className="admin-items-list">
-                                                    {req.items?.map((item, idx) => (
-                                                        <span key={idx} className="admin-item-tag">
-                                                            {item}
-                                                        </span>
+                                <div className="admin-chart-container">
+                                    {chartData.deliveryDistribution.length === 0 ? (
+                                        <div className="admin-chart-empty">
+                                            <Package size={32} />
+                                            <p>No delivery data available</p>
+                                        </div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height={280}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={chartData.deliveryDistribution}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={true}
+                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                    outerRadius={80}
+                                                    fill="#8884d8"
+                                                    dataKey="value"
+                                                    nameKey="name"
+                                                >
+                                                    {chartData.deliveryDistribution.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                     ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                                    }}
+                                                    formatter={(value, name, props) => {
+                                                        if (props.payload && props.payload.fullName) {
+                                                            return [value, props.payload.fullName];
+                                                        }
+                                                        return [value, name];
+                                                    }}
+                                                />
+                                                <Legend />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Content Area for other tabs */}
+                {activeTab !== "dashboard" && (
+                    <div className="admin-content-area">
+                        {/* ... (rest of your existing code for pending/ongoing/completed/staff tabs) */}
+                        {/* This section remains exactly as it was in your original code */}
+                        {(activeTab === "pending" || activeTab === "ongoing" || activeTab === "completed") && (
+                            <>
+                                <div className="admin-content-header">
+                                    <h2 className="admin-section-title">
+                                        {activeTab === "pending" && `Pending Requests (${stats.totalPending})`}
+                                        {activeTab === "ongoing" && `Ongoing Tasks (${stats.totalOngoing})`}
+                                        {activeTab === "completed" && `Completed Requests (${stats.totalCompleted})`}
+                                    </h2>
+                                    <div className="admin-search-info">
+                                        {searchQuery && (
+                                            <span className="admin-search-results">
+                                                Found {getFilteredRequests().length} results for "{searchQuery}"
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="admin-error-message">
+                                        <AlertCircle size={20} />
+                                        <span>{error}</span>
+                                        <button
+                                            className="admin-retry-btn"
+                                            onClick={fetchAllData}
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
+                                )}
+
+                                {getFilteredRequests().length === 0 ? (
+                                    <div className="admin-empty-state">
+                                        <Package size={48} />
+                                        <h3>No requests found</h3>
+                                        <p>
+                                            {searchQuery
+                                                ? "No requests match your search"
+                                                : activeTab === "pending"
+                                                    ? "All requests have been assigned!"
+                                                    : activeTab === "ongoing"
+                                                        ? "No ongoing tasks at the moment"
+                                                        : "No completed requests yet"
+                                            }
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="admin-requests-grid">
+                                        {getFilteredRequests().map(req => (
+                                            <div
+                                                className={`admin-request-card ${req.status?.toLowerCase()}`}
+                                                key={req.id}
+                                            >
+                                                <div className="admin-card-header">
+                                                    <div className="admin-card-badges">
+                                                        <span className="admin-department-badge">
+                                                            {req.department}
+                                                        </span>
+                                                        <span
+                                                            className="admin-status-badge"
+                                                            style={{
+                                                                backgroundColor: getStatusColor(req.status),
+                                                                color: req.status?.toLowerCase() === 'pending' ? '#92400e' :
+                                                                    req.status?.toLowerCase() === 'completed' ? '#065f46' :
+                                                                        req.status?.toLowerCase() === 'delivered' ? '#065f46' :
+                                                                            '#1e40af'
+                                                            }}
+                                                        >
+                                                            {getStatusText(req.status)}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
-                                                <div className="admin-card-meta">
-                                                    <div className="admin-meta-item">
-                                                        <span className="admin-meta-label">Professor:</span>
-                                                        <span className="admin-meta-value">{req.professorName}</span>
-                                                    </div>
-                                                    <div className="admin-meta-item">
-                                                        <span className="admin-meta-label">Request ID:</span>
-                                                        <span className="admin-meta-value">#{req.id || req.requestId}</span>
-                                                    </div>
-                                                    {req.assignedStaff && (
-                                                        <div className="admin-meta-item">
-                                                            <span className="admin-meta-label">Assigned To:</span>
-                                                            <span className="admin-meta-value staff">
-                                                                {req.assignedStaff.name}
-                                                                {req.assignedStaff.online === false && (
-                                                                    <span className="staff-offline-badge"> (Offline)</span>
-                                                                )}
+                                                <div className="admin-card-content">
+                                                    <h4 className="admin-classroom">
+                                                        <span className="admin-card-icon">📍</span>
+                                                        {req.classRoom}
+                                                    </h4>
+                                                    <p className="admin-request-message">
+                                                        {req.message || "No additional message"}
+                                                    </p>
+
+                                                    <div className="admin-items-list">
+                                                        {req.items?.map((item, idx) => (
+                                                            <span key={idx} className="admin-item-tag">
+                                                                {item}
                                                             </span>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="admin-card-meta">
+                                                        <div className="admin-meta-item">
+                                                            <span className="admin-meta-label">Professor:</span>
+                                                            <span className="admin-meta-value">{req.professorName}</span>
                                                         </div>
-                                                    )}
-                                                    {req.createdAt && (
                                                         <div className="admin-meta-item">
-                                                            <span className="admin-meta-label">Requested:</span>
-                                                            <span className="admin-meta-value">
-                                                                {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
+                                                            <span className="admin-meta-label">Request ID:</span>
+                                                            <span className="admin-meta-value">#{req.id || req.requestId}</span>
+                                                        </div>
+                                                        {req.assignedStaff && (
+                                                            <div className="admin-meta-item">
+                                                                <span className="admin-meta-label">Assigned To:</span>
+                                                                <span className="admin-meta-value staff">
+                                                                    {req.assignedStaff.name}
+                                                                    {req.assignedStaff.online === false && (
+                                                                        <span className="staff-offline-badge"> (Offline)</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {req.createdAt && (
+                                                            <div className="admin-meta-item">
+                                                                <span className="admin-meta-label">Requested:</span>
+                                                                <span className="admin-meta-value">
+                                                                    {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {activeTab === "ongoing" && req.deliveryDeadline && (
+                                                        <div className={`admin-sla-indicator ${formatRemaining(req.deliveryDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
+                                                            <Clock size={14} />
+                                                            <span>SLA: {formatRemaining(req.deliveryDeadline)}</span>
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                {activeTab === "ongoing" && req.deliveryDeadline && (
-                                                    <div className={`admin-sla-indicator ${formatRemaining(req.deliveryDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
-                                                        <Clock size={14} />
-                                                        <span>SLA: {formatRemaining(req.deliveryDeadline)}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="admin-card-footer">
-                                                {activeTab === "pending" && (
-                                                    <button
-                                                        className="admin-assign-btn"
-                                                        onClick={() => {
-                                                            setSelectedRequestId(req.id || req.requestId);
-                                                            setShowStaffModal(true);
-                                                            fetchStaff(req.id || req.requestId);
-                                                        }}
-                                                    >
-                                                        <UserCheck size={16} />
-                                                        <span>Assign Staff</span>
-                                                    </button>
-                                                )}
-                                                {activeTab === "ongoing" && (
-                                                    <>
+                                                <div className="admin-card-footer">
+                                                    {activeTab === "pending" && (
+                                                        <button
+                                                            className="admin-assign-btn"
+                                                            onClick={() => {
+                                                                setSelectedRequestId(req.id || req.requestId);
+                                                                setShowStaffModal(true);
+                                                                fetchStaff(req.id || req.requestId);
+                                                            }}
+                                                        >
+                                                            <UserCheck size={16} />
+                                                            <span>Assign Staff</span>
+                                                        </button>
+                                                    )}
+                                                    {activeTab === "ongoing" && (
                                                         <button
                                                             className="admin-view-btn"
                                                             onClick={() => viewRequestDetails(req)}
@@ -694,122 +831,120 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                                                             <Eye size={16} />
                                                             <span>View Details</span>
                                                         </button>
-
-                                                    </>
-                                                )}
-                                                {activeTab === "completed" && (
-                                                    <button
-                                                        className="admin-view-btn"
-                                                        onClick={() => viewRequestDetails(req)}
-                                                    >
-                                                        <FileText size={16} />
-                                                        <span>View Details</span>
-                                                    </button>
-                                                )}
+                                                    )}
+                                                    {activeTab === "completed" && (
+                                                        <button
+                                                            className="admin-view-btn"
+                                                            onClick={() => viewRequestDetails(req)}
+                                                        >
+                                                            <FileText size={16} />
+                                                            <span>View Details</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Staff Management Tab */}
+                        {activeTab === "staff" && (
+                            <div className="admin-staff-management">
+                                <div className="admin-content-header">
+                                    <h2 className="admin-section-title">Department Staff</h2>
+                                    <div className="admin-staff-stats">
+                                        <div className="admin-staff-stat">
+                                            <span className="admin-staff-stat-value">{stats.onlineStaff}</span>
+                                            <span className="admin-staff-stat-label">Online</span>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Staff Management Tab */}
-                    {activeTab === "staff" && (
-                        <div className="admin-staff-management">
-                            <div className="admin-content-header">
-                                <h2 className="admin-section-title">Department Staff</h2>
-                                <div className="admin-staff-stats">
-                                    <div className="admin-staff-stat">
-                                        <span className="admin-staff-stat-value">{stats.onlineStaff}</span>
-                                        <span className="admin-staff-stat-label">Online</span>
-                                    </div>
-                                    <div className="admin-staff-stat">
-                                        <span className="admin-staff-stat-value">{stats.totalStaff}</span>
-                                        <span className="admin-staff-stat-label">Total Staff</span>
-                                    </div>
-                                    <div className="admin-staff-stat">
-                                        <span className="admin-staff-stat-value">
-                                            {allStaff.reduce((sum, staff) => sum + (staff.totalDeliveries || 0), 0)}
-                                        </span>
-                                        <span className="admin-staff-stat-label">Total Deliveries</span>
+                                        <div className="admin-staff-stat">
+                                            <span className="admin-staff-stat-value">{stats.totalStaff}</span>
+                                            <span className="admin-staff-stat-label">Total Staff</span>
+                                        </div>
+                                        <div className="admin-staff-stat">
+                                            <span className="admin-staff-stat-value">
+                                                {allStaff.reduce((sum, staff) => sum + (staff.totalDeliveries || 0), 0)}
+                                            </span>
+                                            <span className="admin-staff-stat-label">Total Deliveries</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {staffStatsLoading ? (
-                                <div className="admin-loading">Loading staff...</div>
-                            ) : allStaff.length === 0 ? (
-                                <div className="admin-empty-state">
-                                    <Users size={48} />
-                                    <h3>No staff members</h3>
-                                    <p>No staff assigned to {adminDepartment} department</p>
-                                    <button
-                                        className="admin-refresh-empty-btn"
-                                        onClick={fetchAllStaff}
-                                    >
-                                        <RefreshCw size={16} />
-                                        Refresh Staff List
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="admin-staff-grid">
-                                    {allStaff.map(staff => (
-                                        <div className="admin-staff-card" key={staff.staffId || staff.id}>
-                                            <div className="admin-staff-header">
-                                                <div className="admin-staff-avatar">
-                                                    {staff.name?.charAt(0).toUpperCase() || 'S'}
-                                                    <div className={`admin-staff-avatar-status ${staff.online ? "online" : "offline"}`}>
-                                                        {staff.online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                                {staffStatsLoading ? (
+                                    <div className="admin-loading">Loading staff...</div>
+                                ) : allStaff.length === 0 ? (
+                                    <div className="admin-empty-state">
+                                        <Users size={48} />
+                                        <h3>No staff members</h3>
+                                        <p>No staff assigned to {adminDepartment} department</p>
+                                        <button
+                                            className="admin-refresh-empty-btn"
+                                            onClick={fetchAllStaff}
+                                        >
+                                            <RefreshCw size={16} />
+                                            Refresh Staff List
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="admin-staff-grid">
+                                        {allStaff.map(staff => (
+                                            <div className="admin-staff-card" key={staff.staffId || staff.id}>
+                                                <div className="admin-staff-header">
+                                                    <div className="admin-staff-avatar">
+                                                        {staff.name?.charAt(0).toUpperCase() || 'S'}
+                                                        <div className={`admin-staff-avatar-status ${staff.online ? "online" : "offline"}`}>
+                                                            {staff.online ? <Wifi size={12} /> : <WifiOff size={12} />}
+                                                        </div>
+                                                    </div>
+                                                    <div className="admin-staff-info">
+                                                        <h4 className="admin-staff-name">{staff.name || 'Staff Member'}</h4>
+                                                        <div className="admin-staff-details">
+                                                            <span className="admin-staff-id">ID: {staff.staffId || staff.id}</span>
+                                                            <span className={`admin-staff-status ${staff.online ? "online" : "offline"}`}>
+                                                                {staff.online ? "● Online" : "○ Offline"}
+                                                                {!staff.online && staff.lastActive && (
+                                                                    <span className="admin-staff-last-active">
+                                                                        Last active: {formatLastActive(staff.lastActive)}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="admin-staff-info">
-                                                    <h4 className="admin-staff-name">{staff.name || 'Staff Member'}</h4>
-                                                    <div className="admin-staff-details">
-                                                        <span className="admin-staff-id">ID: {staff.staffId || staff.id}</span>
-                                                        <span className={`admin-staff-status ${staff.online ? "online" : "offline"}`}>
-                                                            {staff.online ? "● Online" : "○ Offline"}
-                                                            {!staff.online && staff.lastActive && (
-                                                                <span className="admin-staff-last-active">
-                                                                    Last active: {formatLastActive(staff.lastActive)}
-                                                                </span>
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
 
-                                            <div className="admin-staff-metrics">
-                                                <div className="admin-staff-metric">
-                                                    <div className="admin-metric-icon">⭐</div>
-                                                    <div className="admin-metric-content">
-                                                        <span className="admin-metric-value">{staff.stars || staff.rating || 0}</span>
-                                                        <span className="admin-metric-label">Rating</span>
+                                                <div className="admin-staff-metrics">
+                                                    <div className="admin-staff-metric">
+                                                        <div className="admin-metric-icon">⭐</div>
+                                                        <div className="admin-metric-content">
+                                                            <span className="admin-metric-value">{staff.stars || staff.rating || 0}</span>
+                                                            <span className="admin-metric-label">Rating</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="admin-staff-metric">
+                                                        <div className="admin-metric-icon">📦</div>
+                                                        <div className="admin-metric-content">
+                                                            <span className="admin-metric-value">{staff.totalDeliveries || staff.completedTasks || 0}</span>
+                                                            <span className="admin-metric-label">Deliveries</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="admin-staff-metric">
+                                                        <div className="admin-metric-icon">🏅</div>
+                                                        <div className="admin-metric-content">
+                                                            <span className="admin-metric-value">
+                                                                {staff.department || 'General'}
+                                                            </span>
+                                                            <span className="admin-metric-label">Department</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="admin-staff-metric">
-                                                    <div className="admin-metric-icon">📦</div>
-                                                    <div className="admin-metric-content">
-                                                        <span className="admin-metric-value">{staff.totalDeliveries || staff.completedTasks || 0}</span>
-                                                        <span className="admin-metric-label">Deliveries</span>
-                                                    </div>
-                                                </div>
-                                                <div className="admin-staff-metric">
-                                                    <div className="admin-metric-icon">🏅</div>
-                                                    <div className="admin-metric-content">
-                                                        <span className="admin-metric-value">
-                                                            {staff.department || 'General'}
-                                                        </span>
-                                                        <span className="admin-metric-label">Department</span>
-                                                    </div>
-                                                </div>
-                                            </div>
 
-                                            <div className="admin-staff-actions">
-                                                <button
-                                                    className="admin-staff-view-btn"
-                                                    onClick={() => {
-                                                        const staffDetails = `
+                                                <div className="admin-staff-actions">
+                                                    <button
+                                                        className="admin-staff-view-btn"
+                                                        onClick={() => {
+                                                            const staffDetails = `
 Staff Details:
 ---------------
 Name: ${staff.name || 'N/A'}
@@ -822,22 +957,23 @@ ${staff.lastActive && !staff.online ? `Last Active: ${formatLastActive(staff.las
 ${staff.email ? `Email: ${staff.email}` : ''}
 ${staff.phone ? `Phone: ${staff.phone}` : ''}
                                                         `.trim();
-                                                        alert(staffDetails);
-                                                    }}
-                                                >
-                                                    View Profile
-                                                </button>
+                                                            alert(staffDetails);
+                                                        }}
+                                                    >
+                                                        View Profile
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Assign Staff Modal */}
+            {/* Modals (remain exactly the same) */}
             {showStaffModal && selectedRequest && (
                 <div className="admin-modal-overlay">
                     <div className="admin-modal">

@@ -5,6 +5,7 @@ import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.StaffRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,68 +24,52 @@ public class StaffAmenityController {
     private final StaffRepository staffRepo;
 
     @PutMapping("/{requestId}/delivered")
-    public ResponseEntity<?> markDelivered(
-            @PathVariable Long requestId,
-            @AuthenticationPrincipal Staff staff
-    ) {
-
+    @Transactional
+    public ResponseEntity<?> markAsDelivered(@PathVariable Long requestId) {
         AmenityRequest request = amenityRepo.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
-        // Safety check
-        if (request.getAssignedStaff() == null ||
-                !request.getAssignedStaff().getStaffId().equals(staff.getStaffId())) {
-            throw new RuntimeException("Not authorized to deliver this request");
+        Staff staff = request.getAssignedStaff();
+        if (staff == null) {
+            return ResponseEntity.badRequest().body("No staff assigned to this request");
         }
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 1️⃣ Update request
-        request.setStatus(RequestStatus.DELIVERED);
-        request.setDeliveredAt(now);
-
-        // 2️⃣ Update staff deliveries
-        staff.setTotalDeliveries(staff.getTotalDeliveries() + 1);
-
-        // 3️⃣ SLA check
-        if (request.getDeliveryDeadline() != null && now.isAfter(request.getDeliveryDeadline())) {
-            // SLA breached → lose star
+        // CHECK SLA BREACH FOR STAR PENALTY
+        if (request.getSlaDeadline() != null && now.isAfter(request.getSlaDeadline())) {
+            // Penalty: Decrease stars by 1 (minimum 0)
             staff.setStars(Math.max(0, staff.getStars() - 1));
             request.setDeliverySlaBreached(true);
+            request.setSlaBreached(true);
         } else {
-            // SLA met → gain star
+            // Reward: On-time delivery earns 1 star
             staff.setStars(staff.getStars() + 1);
             request.setDeliverySlaBreached(false);
         }
 
-        // 4️⃣ Mark staff available again
-        staff.setAvailable(true);
+        // Update Staff Stats
+        staff.setTotalDeliveries(staff.getTotalDeliveries() + 1);
+        staff.setAvailable(true); // Staff is free to take new requests
 
-        // 5️⃣ Persist both
+        // Update Request Status
+        request.setStatus(RequestStatus.DELIVERED);
+        request.setDeliveredAt(now);
+
         staffRepo.save(staff);
         amenityRepo.save(request);
 
-        return ResponseEntity.ok("Delivered successfully");
+        return ResponseEntity.ok("Package marked as delivered. Stars updated.");
     }
 
-
-
-
     @GetMapping("/my")
-    public List<AmenityRequest> getMyAssignedRequests(
-            @AuthenticationPrincipal Staff staff
-    ) {
-        return amenityRepo.findByAssignedStaffAndStatus(
-                staff,
-                RequestStatus.ASSIGNED
-        );
+    public List<AmenityRequest> getMyAssignedRequests(@AuthenticationPrincipal Staff staff) {
+        return amenityRepo.findByAssignedStaffAndStatus(staff, RequestStatus.ASSIGNED);
     }
 
     @GetMapping("/me")
-    public Staff getMyProfile(
-            @AuthenticationPrincipal Staff staff
-    ) {
-        return staff;
+    public Staff getMyProfile(@AuthenticationPrincipal Staff staff) {
+        // Return fresh data from DB to show updated stars/deliveries
+        return staffRepo.findById(staff.getStaffId()).orElse(staff);
     }
-
 }
