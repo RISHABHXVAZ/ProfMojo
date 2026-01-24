@@ -39,6 +39,12 @@ export default function ProfessorDashboard() {
   const [amenityHistory, setAmenityHistory] = useState([]);
   const [now, setNow] = useState(Date.now());
 
+  const [slaChecks, setSlaChecks] = useState({});
+  const [reRequesting, setReRequesting] = useState(false);
+  const [reRequestModal, setReRequestModal] = useState(false);
+  const [selectedRequestForReRequest, setSelectedRequestForReRequest] = useState(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now());
@@ -50,29 +56,20 @@ export default function ProfessorDashboard() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // remove token
     localStorage.removeItem("token");
-
-    // clear axios header
     delete api.defaults.headers.common["Authorization"];
-
-    // redirect to professor login (ABSOLUTE path)
     navigate("/professor/login");
   };
 
   const formatRemaining = (targetTime) => {
     if (!targetTime) return null;
-
     const diff = new Date(targetTime).getTime() - Date.now();
     if (diff <= 0) return "Time expired";
-
     const mins = Math.floor(diff / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
-
     return `${mins}m ${secs}s`;
   };
 
-  // Reset functions for different modals
   const resetAmenityForm = () => {
     setDepartment("");
     setClassroom("");
@@ -90,7 +87,6 @@ export default function ProfessorDashboard() {
     setNewClassName("");
   };
 
-  // Reset forms when modals close
   useEffect(() => {
     if (!showAmenityModal) {
       resetAmenityForm();
@@ -115,6 +111,47 @@ export default function ProfessorDashboard() {
     }
   }, [activeTab]);
 
+  // ================= SLA FUNCTIONS =================
+  const checkSlaForRequest = async (requestId) => {
+    try {
+      const response = await api.get(`/amenities/check-sla/${requestId}`);
+      setSlaChecks(prev => ({
+        ...prev,
+        [requestId]: response.data
+      }));
+      return response.data;
+    } catch (error) {
+      console.error("Failed to check SLA:", error);
+      // Ensure we don't show a breach UI if the request fails
+      setSlaChecks(prev => ({
+        ...prev,
+        [requestId]: { isSlaBreached: false, canReRequest: false }
+      }));
+      return null;
+    }
+  };
+
+  const checkAllPendingSLAs = async () => {
+    const pendingRequests = amenityRequests.filter(req => req.status === "PENDING");
+    for (const req of pendingRequests) {
+      await checkSlaForRequest(req.id);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "amenities" && amenityRequests.length > 0) {
+      const interval = setInterval(async () => {
+        try {
+          await checkAllPendingSLAs();
+        } catch (error) {
+          console.error("Error checking SLAs:", error);
+        }
+      }, 10000);
+
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, amenityRequests]);
+
   const loadAmenityRequests = async () => {
     try {
       const [activeRes, historyRes] = await Promise.all([
@@ -122,10 +159,43 @@ export default function ProfessorDashboard() {
         api.get("/amenities/my/history"),
       ]);
 
-      setAmenityRequests(activeRes.data);
+      // Filter only truly active requests for the dashboard
+      const activeOnly = activeRes.data.filter(
+        (req) => req.status === "PENDING" || req.status === "ASSIGNED"
+      );
+
+      setAmenityRequests(activeOnly);
       setAmenityHistory(historyRes.data);
+
+      const pendingRequests = activeOnly.filter(req => req.status === "PENDING");
+      for (const req of pendingRequests) {
+        await checkSlaForRequest(req.id);
+      }
     } catch (err) {
       console.error("Failed to load amenity requests", err);
+    }
+  };
+
+  const handleReRequest = async (request) => {
+    setSelectedRequestForReRequest(request);
+    setReRequestModal(true);
+  };
+
+  const confirmReRequest = async () => {
+    if (!selectedRequestForReRequest) return;
+
+    setReRequesting(true);
+    try {
+      const response = await api.post(`/amenities/${selectedRequestForReRequest.id}/re-request`);
+      alert(`New request created successfully!\nRequest ID: #${response.data.newRequestId}`);
+      loadAmenityRequests();
+      setReRequestModal(false);
+      setSelectedRequestForReRequest(null);
+    } catch (error) {
+      alert(error.response?.data?.error || "Failed to re-request. Please try again.");
+      console.error("Re-request failed:", error);
+    } finally {
+      setReRequesting(false);
     }
   };
 
@@ -141,10 +211,7 @@ export default function ProfessorDashboard() {
         classroom,
         items
       });
-
       setShowAmenityModal(false);
-      // Form will reset via useEffect
-
       loadAmenityRequests();
     } catch {
       alert("Failed to submit request");
@@ -152,12 +219,10 @@ export default function ProfessorDashboard() {
   };
 
   const [markedMap, setMarkedMap] = useState({});
-
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
 
-  /* ================= LOAD CLASSES ================= */
   useEffect(() => {
     if (activeTab === "attendance") {
       loadClasses();
@@ -187,13 +252,11 @@ export default function ProfessorDashboard() {
     }
   };
 
-  /* ================= SUMMARY ================= */
   const loadSummary = async (classCode) => {
     const res = await api.get(`/attendance/${classCode}/summary`);
     setSummary(res.data);
   };
 
-  /* ================= CREATE CLASS ================= */
   const createClass = async () => {
     if (!newClassName.trim()) return;
 
@@ -201,19 +264,15 @@ export default function ProfessorDashboard() {
       const res = await api.post("/professor/classes/create", {
         className: newClassName,
       });
-
-      setCreatedClass(res.data);      // { className, classCode }
+      setCreatedClass(res.data);
       setShowCreateModal(false);
       setShowSuccessModal(true);
-      // Form will reset via useEffect
-
-      loadClasses(); // refresh class list
+      loadClasses();
     } catch {
       alert("Failed to create class");
     }
   };
 
-  /* ================= OPEN CLASS ================= */
   const openClass = async (cls) => {
     setSelectedClass(cls);
     setAttendance([]);
@@ -222,7 +281,6 @@ export default function ProfessorDashboard() {
 
     try {
       await loadSummary(cls.classCode);
-
       const res = await api.get(
         `/professor/classes/${cls.classCode}/students`
       );
@@ -234,7 +292,6 @@ export default function ProfessorDashboard() {
     }
   };
 
-  /* ================= LOAD ATTENDANCE ================= */
   const loadAttendanceByDate = async (date) => {
     setLoading(true);
     try {
@@ -250,13 +307,10 @@ export default function ProfessorDashboard() {
     }
   };
 
-  /* ================= UNDO ================= */
   const undoAttendance = (studentRegNo) => {
     const entry = markedMap[studentRegNo];
     if (!entry) return;
-
     clearTimeout(entry.timeoutId);
-
     setMarkedMap((prev) => {
       const updated = { ...prev };
       delete updated[studentRegNo];
@@ -264,24 +318,18 @@ export default function ProfessorDashboard() {
     });
   };
 
-  /* ================= MARK ATTENDANCE ================= */
   const markAttendance = async (studentRegNo, present) => {
     try {
-      // 1️⃣ Save attendance
       await api.post("/attendance/mark", {
         classCode: selectedClass.classCode,
         studentRegNo,
         present,
         attendanceDate: selectedDate,
       });
-
-      // 2️⃣ Reload summary ONLY
       const summaryRes = await api.get(
         `/attendance/${selectedClass.classCode}/summary`
       );
       setSummary(summaryRes.data);
-
-      // 3️⃣ Undo timer
       const timeoutId = setTimeout(() => {
         setMarkedMap((prev) => ({
           ...prev,
@@ -291,8 +339,6 @@ export default function ProfessorDashboard() {
           },
         }));
       }, 5000);
-
-      // 4️⃣ UI state
       setMarkedMap((prev) => ({
         ...prev,
         [studentRegNo]: {
@@ -310,24 +356,20 @@ export default function ProfessorDashboard() {
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this class?\nThis will remove all students and attendance permanently."
     );
-
     if (!confirmDelete) return;
-
     try {
       await api.delete(`/professors/${selectedClass.classCode}`);
-
       setSelectedClass(null);
       setStudents([]);
       setAttendance([]);
       setSummary(null);
       setMarkedMap({});
-      loadClasses(); // refresh class list
+      loadClasses();
     } catch (err) {
       alert("Failed to delete class");
     }
   };
 
-  //=================NOTICE BOARD MODAL=================
   const toggleClassSelection = (code) => {
     setSelectedClasses((prev) =>
       prev.includes(code)
@@ -361,34 +403,25 @@ export default function ProfessorDashboard() {
     if (!noticeTitle || !noticeMessage || selectedClasses.length === 0) {
       return;
     }
-
     try {
       await api.post("/notices/create", {
         title: noticeTitle,
         message: noticeMessage,
         classCodes: selectedClasses,
       });
-
-      // store classes for confirmation modal
       setNoticeSentClasses(
         classes
           .filter((c) => selectedClasses.includes(c.classCode))
           .map((c) => c.className)
       );
-
       setShowNoticeModal(false);
       setShowNoticeSuccess(true);
-      // Form will reset via useEffect
-
-      loadProfessorNotices(); // refresh list
-    } catch {
-
-    }
+      loadProfessorNotices();
+    } catch { }
   };
 
   const groupedNotices = notices.reduce((acc, notice) => {
     const key = `${notice.title}-${notice.message}-${notice.createdAt}`;
-
     if (!acc[key]) {
       acc[key] = {
         title: notice.title,
@@ -400,23 +433,14 @@ export default function ProfessorDashboard() {
     } else {
       acc[key].classCodes.push(notice.classCode);
     }
-
     return acc;
   }, {});
-
-  const StatusStep = ({ label, active }) => (
-    <div className={`status-step ${active ? "active" : ""}`}>
-      <div className="dot" />
-      <span>{label}</span>
-    </div>
-  );
 
   return (
     <div className="prof-dashboard">
       {/* ================= SIDEBAR ================= */}
       <div className="sidebar">
         <h2 className="sidebar-logo">ProfMojo</h2>
-
         <nav>
           <button
             className={`nav-item ${activeTab === "attendance" ? "active" : ""}`}
@@ -427,7 +451,6 @@ export default function ProfessorDashboard() {
           >
             Attendance
           </button>
-
           <button
             className={`nav-item ${activeTab === "notice" ? "active" : ""}`}
             onClick={() => {
@@ -437,7 +460,6 @@ export default function ProfessorDashboard() {
           >
             Notice Board
           </button>
-
           <button
             className={`nav-item ${activeTab === "amenities" ? "active" : ""}`}
             onClick={() => setActiveTab("amenities")}
@@ -445,7 +467,6 @@ export default function ProfessorDashboard() {
             Missing Amenity ?
           </button>
         </nav>
-
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={() => setShowLogoutConfirm(true)}>
             <span>Logout</span>
@@ -461,34 +482,16 @@ export default function ProfessorDashboard() {
               <>
                 <div className="header">
                   <h1>Your Classes</h1>
-
-                  <button
-                    className="create-btn"
-                    onClick={() => setShowCreateModal(true)}
-                  >
-                    + Create Class
-                  </button>
+                  <button className="create-btn" onClick={() => setShowCreateModal(true)}>+ Create Class</button>
                 </div>
-
                 {showCreateModal && (
                   <div className="modal-overlay">
                     <div className="modal">
                       <h2>Create Class</h2>
-                      <input
-                        value={newClassName}
-                        onChange={(e) => setNewClassName(e.target.value)}
-                        placeholder="Class name"
-                      />
+                      <input value={newClassName} onChange={(e) => setNewClassName(e.target.value)} placeholder="Class name" />
                       <div className="modal-actions">
-                        <button
-                          className="cancel"
-                          onClick={() => setShowCreateModal(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button className="confirm" onClick={createClass}>
-                          Create
-                        </button>
+                        <button className="cancel" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                        <button className="confirm" onClick={createClass}>Create</button>
                       </div>
                     </div>
                   </div>
@@ -497,45 +500,18 @@ export default function ProfessorDashboard() {
                   <div className="modal-overlay">
                     <div className="modal">
                       <h2>Class Created Successfully</h2>
-
-                      <p>
-                        <strong>Class Name:</strong> {createdClass.className}
-                      </p>
-
+                      <p><strong>Class Name:</strong> {createdClass.className}</p>
                       <div className="class-code-box">
                         <span>{createdClass.classCode}</span>
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(createdClass.classCode)
-                          }
-                        >
-                          Copy
-                        </button>
+                        <button onClick={() => navigator.clipboard.writeText(createdClass.classCode)}>Copy</button>
                       </div>
-
-                      <p className="hint">
-                        Share this class code with students to join
-                      </p>
-
-                      <button
-                        className="confirm"
-                        onClick={() => setShowSuccessModal(false)}
-                      >
-                        Done
-                      </button>
+                      <button className="confirm" onClick={() => setShowSuccessModal(false)}>Done</button>
                     </div>
                   </div>
                 )}
-
                 <div className="class-grid">
                   {classes.map((cls) => (
-                    <div
-                      key={cls.id}
-                      className="class-card"
-                      onClick={() => openClass(cls)}
-                    >
-                      {cls.className}
-                    </div>
+                    <div key={cls.id} className="class-card" onClick={() => openClass(cls)}>{cls.className}</div>
                   ))}
                 </div>
               </>
@@ -544,200 +520,72 @@ export default function ProfessorDashboard() {
                 <div className="header class-header">
                   <div>
                     <h1>{selectedClass.className}</h1>
-
                     <div className="class-code-inline">
-                      <span className="label">Class Code:</span>
                       <span className="code">{selectedClass.classCode}</span>
-                      <button
-                        className="copy-btn"
-                        onClick={() =>
-                          navigator.clipboard.writeText(selectedClass.classCode)
-                        }
-                      >
-                        Copy
-                      </button>
+                      <button className="copy-btn" onClick={() => navigator.clipboard.writeText(selectedClass.classCode)}>Copy</button>
                     </div>
                   </div>
-
                   <div className="header-actions">
-                    <button
-                      className="delete-btn"
-                      onClick={deleteClass}
-                    >
-                      Delete Class
-                    </button>
-
-                    <button
-                      className="back-btn"
-                      onClick={() => setSelectedClass(null)}
-                    >
-                      ← Back
-                    </button>
+                    <button className="delete-btn" onClick={deleteClass}>Delete Class</button>
+                    <button className="back-btn" onClick={() => setSelectedClass(null)}>← Back</button>
                   </div>
                 </div>
-
                 {summary && (
                   <div className="attendance-summary">
-                    <div>
-                      <strong>Total Lectures</strong>
-                      <span>{summary.totalLectures}</span>
-                    </div>
-
-                    <div>
-                      <strong>Avg Attendance</strong>
-                      <span>{summary.averageAttendance}%</span>
-                    </div>
-
-                    <div className="warning">
-                      <strong>Low Attendance</strong>
-                      <span>{summary.lowAttendanceCount}</span>
-                    </div>
+                    <div><strong>Total Lectures</strong><span>{summary.totalLectures}</span></div>
+                    <div><strong>Avg Attendance</strong><span>{summary.averageAttendance}%</span></div>
+                    <div className="warning"><strong>Low Attendance</strong><span>{summary.lowAttendanceCount}</span></div>
                   </div>
                 )}
                 <div className="attendance-toggle">
-                  <button
-                    className={!showAnalytics ? "active" : ""}
-                    onClick={() => setShowAnalytics(false)}
-                  >
-                    Mark Attendance
-                  </button>
-
-                  <button
-                    className={showAnalytics ? "active" : ""}
-                    onClick={() => {
-                      setShowAnalytics(true);
-                      loadStudentAnalytics();
-                    }}
-                  >
-                    📊 View Analytics
-                  </button>
+                  <button className={!showAnalytics ? "active" : ""} onClick={() => setShowAnalytics(false)}>Mark Attendance</button>
+                  <button className={showAnalytics ? "active" : ""} onClick={() => { setShowAnalytics(true); loadStudentAnalytics(); }}>📊 View Analytics</button>
                 </div>
-
                 <div className="attendance-toolbar">
                   <div className="date-picker">
                     <label>Attendance Date</label>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                    />
+                    <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
                   </div>
-
-                  <button
-                    className="view-btn"
-                    onClick={() => loadAttendanceByDate(selectedDate)}
-                  >
-                    View Attendance
-                  </button>
+                  <button className="view-btn" onClick={() => loadAttendanceByDate(selectedDate)}>View Attendance</button>
                 </div>
-
                 <div className="attendance-card">
                   {showAnalytics ? (
-                    /* ================= ANALYTICS TABLE ================= */
                     <table className="analytics-table">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>Reg No</th>
-                          <th>Total Lectures</th>
-                          <th>Present</th>
-                          <th>Attendance %</th>
-                          <th>Status</th>
-                        </tr>
-                      </thead>
+                      <thead><tr><th>#</th><th>Reg No</th><th>Total</th><th>Present</th><th>%</th><th>Status</th></tr></thead>
                       <tbody>
                         {studentAnalytics.map((s, index) => (
-                          <tr key={s.studentRegNo}>
-                            <td>{index + 1}</td>
-                            <td>{s.studentRegNo}</td>
-                            <td>{s.totalLectures}</td>
-                            <td>{s.presentCount}</td>
-                            <td>{s.attendancePercentage.toFixed(1)}%</td>
-                            <td>
-                              <span
-                                className={`status-pill ${s.lowAttendance ? "absent" : "present"
-                                  }`}
-                              >
-                                {s.lowAttendance ? "Low" : "OK"}
-                              </span>
-                            </td>
-                          </tr>
+                          <tr key={s.studentRegNo}><td>{index + 1}</td><td>{s.studentRegNo}</td><td>{s.totalLectures}</td><td>{s.presentCount}</td><td>{s.attendancePercentage.toFixed(1)}%</td><td><span className={`status-pill ${s.lowAttendance ? "absent" : "present"}`}>{s.lowAttendance ? "Low" : "OK"}</span></td></tr>
                         ))}
                       </tbody>
                     </table>
                   ) : (
-                    /* ================= MARK ATTENDANCE ================= */
                     attendance.length > 0 ? (
                       attendance.map((a) => (
-                        <div key={a.studentRegNo} className="student-row">
-                          <span>{a.studentRegNo}</span>
-                          <span
-                            className={`status-pill ${a.present ? "present" : "absent"}`}
-                          >
-                            {a.present ? "Present" : "Absent"}
-                          </span>
-                        </div>
+                        <div key={a.studentRegNo} className="student-row"><span>{a.studentRegNo}</span><span className={`status-pill ${a.present ? "present" : "absent"}`}>{a.present ? "Present" : "Absent"}</span></div>
                       ))
                     ) : students.length > 0 ? (
                       students.map((enrollment, index) => {
                         const student = enrollment.student;
                         const marked = markedMap[student.regNo];
-
                         return (
                           <div key={student.regNo} className="student-row grid-row">
                             <div className="col-serial">{index + 1}</div>
-
-                            <div className="student-info">
-                              <div className="avatar">{student.name.charAt(0)}</div>
-                              <span className="student-name">{student.name}</span>
-                            </div>
-
+                            <div className="student-info"><div className="avatar">{student.name.charAt(0)}</div><span className="student-name">{student.name}</span></div>
                             <div className="reg-no">{student.regNo}</div>
-
                             <div className="actions">
                               {marked ? (
                                 <div className="marked-box">
-                                  <span
-                                    className={`status-pill ${marked.status ? "present" : "absent"
-                                      }`}
-                                  >
-                                    {marked.status
-                                      ? "Marked: Present"
-                                      : "Marked: Absent"}
-                                  </span>
-
-                                  {marked.undoable && (
-                                    <button
-                                      className="undo-btn"
-                                      onClick={() => undoAttendance(student.regNo)}
-                                    >
-                                      Undo
-                                    </button>
-                                  )}
+                                  <span className={`status-pill ${marked.status ? "present" : "absent"}`}>{marked.status ? "Marked: Present" : "Marked: Absent"}</span>
+                                  {marked.undoable && <button className="undo-btn" onClick={() => undoAttendance(student.regNo)}>Undo</button>}
                                 </div>
                               ) : (
-                                <>
-                                  <button
-                                    className="present"
-                                    onClick={() => markAttendance(student.regNo, true)}
-                                  >
-                                    Present
-                                  </button>
-                                  <button
-                                    className="absent"
-                                    onClick={() => markAttendance(student.regNo, false)}
-                                  >
-                                    Absent
-                                  </button>
-                                </>
+                                <><button className="present" onClick={() => markAttendance(student.regNo, true)}>Present</button><button className="absent" onClick={() => markAttendance(student.regNo, false)}>Absent</button></>
                               )}
                             </div>
                           </div>
                         );
                       })
-                    ) : (
-                      <p className="empty">No students joined yet</p>
-                    )
+                    ) : <p className="empty">No students joined yet</p>
                   )}
                 </div>
               </>
@@ -747,118 +595,24 @@ export default function ProfessorDashboard() {
 
         {activeTab === "notice" && (
           <div className="notice-board">
-            <div className="header">
-              <h1>Notice Board</h1>
-              <button
-                className="create-btn"
-                onClick={() => setShowNoticeModal(true)}
-              >
-                + Create Notice
-              </button>
+            <div className="header"><h1>Notice Board</h1><button className="create-btn" onClick={() => setShowNoticeModal(true)}>+ Create Notice</button></div>
+            <div className="notice-list">
+              {Object.values(groupedNotices).map((notice, index) => (
+                <div key={index} className="notice-card">
+                  <div className="notice-header"><h3>{notice.title}</h3><span>{new Date(notice.createdAt).toLocaleDateString()}</span></div>
+                  <p className="notice-message">{notice.message}</p>
+                  <div className="notice-footer"><span>— {notice.professorName}</span><div>{notice.classCodes.map(code => <span key={code} className="class-pill">{code}</span>)}</div></div>
+                </div>
+              ))}
             </div>
-
-            {/* ================= NOTICE LIST ================= */}
-            {Object.values(groupedNotices).length === 0 ? (
-              <p className="empty">No notices published yet</p>
-            ) : (
-              <div className="notice-list">
-                {Object.values(groupedNotices).map((notice, index) => (
-                  <div key={index} className="notice-card">
-                    <div className="notice-header">
-                      <h3>{notice.title}</h3>
-                      <span className="notice-date">
-                        {new Date(notice.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <p className="notice-message">{notice.message}</p>
-
-                    <div className="notice-footer">
-                      <span className="notice-prof">
-                        — {notice.professorName}
-                      </span>
-
-                      <div className="notice-classes">
-                        {notice.classCodes.map((code) => (
-                          <span key={code} className="class-pill">
-                            {code}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {showNoticeModal && (
               <div className="modal-overlay">
                 <div className="modal">
                   <h2>Create Notice</h2>
-
-                  <input
-                    placeholder="Title"
-                    value={noticeTitle}
-                    onChange={(e) => setNoticeTitle(e.target.value)}
-                  />
-
-                  <textarea
-                    placeholder="Write your notice..."
-                    value={noticeMessage}
-                    onChange={(e) => setNoticeMessage(e.target.value)}
-                  />
-
-                  <div className="class-select">
-                    <div className="class-select-header">
-                      <strong>Select Classes</strong>
-                      <button className="select-all" onClick={selectAllClasses}>
-                        Select All
-                      </button>
-                    </div>
-
-                    <div className="class-list">
-                      {classes.map((cls) => (
-                        <label key={cls.classCode}>
-                          <input
-                            type="checkbox"
-                            checked={selectedClasses.includes(cls.classCode)}
-                            onChange={() => toggleClassSelection(cls.classCode)}
-                          />
-                          {cls.className}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="modal-actions">
-                    <button className="cancel" onClick={() => setShowNoticeModal(false)}>
-                      Cancel
-                    </button>
-                    <button className="confirm" onClick={publishNotice}>
-                      Publish
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {showNoticeSuccess && (
-              <div className="modal-overlay">
-                <div className="modal">
-                  <h2>Notice Sent ✅</h2>
-                  <div className="sent-classes">
-                    {noticeSentClasses.map((cls) => (
-                      <span key={cls} className="class-pill">
-                        {cls}
-                      </span>
-                    ))}
-                  </div>
-                  <button
-                    className="confirm"
-                    onClick={() => setShowNoticeSuccess(false)}
-                  >
-                    Done
-                  </button>
+                  <input placeholder="Title" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} />
+                  <textarea placeholder="Write your notice..." value={noticeMessage} onChange={(e) => setNoticeMessage(e.target.value)} />
+                  <div className="class-list">{classes.map((cls) => <label key={cls.classCode}><input type="checkbox" checked={selectedClasses.includes(cls.classCode)} onChange={() => toggleClassSelection(cls.classCode)} />{cls.className}</label>)}</div>
+                  <div className="modal-actions"><button className="cancel" onClick={() => setShowNoticeModal(false)}>Cancel</button><button className="confirm" onClick={publishNotice}>Publish</button></div>
                 </div>
               </div>
             )}
@@ -869,132 +623,104 @@ export default function ProfessorDashboard() {
           <div className="amenity-board">
             <div className="header amenity-header">
               <h1>Missing Amenities</h1>
-
               <div className="amenity-header-actions">
-                <button
-                  className="history-btn"
-                  onClick={() => setShowAmenityHistory(true)}
-                >
-                  Previous Requests
-                </button>
-
-                <button
-                  className="create-btn"
-                  onClick={() => setShowAmenityModal(true)}
-                >
-                  + Raise Request
-                </button>
+                <button className="history-btn" onClick={() => setShowAmenityHistory(true)}>Previous Requests</button>
+                <button className="create-btn" onClick={() => setShowAmenityModal(true)}>+ Raise Request</button>
               </div>
             </div>
 
-            {/* ===== ACTIVE REQUESTS ===== */}
             <h2 className="section-title" style={{ color: "#111827" }}>Active Requests</h2>
 
             {amenityRequests.length === 0 ? (
               <p className="empty">No active requests</p>
             ) : (
               <div className="amenity-list">
-                {amenityRequests.map(req => (
-                  <div key={req.id} className="amenity-card">
-                    <div className="amenity-top">
-                      <strong>{req.department}</strong>
-                      <span className={`status-pill ${req.status.toLowerCase()}`}>
-                        {req.status}
-                      </span>
-                    </div>
+                {amenityRequests.map(req => {
+                  const slaInfo = slaChecks[req.id];
+                  // Strict boolean logic for UI rendering
+                  const isSlaBreached = slaInfo?.isSlaBreached === true;
+                  const canReRequest = slaInfo?.canReRequest === true;
 
-                    <p>
-                      📍 Classroom: <strong>{req.classRoom}</strong>
-                    </p>
-                    {req.assignedStaff && (
-                      <div className="assigned-staff">
-                        <p>
-                          👷 Assigned to: <strong>{req.assignedStaff.name}</strong>
-                        </p>
-                        {req.assignedStaff.contactNo && (
-                          <p>
-                            📞 Contact: <strong>{req.assignedStaff.contactNo}</strong>
-                          </p>
-                        )}
+                  return (
+                    <div key={req.id} className={`amenity-card ${isSlaBreached ? 'sla-breached' : ''}`}>
+                      <div className="amenity-top">
+                        <strong>{req.department}</strong>
+                        <span className={`status-pill ${req.status.toLowerCase()}`}>{req.status}</span>
                       </div>
-                    )}
-                    {/* Admin assignment SLA */}
-                    {req.status === "PENDING" && (
-                      <p className="sla pending">
-                        Assignment SLA: {formatRemaining(
-                          new Date(req.createdAt).getTime() + 2 * 60 * 1000
-                        )}
-                      </p>
-                    )}
 
-                    {/* Delivery SLA */}
-                    {req.status === "ASSIGNED" && (
-                      <p className="sla delivery">
-                        Delivery SLA: {formatRemaining(req.slaDeadline)}
-                      </p>
-                    )}
+                      {isSlaBreached && req.status === "PENDING" && (
+                        <div className="sla-breach-banner">
+                          <div className="sla-breach-content">
+                            <span className="sla-breach-icon">⚠️</span>
+                            <div>
+                              <strong>SLA BREACHED</strong>
+                              <p>Admin failed to assign staff within 2 minutes</p>
+                              {canReRequest && (
+                                <button
+                                  className="re-request-btn"
+                                  onClick={() => handleReRequest(req)}
+                                  disabled={reRequesting}
+                                >
+                                  {reRequesting ? "Processing..." : "Re-request Now"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="item-list">
-                      {req.items.map(i => (
-                        <span key={i} className="item-pill">{i}</span>
-                      ))}
+                      <p>📍 Classroom: <strong>{req.classRoom}</strong></p>
+                      
+                      {req.assignedStaff && (
+                        <div className="assigned-staff">
+                          <p>👷 Assigned to: <strong>{req.assignedStaff.name}</strong></p>
+                          {req.assignedStaff.contactNo && <p>📞 Contact: <strong>{req.assignedStaff.contactNo}</strong></p>}
+                        </div>
+                      )}
+
+                      {req.status === "PENDING" && !isSlaBreached && req.createdAt && (
+                        <div className="sla-timer">
+                          <span className="sla-label">Assignment SLA:</span>
+                          <span className={`sla-countdown ${slaInfo?.minutesPassed >= 1.5 ? "warning" : ""}`}>
+                            {formatRemaining(new Date(req.createdAt).getTime() + 120000)}
+                          </span>
+                        </div>
+                      )}
+
+                      {isSlaBreached && slaInfo && (
+                        <div className="sla-breached-time">
+                          <span>Breached for: {(slaInfo.minutesPassed || 0) - 2} minute(s)</span>
+                        </div>
+                      )}
+
+                      {req.status === "ASSIGNED" && (
+                        <p className="sla delivery">Delivery SLA: {formatRemaining(req.slaDeadline)}</p>
+                      )}
+
+                      <div className="item-list">
+                        {req.items.map(i => <span key={i} className="item-pill">{i}</span>)}
+                      </div>
+                      <small>Raised on {new Date(req.createdAt).toLocaleString()}</small>
                     </div>
-
-                    <small>
-                      Raised on {new Date(req.createdAt).toLocaleString()}
-                    </small>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
         {activeTab === "amenities" && showAmenityHistory && (
-          <div
-            className="history-overlay"
-            onClick={() => setShowAmenityHistory(false)}
-          >
-            <div
-              className="history-card"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="history-header">
-                <h3> Request History</h3>
-                <button onClick={() => setShowAmenityHistory(false)}>✕</button>
-              </div>
-
-              {amenityHistory.length === 0 ? (
-                <p className="empty">No delivered amenities yet</p>
-              ) : (
+          <div className="history-overlay" onClick={() => setShowAmenityHistory(false)}>
+            <div className="history-card" onClick={(e) => e.stopPropagation()}>
+              <div className="history-header"><h3> Request History</h3><button onClick={() => setShowAmenityHistory(false)}>✕</button></div>
+              {amenityHistory.length === 0 ? <p className="empty">No history yet</p> : (
                 <div className="history-list">
                   {amenityHistory.map(req => (
                     <div key={req.id} className="history-item">
                       <strong>{req.department}</strong>
-                      <p>📍 {req.classRoom}</p>
-                      {req.assignedStaff && (
-                        <div className="assigned-staff">
-                          <p>
-                            👷 Delivered by: <strong>{req.assignedStaff.name}</strong>
-                          </p>
-                          {req.assignedStaff.contactNo && (
-                            <p>
-                              📞 Contact: <strong>{req.assignedStaff.contactNo}</strong>
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="item-list">
-                        {req.items.map(i => (
-                          <span key={i} className="item-pill">{i}</span>
-                        ))}
-                      </div>
-
-                      <small>
-                        Delivered on{" "}
-                        {new Date(req.deliveredAt).toLocaleString()}
-                      </small>
+                      <p>📍 {req.classRoom} | {req.status}</p>
+                      <div className="item-list">{req.items.map(i => <span key={i} className="item-pill">{i}</span>)}</div>
+                      <small>Updated: {new Date(req.deliveredAt || req.createdAt).toLocaleString()}</small>
                     </div>
                   ))}
                 </div>
@@ -1006,54 +732,31 @@ export default function ProfessorDashboard() {
         {showAmenityModal && (
           <div className="modal-overlay">
             <div className="modal">
-              <h2>Raise Amenity Request</h2>
-
-              <select
-                value={department}
-                onChange={e => setDepartment(e.target.value)}
-              >
-                <option value="">Select Department</option>
-                <option value="CSE">CSE</option>
-                <option value="ECE">ECE</option>
-                <option value="ME">ME</option>
+              <h2>Raise Request</h2>
+              <select value={department} onChange={e => setDepartment(e.target.value)}>
+                <option value="">Select Dept</option>
+                <option value="CSE">CSE</option><option value="ECE">ECE</option><option value="ME">ME</option>
               </select>
-
-              <input
-                placeholder="Classroom (e.g. GS7, Lab L1)"
-                value={classroom}
-                onChange={e => setClassroom(e.target.value)}
-              />
-
+              <input placeholder="Classroom" value={classroom} onChange={e => setClassroom(e.target.value)} />
               <div className="item-input">
-                <input
-                  placeholder="Add item (e.g. Chalk)"
-                  value={itemInput}
-                  onChange={e => setItemInput(e.target.value)}
-                />
-                <button
-                  onClick={() => {
-                    if (itemInput.trim()) {
-                      setItems([...items, itemInput]);
-                      setItemInput("");
-                    }
-                  }}
-                >
-                  Add
-                </button>
+                <input placeholder="Add item" value={itemInput} onChange={e => setItemInput(e.target.value)} />
+                <button onClick={() => { if (itemInput.trim()) { setItems([...items, itemInput]); setItemInput(""); } }}>Add</button>
               </div>
+              <div className="item-list">{items.map((i, idx) => <span key={idx} className="item-pill">{i}</span>)}</div>
+              <div className="modal-actions"><button className="cancel" onClick={() => setShowAmenityModal(false)}>Cancel</button><button className="confirm" onClick={submitAmenityRequest}>Submit</button></div>
+            </div>
+          </div>
+        )}
 
-              <div className="item-list">
-                {items.map((i, idx) => (
-                  <span key={idx} className="item-pill">{i}</span>
-                ))}
-              </div>
-
+        {reRequestModal && selectedRequestForReRequest && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h2>⚠️ Re-request Amenities</h2>
+              <p>The original request will be marked as cancelled due to SLA breach and a new one will be raised.</p>
               <div className="modal-actions">
-                <button className="cancel" onClick={() => setShowAmenityModal(false)}>
-                  Cancel
-                </button>
-                <button className="confirm" onClick={submitAmenityRequest}>
-                  Submit
+                <button className="cancel" onClick={() => setReRequestModal(false)} disabled={reRequesting}>Cancel</button>
+                <button className={`confirm ${reRequesting ? "loading" : ""}`} onClick={confirmReRequest} disabled={reRequesting}>
+                  {reRequesting ? "Processing..." : "Yes, Re-request Now"}
                 </button>
               </div>
             </div>
@@ -1062,23 +765,11 @@ export default function ProfessorDashboard() {
 
         {showLogoutConfirm && (
           <div className="modal-overlay">
-            <div className="modal logout-modal">
+            <div className="modal">
               <h2>Log out?</h2>
-              <p>You will be signed out of your professor account.</p>
-
               <div className="modal-actions">
-                <button
-                  className="cancel"
-                  onClick={() => setShowLogoutConfirm(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="confirm logout-confirm"
-                  onClick={handleLogout}
-                >
-                  Yes, Logout
-                </button>
+                <button className="cancel" onClick={() => setShowLogoutConfirm(false)}>Cancel</button>
+                <button className="confirm" onClick={handleLogout}>Logout</button>
               </div>
             </div>
           </div>

@@ -18,6 +18,8 @@ public interface AmenityRequestService {
     List<AmenityRequest> getMyRequests(String professorId);
 
     List<AmenityRequest> getMyDeliveredRequests(String professorId);
+    AmenityRequest findById(Long requestId);
+    AmenityRequest reRequestDueToSLABreach(Long requestId, String professorId);
 
 
 

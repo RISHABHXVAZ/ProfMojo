@@ -6,10 +6,13 @@ import com.profmojo.models.dto.AmenityRequestDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.services.AmenityRequestService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -62,5 +65,36 @@ public class AmenityRequestServiceImpl
                 );
     }
 
+    @Override
+    public AmenityRequest findById(Long requestId) {
+        return repository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+    }
 
+    @Override
+    @Transactional
+    public AmenityRequest reRequestDueToSLABreach(Long originalId, String profId) {
+        AmenityRequest oldReq = repository.findById(originalId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+
+        oldReq.setStatus(RequestStatus.CANCELLED_SLA_BREACH);
+        repository.save(oldReq);
+
+        // 2. CREATE NEW REQUEST
+        AmenityRequest newReq = AmenityRequest.builder()
+                .professorId(profId)
+                .professorName(oldReq.getProfessorName())
+                .department(oldReq.getDepartment())
+                .classRoom(oldReq.getClassRoom())
+                .items(new ArrayList<>(oldReq.getItems()))
+                .status(RequestStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .assignmentSlaBreached(false)
+                .deliverySlaBreached(false)
+                .build();
+
+        return repository.save(newReq);
+    }
 }
+

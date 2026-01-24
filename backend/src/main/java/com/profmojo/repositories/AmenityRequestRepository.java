@@ -4,7 +4,10 @@ import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface AmenityRequestRepository
@@ -34,8 +37,10 @@ public interface AmenityRequestRepository
             String professorId,
             RequestStatus status
     );
-
-
-
+    @Query("SELECT ar FROM AmenityRequest ar WHERE ar.status = :status AND ar.assignmentDeadline < :now")
+    List<AmenityRequest> findRequestsWithBreachedAssignmentSLA(
+            @Param("status") RequestStatus status,
+            @Param("now") LocalDateTime now
+    );
 
 }

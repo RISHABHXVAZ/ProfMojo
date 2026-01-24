@@ -4,5 +4,6 @@ public enum RequestStatus {
     PENDING,
     ASSIGNED,
     DELIVERED,
+    CANCELLED_SLA_BREACH
 }
 

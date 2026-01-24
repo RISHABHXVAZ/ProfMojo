@@ -51,13 +51,24 @@ export default function StaffDashboard() {
         }
     };
 
-    const markDelivered = async (id) => {
+    const markDelivered = async (id, deadline) => {
         try {
+            // Check if the current time is past the SLA deadline
+            const isBreached = new Date(deadline).getTime() < Date.now();
+
             await axios.put(
                 `http://localhost:8080/api/staff/amenities/${id}/delivered`,
                 {},
-                { headers: { Authorization: `Bearer ${token}` } }
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { slaBreached: isBreached }
+                }
             );
+
+            if (isBreached) {
+                alert("SLA Breached! Star count decreased by 1.");
+            }
+
             fetchAssignedRequests();
             fetchProfile();
         } catch (err) {
@@ -71,11 +82,11 @@ export default function StaffDashboard() {
             await axios.post(
                 "http://localhost:8080/api/staff/auth/logout",
                 {},
-                { 
-                    headers: { 
+                {
+                    headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json'
-                    } 
+                    }
                 }
             );
         } catch (err) {
@@ -149,8 +160,8 @@ export default function StaffDashboard() {
                             </div>
                         </div>
                     )}
-                    <button 
-                        className="staff-logout-btn" 
+                    <button
+                        className="staff-logout-btn"
                         onClick={() => setShowLogoutConfirm(true)}
                     >
                         <span>Logout</span>
@@ -188,8 +199,8 @@ export default function StaffDashboard() {
                                     <strong>Service Level</strong>
                                     <span className={`staff-level-badge ${level}`}>
                                         {levelLabel}
-                                        <button 
-                                            className="staff-info-btn" 
+                                        <button
+                                            className="staff-info-btn"
                                             onClick={() => setShowLevels(!showLevels)}
                                             title="View levels info"
                                         >
@@ -226,16 +237,16 @@ export default function StaffDashboard() {
                                                 <h4 className="staff-room-name">{r.classRoom}</h4>
                                                 <span className="staff-badge">ASSIGNED</span>
                                             </div>
-                                            <span className={`staff-sla-indicator ${slaText(r.deliveryDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
-                                                {slaText(r.deliveryDeadline)}
+                                            <span className={`staff-sla-indicator ${slaText(r.slaDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
+                                                {slaText(r.slaDeadline)}
                                             </span>
                                         </div>
-                                        
+
                                         <div className="staff-task-details">
                                             <p className="staff-requested-by">
                                                 Requested by <strong>{r.professorName}</strong>
                                             </p>
-                                            
+
                                             {r.message && (
                                                 <p className="staff-request-message">
                                                     "{r.message}"
@@ -254,9 +265,9 @@ export default function StaffDashboard() {
                                             </div>
                                         </div>
 
-                                        <button 
+                                        <button
                                             className="staff-deliver-btn"
-                                            onClick={() => markDelivered(r.id)}
+                                            onClick={() => markDelivered(r.id, r.slaDeadline)}
                                         >
                                             Mark as Delivered
                                         </button>
@@ -283,7 +294,7 @@ export default function StaffDashboard() {
                                     <p className="staff-profile-role">Staff Member</p>
                                 </div>
                             </div>
-                            
+
                             <div className="staff-profile-details">
                                 <div className="staff-detail-row">
                                     <span className="staff-detail-label">Staff ID</span>
