@@ -736,6 +736,8 @@ export default function ProfessorDashboard() {
               <select value={department} onChange={e => setDepartment(e.target.value)}>
                 <option value="">Select Dept</option>
                 <option value="CSE">CSE</option><option value="ECE">ECE</option><option value="ME">ME</option>
+                <option>Mathematics</option><option>Physics</option><option>Arts</option><option>English</option>
+                <option>Law</option><option>Philosophy</option><option>Hindi</option>
               </select>
               <input placeholder="Classroom" value={classroom} onChange={e => setClassroom(e.target.value)} />
               <div className="item-input">
