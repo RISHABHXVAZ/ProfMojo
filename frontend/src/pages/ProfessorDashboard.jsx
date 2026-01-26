@@ -670,7 +670,7 @@ export default function ProfessorDashboard() {
                       )}
 
                       <p>📍 Classroom: <strong>{req.classRoom}</strong></p>
-                      
+
                       {req.assignedStaff && (
                         <div className="assigned-staff">
                           <p>👷 Assigned to: <strong>{req.assignedStaff.name}</strong></p>
@@ -682,7 +682,11 @@ export default function ProfessorDashboard() {
                         <div className="sla-timer">
                           <span className="sla-label">Assignment SLA:</span>
                           <span className={`sla-countdown ${slaInfo?.minutesPassed >= 1.5 ? "warning" : ""}`}>
-                            {formatRemaining(new Date(req.createdAt).getTime() + 120000)}
+                            {formatRemaining(
+                              new Date(req.createdAt).getTime() +
+                              (req.serverTimeOffset ?? 0) +
+                              120000
+                            )}
                           </span>
                         </div>
                       )}
@@ -736,8 +740,8 @@ export default function ProfessorDashboard() {
               <select value={department} onChange={e => setDepartment(e.target.value)}>
                 <option value="">Select Dept</option>
                 <option value="CSE">CSE</option><option value="ECE">ECE</option><option value="ME">ME</option>
-                <option>Mathematics</option><option>Physics</option><option>Arts</option><option>English</option>
-                <option>Law</option><option>Philosophy</option><option>Hindi</option>
+                <option value="Mathematics">Mathematics</option><option value="Physics">Physics</option><option value="Arts">Arts</option><option value="English Department">English</option>
+                <option value="Law">Law</option><option value="Philosophy">Philosophy</option><option value="Hindi">Hindi</option>
               </select>
               <input placeholder="Classroom" value={classroom} onChange={e => setClassroom(e.target.value)} />
               <div className="item-input">

@@ -23,7 +23,7 @@ services:
       - postgres
     environment:
       # This overrides the hardcoded values in application.properties
-      SPRING_DATASOURCE_URL: jdbc:postgresql://profmojo-db:5432/profmojo
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profmojo
       SPRING_DATASOURCE_USERNAME: profmojo
       SPRING_DATASOURCE_PASSWORD: profmojo
       # Add wait time for database connection
