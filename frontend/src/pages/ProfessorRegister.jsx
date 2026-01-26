@@ -21,9 +21,12 @@ export default function ProfessorRegister() {
     "CSE - Computer Science",
     "ECE - Electronics & Communication", 
     "ME - Mechanical Engineering",
-    "CE - Civil Engineering",
-    "EE - Electrical Engineering",
-    "IT - Information Technology"
+    "Mathematics - Department",
+    "Arts - Department",
+    "English - Department",
+    "Hindi - Department",
+    "Philosophy - Department",
+    "Law - Department"
   ];
 
   const checkIdAvailability = async (id) => {
@@ -135,7 +138,7 @@ export default function ProfessorRegister() {
             <label>Full Name *</label>
             <input
               type="text"
-              placeholder="John Doe"
+              placeholder="full name"
               value={data.name}
               onChange={(e) => setData({ ...data, name: e.target.value })}
               disabled={isLoading}
