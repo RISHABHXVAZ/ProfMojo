@@ -18,16 +18,21 @@ import {
     FileText,
     Wifi,
     WifiOff,
-    Star
+    Star,
+    Bell
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import "./AdminDashboard.css";
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
 
 export default function AdminDashboard() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("pending");
+    const [notifications, setNotifications] = useState([]);
 
     const [showStaffModal, setShowStaffModal] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
@@ -43,6 +48,7 @@ export default function AdminDashboard() {
     const [now, setNow] = useState(Date.now());
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [showNotificationPanel, setShowNotificationPanel] = useState(false);
 
     // Chart data state
     const [chartData, setChartData] = useState({
@@ -65,6 +71,27 @@ export default function AdminDashboard() {
         onlineStaff: 0
     });
 
+    const fetchNotificationHistory = async () => {
+        try {
+            const res = await axios.get("http://localhost:8080/api/notifications/admin/history", {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { department: adminDepartment }
+            });
+
+            // Map backend 'message' to frontend 'msg' for your addNotification logic
+            const formattedHistory = res.data.map(n => ({
+                id: n.id,
+                msg: n.message,
+                type: n.type,
+                timestamp: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }));
+
+            setNotifications(formattedHistory);
+        } catch (err) {
+            console.error("Failed to load notification history", err);
+        }
+    };
+
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
 
@@ -77,6 +104,54 @@ export default function AdminDashboard() {
         }
         return "";
     }
+
+    const addNotification = (msg, type = 'info') => {
+        const id = Date.now() + Math.random();
+        const notification = {
+            id,
+            msg,
+            type,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+
+        setNotifications(prev => [notification, ...prev].slice(0, 5)); // Max 5 notifications
+
+        // Auto remove after duration
+        setTimeout(() => {
+            removeNotification(id);
+        }, type === 'success' ? 4000 : 6000);
+    };
+    const removeNotification = (id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
+
+    const clearAllNotifications = () => {
+        setNotifications([]);
+    };
+
+    useEffect(() => {
+        // 1. Fetch persistent history from DB
+        fetchNotificationHistory();
+
+        // 2. Connect WebSocket for future real-time updates
+        const socket = new SockJS('http://localhost:8080/ws-notifications');
+        const stompClient = Stomp.over(socket);
+
+        stompClient.connect({ Authorization: `Bearer ${token}` }, () => {
+            stompClient.subscribe('/topic/admin-notifications', (message) => {
+                try {
+                    const data = JSON.parse(message.body);
+                    if (!data.department || data.department === adminDepartment) {
+                        // Use data.message from your new Entity structure
+                        addNotification(data.message || data.msg, data.type || 'info');
+                        fetchAllData();
+                    }
+                } catch (e) { console.error("Parse error", e); }
+            });
+        });
+
+        return () => { if (stompClient.connected) stompClient.disconnect(); };
+    }, [token, adminDepartment]);
 
     /* ================= GENERATE CHART DATA ================= */
     const generateChartData = () => {
@@ -379,6 +454,119 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
 
     return (
         <div className="admin-dashboard">
+            {/* Professional Notification System */}
+            <div className="admin-notification-center">
+                {/* Notification Bell with Counter */}
+                <div className="admin-notification-bell" onClick={() => setShowNotificationPanel(!showNotificationPanel)}>
+                    <Bell size={22} />
+                    {notifications.length > 0 && (
+                        <span className="admin-notification-counter">{notifications.length}</span>
+                    )}
+                </div>
+
+                {/* Notification Panel */}
+                {showNotificationPanel && (
+                    <div className="admin-notification-panel">
+                        <div className="admin-notification-header">
+                            <h3>Notifications</h3>
+                            <div className="admin-notification-actions">
+                                <button
+                                    className="admin-notification-clear-btn"
+                                    onClick={clearAllNotifications}
+                                    disabled={notifications.length === 0}
+                                >
+                                    Clear All
+                                </button>
+                                <button
+                                    className="admin-notification-close-btn"
+                                    onClick={() => setShowNotificationPanel(false)}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="admin-notification-list">
+                            {notifications.length === 0 ? (
+                                <div className="admin-notification-empty">
+                                    <Bell size={32} />
+                                    <p>No notifications</p>
+                                    <span>All caught up!</span>
+                                </div>
+                            ) : (
+                                notifications.map(notification => (
+                                    <div
+                                        key={notification.id}
+                                        className={`admin-notification-item ${notification.type}`}
+                                        onClick={() => removeNotification(notification.id)}
+                                    >
+                                        <div className="admin-notification-icon">
+                                            {notification.type === 'success' && <CheckCircle size={18} />}
+                                            {notification.type === 'error' && <AlertCircle size={18} />}
+                                            {notification.type === 'warning' && <AlertCircle size={18} />}
+                                            {notification.type === 'info' && <Bell size={18} />}
+                                        </div>
+                                        <div className="admin-notification-content">
+                                            <p className="admin-notification-message">{notification.msg}</p>
+                                            <span className="admin-notification-time">{notification.timestamp}</span>
+                                        </div>
+                                        <button
+                                            className="admin-notification-dismiss"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                removeNotification(notification.id);
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {notifications.length > 0 && (
+                            <div className="admin-notification-footer">
+                                <button
+                                    className="admin-notification-mark-read"
+                                    onClick={clearAllNotifications}
+                                >
+                                    Mark all as read
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Toast Notifications (for real-time updates) */}
+            <div className="admin-toast-container">
+                {notifications.filter(n => n.type === 'success' || n.type === 'error').slice(0, 2).map(notification => (
+                    <div
+                        key={notification.id}
+                        className={`admin-toast ${notification.type}`}
+                        onAnimationEnd={() => {
+                            if (notification.leaving) {
+                                removeNotification(notification.id);
+                            }
+                        }}
+                    >
+                        <div className="admin-toast-icon">
+                            {notification.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+                        </div>
+                        <div className="admin-toast-content">
+                            <p className="admin-toast-message">{notification.msg}</p>
+                            <span className="admin-toast-time">{notification.timestamp}</span>
+                        </div>
+                        <button
+                            className="admin-toast-close"
+                            onClick={() => removeNotification(notification.id)}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+
             {/* Sidebar */}
             <div className="admin-sidebar">
                 <div className="admin-sidebar-header">
@@ -680,8 +868,6 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                 {/* Content Area for other tabs */}
                 {activeTab !== "dashboard" && (
                     <div className="admin-content-area">
-                        {/* ... (rest of your existing code for pending/ongoing/completed/staff tabs) */}
-                        {/* This section remains exactly as it was in your original code */}
                         {(activeTab === "pending" || activeTab === "ongoing" || activeTab === "completed") && (
                             <>
                                 <div className="admin-content-header">

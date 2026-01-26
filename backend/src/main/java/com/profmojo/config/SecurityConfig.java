@@ -39,8 +39,19 @@ public class SecurityConfig {
                                 "/api/canteen/check-id/**",
                                 "/api/canteen/*/upi",
                                 "/api/admin/auth/**",
-                                "/api/staff/auth/**"
+                                "/api/staff/auth/**",
+                                "/ws-notifications/**"
                         ).permitAll()
+
+                                // 🔔 NOTIFICATIONS
+// Admin history needs ADMIN role
+                                .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
+
+// Staff history needs STAFF role
+                                .requestMatchers("/api/notifications/staff/**").hasRole("STAFF")
+
+// General notifications (if any) - authenticated users
+                                .requestMatchers("/api/notifications/**").authenticated()
 
                         // 🛠️ ADMIN — MUST COME FIRST
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

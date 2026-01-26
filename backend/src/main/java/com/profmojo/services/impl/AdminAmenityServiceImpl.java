@@ -7,7 +7,9 @@ import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.services.AdminAmenityService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate; // Required for WebSocket
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,14 +22,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
     private final StaffRepository staffRepo;
 
     @Override
-    public List<AmenityRequest> getPendingRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(
-                department,
-                RequestStatus.PENDING
-        );
-    }
-
-    @Override
+    @Transactional
     public AmenityRequest assignStaff(Long requestId, String staffId) {
 
         AmenityRequest request = requestRepo.findById(requestId)
@@ -41,33 +36,34 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         }
 
         staff.setAvailable(false);
-
         request.setAssignedStaff(staff);
         request.setAssignedAt(LocalDateTime.now());
 
-        request.setSlaDeadline(LocalDateTime.now().plusMinutes(10));
+        LocalDateTime deadline = LocalDateTime.now().plusMinutes(10);
+        request.setSlaDeadline(deadline);
+        request.setDeliveryDeadline(deadline);
 
         request.setStatus(RequestStatus.ASSIGNED);
 
-
         staffRepo.save(staff);
-        return requestRepo.save(request);
+        AmenityRequest savedRequest = requestRepo.save(request);
+
+        return savedRequest;
+    }
+
+    @Override
+    public List<AmenityRequest> getPendingRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.PENDING);
     }
 
     @Override
     public List<AmenityRequest> getOngoingRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(
-                department,
-                RequestStatus.ASSIGNED
-        );
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.ASSIGNED);
     }
 
     @Override
     public List<AmenityRequest> getCompletedRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(
-                department,
-                RequestStatus.DELIVERED
-        );
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.DELIVERED);
     }
 
     @Override
@@ -77,8 +73,6 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
 
     @Override
     public List<Staff> getAvailableStaff() {
-        // You might want to filter by available=true AND online=true
         return staffRepo.findByAvailableTrue();
     }
-
 }
