@@ -116,12 +116,12 @@ public class AdminAmenityController {
     }
 
     @GetMapping("/staff/all")
-    public List<Staff> getAllStaff() {
-        return adminAmenityService.getAllStaff();
+    public List<Staff> getAllStaff(@RequestParam String department) {
+        return adminAmenityService.getAllStaff(department);
     }
 
     @GetMapping("/staff/available")
-    public List<Staff> getAvailableStaff() {
-        return adminAmenityService.getAvailableStaff();
+    public List<Staff> getAvailableStaff(@RequestParam String department) {
+        return adminAmenityService.getAvailableStaff(department);
     }
 }

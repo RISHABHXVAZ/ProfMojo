@@ -52,12 +52,15 @@ export default function AdminLogin() {
             navigate("/admin/dashboard");
 
         } catch (err) {
-            if (err.response?.status === 400 || err.response?.status === 404) {
-                // Password not set yet
+            const status = err.response?.status;
+            const message = err.response?.data?.message || "";
+
+            // Add 403 to the list of statuses that trigger the switch to SET_PASSWORD
+            if (status === 401 || status === 403 || status === 400 || status === 404 || message.toLowerCase().includes("not set")) {
                 setStep("SET_PASSWORD");
-                setError("First-time access detected. Please set your admin password.");
+                setError("First-time access detected or setup required. Please set your admin password.");
             } else {
-                setError(err.response?.data?.message || "Invalid Admin ID or password");
+                setError(message || "Invalid Admin ID or password");
             }
         } finally {
             setLoading(false);
@@ -88,12 +91,13 @@ export default function AdminLogin() {
         }
 
         try {
+            // Backend API Call to update NULL password to encrypted string
             await axios.post(
                 "http://localhost:8080/api/admin/auth/set-password",
                 { adminId, password }
             );
 
-            // Show success toast
+            // Success Visual Feedback using a toast (existing CSS classes used)
             const successToast = document.createElement("div");
             successToast.className = "admin-toast success";
             successToast.innerHTML = `
@@ -103,12 +107,13 @@ export default function AdminLogin() {
             document.body.appendChild(successToast);
             setTimeout(() => successToast.remove(), 3000);
 
-            // Auto switch to login after 2 seconds
+            // Auto switch back to login step
             setTimeout(() => {
                 setStep("LOGIN");
                 setPassword("");
                 setConfirmPassword("");
                 setPasswordStrength(0);
+                setError("");
             }, 2000);
 
         } catch (err) {
@@ -142,7 +147,6 @@ export default function AdminLogin() {
 
     return (
         <div className="admin-login-page">
-            {/* Animated Background */}
             <div className="admin-login-bg">
                 <div className="admin-bg-shapes">
                     <div className="admin-bg-shape shape-1"></div>
@@ -151,7 +155,6 @@ export default function AdminLogin() {
                 </div>
             </div>
 
-            {/* Header */}
             <header className="admin-login-header">
                 <div className="admin-header-content">
                     <Link to="/" className="admin-back-home">
@@ -168,10 +171,8 @@ export default function AdminLogin() {
                 </div>
             </header>
 
-            {/* Main Content */}
             <main className="admin-login-main">
                 <div className="admin-login-container">
-                    {/* Welcome Card */}
                     <div className="admin-welcome-card">
                         <div className="admin-role-indicator">
                             <div className="admin-role-icon">
@@ -182,14 +183,14 @@ export default function AdminLogin() {
                                     {step === "LOGIN" ? "Admin Portal Login" : "Setup Admin Access"}
                                 </h2>
                                 <p className="admin-welcome-desc">
-                                    {step === "LOGIN" 
+                                    {step === "LOGIN"
                                         ? "Access the system administration dashboard with elevated privileges"
                                         : "Configure your admin credentials for first-time access"
                                     }
                                 </p>
                             </div>
                         </div>
-                        
+
                         <div className="admin-step-indicator">
                             <div className={`admin-step ${step === "LOGIN" ? "active" : ""}`}>
                                 <span className="admin-step-number">1</span>
@@ -203,13 +204,11 @@ export default function AdminLogin() {
                         </div>
                     </div>
 
-                    {/* Login Form Card */}
                     <div className="admin-form-card">
                         <form
                             className="admin-login-form"
                             onSubmit={step === "LOGIN" ? handleLogin : handleSetPassword}
                         >
-                            {/* Admin ID */}
                             <div className="admin-input-group">
                                 <label htmlFor="adminId" className="admin-input-label">
                                     <User size={16} />
@@ -230,7 +229,6 @@ export default function AdminLogin() {
                                 </div>
                             </div>
 
-                            {/* Password */}
                             <div className="admin-input-group">
                                 <label htmlFor="password" className="admin-input-label">
                                     <Key size={16} />
@@ -258,12 +256,11 @@ export default function AdminLogin() {
                                     </button>
                                 </div>
 
-                                {/* Password Strength Meter (only for setup) */}
                                 {step === "SET_PASSWORD" && password && (
                                     <div className="admin-password-strength">
                                         <div className="admin-strength-meter">
-                                            <div 
-                                                className="admin-strength-bar" 
+                                            <div
+                                                className="admin-strength-bar"
                                                 style={{
                                                     width: `${(passwordStrength / 4) * 100}%`,
                                                     backgroundColor: getPasswordStrengthColor()
@@ -277,7 +274,6 @@ export default function AdminLogin() {
                                 )}
                             </div>
 
-                            {/* Confirm Password (only for SET_PASSWORD mode) */}
                             {step === "SET_PASSWORD" && (
                                 <div className="admin-input-group">
                                     <label htmlFor="confirmPassword" className="admin-input-label">
@@ -308,7 +304,6 @@ export default function AdminLogin() {
                                 </div>
                             )}
 
-                            {/* Error Message */}
                             {error && (
                                 <div className="admin-error-message">
                                     <AlertCircle size={20} />
@@ -319,9 +314,8 @@ export default function AdminLogin() {
                                 </div>
                             )}
 
-                            {/* Submit Button */}
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 className="admin-submit-button"
                                 disabled={loading}
                             >
@@ -340,29 +334,19 @@ export default function AdminLogin() {
                                 )}
                             </button>
 
-                            {/* Password Requirements (only for setup) */}
                             {step === "SET_PASSWORD" && (
                                 <div className="admin-requirements">
                                     <h4 className="admin-requirements-title">Password Requirements:</h4>
                                     <ul className="admin-requirements-list">
-                                        <li className={password.length >= 8 ? "valid" : ""}>
-                                            At least 8 characters long
-                                        </li>
-                                        <li className={/[A-Z]/.test(password) ? "valid" : ""}>
-                                            Contains uppercase letter
-                                        </li>
-                                        <li className={/[0-9]/.test(password) ? "valid" : ""}>
-                                            Contains number
-                                        </li>
-                                        <li className={/[^A-Za-z0-9]/.test(password) ? "valid" : ""}>
-                                            Contains special character
-                                        </li>
+                                        <li className={password.length >= 8 ? "valid" : ""}>At least 8 characters long</li>
+                                        <li className={/[A-Z]/.test(password) ? "valid" : ""}>Contains uppercase letter</li>
+                                        <li className={/[0-9]/.test(password) ? "valid" : ""}>Contains number</li>
+                                        <li className={/[^A-Za-z0-9]/.test(password) ? "valid" : ""}>Contains special character</li>
                                     </ul>
                                 </div>
                             )}
                         </form>
 
-                        {/* Security Information */}
                         <div className="admin-security-info">
                             <div className="admin-security-header">
                                 <Shield size={20} />
@@ -396,7 +380,6 @@ export default function AdminLogin() {
                 </div>
             </main>
 
-            {/* Footer */}
             <footer className="admin-login-footer">
                 <div className="admin-footer-content">
                     <p className="admin-footer-text">

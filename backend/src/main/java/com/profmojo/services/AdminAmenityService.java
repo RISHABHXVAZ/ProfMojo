@@ -16,6 +16,6 @@ public interface AdminAmenityService {
 
     List<AmenityRequest> getCompletedRequests(String department);
 
-    List<Staff> getAllStaff();
-    List<Staff> getAvailableStaff();
+    List<Staff> getAllStaff(String department);
+    List<Staff> getAvailableStaff(String department);
 }

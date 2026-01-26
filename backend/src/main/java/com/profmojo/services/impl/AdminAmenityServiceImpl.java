@@ -67,12 +67,16 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
     }
 
     @Override
-    public List<Staff> getAllStaff() {
-        return staffRepo.findAll();
+    public List<Staff> getAllStaff(String department) {
+        // Change from findAll() to filter by department
+        return staffRepo.findByDepartment(department);
     }
 
     @Override
-    public List<Staff> getAvailableStaff() {
-        return staffRepo.findByAvailableTrue();
+    public List<Staff> getAvailableStaff(String department) {
+        // Change from findByAvailableTrue() to filter by department
+        return staffRepo.findByDepartmentAndAvailableTrue(department);
     }
+
+
 }
