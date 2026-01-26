@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
 import "./StaffDashboard.css";
 
 export default function StaffDashboard() {
@@ -11,9 +13,60 @@ export default function StaffDashboard() {
     const [showLevels, setShowLevels] = useState(false);
     const [activeTab, setActiveTab] = useState("tasks");
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+
+    // WebSocket refs
+    const stompClientRef = useRef(null);
+    const notificationIdsRef = useRef(new Set());
 
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
+
+    const addNotification = (msg, type = 'info') => {
+        const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        setNotifications(prev => {
+            const normalizedMsg = msg.toLowerCase().trim();
+            const exists = prev.some(n => n.msg.toLowerCase().trim() === normalizedMsg);
+            if (exists) return prev;
+
+            return [...prev, {
+                id: notificationId,
+                msg,
+                type,
+                timestamp: Date.now()
+            }];
+        });
+
+        setTimeout(() => {
+            setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        }, 5000);
+    };
+
+    const removeNotification = (id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
+
+    const clearAllNotifications = () => {
+        setNotifications([]);
+    };
+
+    const fetchHistory = async () => {
+        try {
+            const res = await axios.get("http://localhost:8080/api/notifications/staff/history", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const history = res.data.map(n => ({
+                id: n.id,
+                msg: n.message,
+                type: n.type
+            }));
+            setNotifications(history);
+        } catch (err) {
+            console.error("Failed to load notification history", err);
+        }
+    };
 
     useEffect(() => {
         fetchAssignedRequests();
@@ -24,6 +77,66 @@ export default function StaffDashboard() {
         const i = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(i);
     }, []);
+
+    /* ===================== WEBSOCKET ===================== */
+    useEffect(() => {
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            stompClientRef.current.disconnect();
+        }
+
+        const socket = new SockJS('http://localhost:8080/ws-notifications');
+        const stompClient = Stomp.over(socket);
+        stompClientRef.current = stompClient;
+        stompClient.debug = null;
+
+        stompClient.connect(
+            { Authorization: `Bearer ${token}` },
+            () => {
+                console.log("WebSocket connected for staff");
+
+                stompClient.subscribe('/user/queue/notifications', (message) => {
+                    try {
+                        const data = JSON.parse(message.body);
+
+                        // 🔒 ONLY process assignment events
+                        if (data.event !== "TASK_ASSIGNED") return;
+
+                        const notificationKey = `${data.event}-${data.requestId}`;
+
+                        if (notificationIdsRef.current.has(notificationKey)) {
+                            console.log("Duplicate notification skipped:", notificationKey);
+                            return;
+                        }
+
+                        notificationIdsRef.current.add(notificationKey);
+
+                        addNotification(data.message, data.type || 'info');
+                        fetchAssignedRequests();
+
+                        setTimeout(() => {
+                            notificationIdsRef.current.delete(notificationKey);
+                        }, 30000);
+
+                    } catch (e) {
+                        console.error("Error parsing notification:", e);
+                    }
+                });
+            },
+            (error) => {
+                console.error("WebSocket connection error:", error);
+                addNotification("Connection lost. Reconnecting...", "error");
+            }
+        );
+
+        return () => {
+            if (stompClientRef.current && stompClientRef.current.connected) {
+                stompClientRef.current.disconnect();
+                console.log("WebSocket disconnected");
+            }
+        };
+    }, [token]);
+
+    /* ===================== API ===================== */
 
     const fetchAssignedRequests = async () => {
         try {
@@ -53,7 +166,6 @@ export default function StaffDashboard() {
 
     const markDelivered = async (id, deadline) => {
         try {
-            // Check if the current time is past the SLA deadline
             const isBreached = new Date(deadline).getTime() < Date.now();
 
             await axios.put(
@@ -66,19 +178,21 @@ export default function StaffDashboard() {
             );
 
             if (isBreached) {
-                alert("SLA Breached! Star count decreased by 1.");
+                addNotification("SLA Breached! Star count decreased by 1.", "warning");
+            } else {
+                addNotification("Task marked as delivered successfully!", "success");
             }
 
             fetchAssignedRequests();
             fetchProfile();
         } catch (err) {
             console.error("Failed to mark as delivered", err);
+            addNotification("Failed to mark as delivered. Please try again.", "error");
         }
     };
 
     const handleLogout = async () => {
         try {
-            // Call the logout endpoint to set online = false
             await axios.post(
                 "http://localhost:8080/api/staff/auth/logout",
                 {},
@@ -89,11 +203,7 @@ export default function StaffDashboard() {
                     }
                 }
             );
-        } catch (err) {
-            console.error("Failed to update online status during logout", err);
-            // Still proceed with logout even if this fails
         } finally {
-            // Clear local storage and navigate
             localStorage.removeItem("token");
             localStorage.removeItem("role");
             localStorage.removeItem("staffId");
@@ -112,11 +222,40 @@ export default function StaffDashboard() {
 
     const level =
         staff?.stars >= 20 ? "gold" :
-            staff?.stars >= 10 ? "silver" : "bronze";
+        staff?.stars >= 10 ? "silver" : "bronze";
 
     const levelLabel =
         level === "gold" ? "Gold" :
-            level === "silver" ? "Silver" : "Bronze";
+        level === "silver" ? "Silver" : "Bronze";
+
+    const NotificationToasts = () => (
+        <div className="staff-toast-container">
+            {notifications.map(n => (
+                <div
+                    key={n.id}
+                    className={`staff-toast ${n.type || 'info'}`}
+                    style={{ animation: 'toastSlideIn 0.3s ease-out' }}
+                >
+                    <div className="staff-toast-content">
+                        <p>{n.msg}</p>
+                        <div className="staff-toast-progress">
+                            <div
+                                className="staff-toast-progress-bar"
+                                style={{ animation: 'toastProgress 5s linear forwards' }}
+                            />
+                        </div>
+                    </div>
+                    <button
+                        className="staff-toast-close"
+                        onClick={() => removeNotification(n.id)}
+                        aria-label="Dismiss notification"
+                    >
+                        ✕
+                    </button>
+                </div>
+            ))}
+        </div>
+    );
 
     if (loading) {
         return (
@@ -129,7 +268,8 @@ export default function StaffDashboard() {
 
     return (
         <div className="staff-dashboard">
-            {/* Sidebar */}
+            <NotificationToasts />
+
             <div className="staff-sidebar">
                 <h2 className="staff-sidebar-logo">ProfMojo</h2>
 
@@ -169,7 +309,6 @@ export default function StaffDashboard() {
                 </div>
             </div>
 
-            {/* Main Content */}
             <div className="staff-main-area">
                 {activeTab === "tasks" && (
                     <>
@@ -177,7 +316,6 @@ export default function StaffDashboard() {
                             <h1>My Assigned Tasks</h1>
                         </div>
 
-                        {/* Stats Overview */}
                         <div className="staff-stats-summary">
                             <div className="staff-stat-card">
                                 <div className="staff-stat-icon">⭐</div>
@@ -203,6 +341,8 @@ export default function StaffDashboard() {
                                             className="staff-info-btn"
                                             onClick={() => setShowLevels(!showLevels)}
                                             title="View levels info"
+                                            onMouseEnter={() => setShowLevels(true)}
+                                            onMouseLeave={() => setShowLevels(false)}
                                         >
                                             i
                                         </button>
@@ -221,7 +361,6 @@ export default function StaffDashboard() {
                             </div>
                         </div>
 
-                        {/* Tasks Grid */}
                         {requests.length === 0 ? (
                             <div className="staff-empty-state">
                                 <div className="staff-empty-icon">📋</div>
@@ -325,7 +464,6 @@ export default function StaffDashboard() {
                     </div>
                 )}
 
-                {/* Logout Confirmation Modal */}
                 {showLogoutConfirm && (
                     <div className="staff-modal-overlay">
                         <div className="staff-modal">
