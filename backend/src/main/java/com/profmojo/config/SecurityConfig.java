@@ -4,6 +4,7 @@ import com.profmojo.security.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // 🔓 PUBLIC
                         .requestMatchers(
@@ -54,11 +56,14 @@ public class SecurityConfig {
 
 // General notifications (if any) - authenticated users
                                 .requestMatchers("/api/notifications/**").authenticated()
+                                .requestMatchers(
+                                        "/api/admin/amenities/*/queue"
+                                ).hasRole("ADMIN")
 
                         // 🛠️ ADMIN — MUST COME FIRST
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // 👨‍🏫 PROFESSOR AMENITIES
+                                // 👨‍🏫 PROFESSOR AMENITIES
                         .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
 
                         // 👷 STAFF
