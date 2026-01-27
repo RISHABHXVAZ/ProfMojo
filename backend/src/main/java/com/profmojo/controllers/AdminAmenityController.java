@@ -124,4 +124,15 @@ public class AdminAmenityController {
     public List<Staff> getAvailableStaff(@RequestParam String department) {
         return adminAmenityService.getAvailableStaff(department);
     }
+
+    @PutMapping("/{requestId}/queue")
+    public AmenityRequest addToQueue(@PathVariable Long requestId) {
+        return adminAmenityService.addToQueue(requestId);
+    }
+
+    @GetMapping("/queue")
+    public List<AmenityRequest> getQueued(@RequestParam String department) {
+        return adminAmenityService.getQueuedRequests(department);
+    }
+
 }

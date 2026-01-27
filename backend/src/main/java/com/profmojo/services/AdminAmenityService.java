@@ -18,4 +18,9 @@ public interface AdminAmenityService {
 
     List<Staff> getAllStaff(String department);
     List<Staff> getAvailableStaff(String department);
+
+    AmenityRequest addToQueue(Long requestId);
+    List<AmenityRequest> getQueuedRequests(String department);
+
+    void tryAssignQueuedRequest(Staff staff);
 }

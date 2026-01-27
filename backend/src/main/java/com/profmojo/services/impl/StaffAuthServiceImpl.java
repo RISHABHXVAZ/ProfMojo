@@ -6,6 +6,7 @@ import com.profmojo.models.dto.StaffLoginResponse;
 import com.profmojo.models.dto.StaffSetPasswordRequest;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.security.jwt.JwtUtil;
+import com.profmojo.services.AdminAmenityService;
 import com.profmojo.services.StaffAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +19,7 @@ public class StaffAuthServiceImpl implements StaffAuthService {
     private final StaffRepository staffRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final AdminAmenityService adminAmenityService;
 
     @Override
     public void setPassword(StaffSetPasswordRequest request) {
@@ -44,6 +46,7 @@ public class StaffAuthServiceImpl implements StaffAuthService {
         }
         staff.setOnline(true);
         staffRepository.save(staff);
+        adminAmenityService.tryAssignQueuedRequest(staff);
         String token = jwtUtil.generateToken(
                 staff.getStaffId(),
                 staff.getRole()   // "STAFF"

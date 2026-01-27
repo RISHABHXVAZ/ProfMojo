@@ -50,7 +50,27 @@ public class StaffAmenityController {
 
         // Update Staff Stats
         staff.setTotalDeliveries(staff.getTotalDeliveries() + 1);
-        staff.setAvailable(true); // Staff is free to take new requests
+        staff.setAvailable(true);
+
+        amenityRepo
+                .findFirstByDepartmentAndStatusOrderByCreatedAtAsc(
+                        staff.getDepartment(), RequestStatus.QUEUED
+                )
+                .ifPresent(queuedRequest -> {
+                    queuedRequest.setAssignedStaff(staff);
+                    queuedRequest.setAssignedAt(LocalDateTime.now());
+
+                    LocalDateTime deadline = LocalDateTime.now().plusMinutes(5);
+                    queuedRequest.setSlaDeadline(deadline);
+                    queuedRequest.setDeliveryDeadline(deadline);
+
+                    queuedRequest.setStatus(RequestStatus.ASSIGNED);
+                    staff.setAvailable(false);
+
+                    amenityRepo.save(queuedRequest);
+                    staffRepo.save(staff);
+                });
+
 
         // Update Request Status
         request.setStatus(RequestStatus.DELIVERED);

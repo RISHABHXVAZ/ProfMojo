@@ -2,6 +2,7 @@ package com.profmojo.services.impl;
 
 import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
+import com.profmojo.models.dto.WsNotificationDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.StaffRepository;
@@ -20,6 +21,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
 
     private final AmenityRequestRepository requestRepo;
     private final StaffRepository staffRepo;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -39,7 +41,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         request.setAssignedStaff(staff);
         request.setAssignedAt(LocalDateTime.now());
 
-        LocalDateTime deadline = LocalDateTime.now().plusMinutes(10);
+        LocalDateTime deadline = LocalDateTime.now().plusMinutes(5);
         request.setSlaDeadline(deadline);
         request.setDeliveryDeadline(deadline);
 
@@ -77,6 +79,67 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         // Change from findByAvailableTrue() to filter by department
         return staffRepo.findByDepartmentAndAvailableTrue(department);
     }
+
+    @Override
+    @Transactional
+    public AmenityRequest addToQueue(Long requestId) {
+        AmenityRequest request = requestRepo.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new RuntimeException("Only pending requests can be queued");
+        }
+
+        request.setStatus(RequestStatus.QUEUED);
+        return requestRepo.save(request);
+    }
+    @Override
+    public List<AmenityRequest> getQueuedRequests(String department) {
+        return requestRepo
+                .findByDepartmentAndStatusOrderByCreatedAtAsc(
+                        department, RequestStatus.QUEUED);
+    }
+
+    @Transactional
+    public void tryAssignQueuedRequest(Staff staff) {
+
+        // 1️⃣ Get oldest queued request for staff's department
+        AmenityRequest req = requestRepo
+                .findFirstByStatusAndDepartmentOrderByCreatedAtAsc(
+                        RequestStatus.QUEUED,
+                        staff.getDepartment()
+                )
+                .orElse(null);
+
+        if (req == null) return;
+
+        // 2️⃣ Assign staff (reuse existing logic pattern)
+        staff.setAvailable(false);
+        req.setAssignedStaff(staff);
+        req.setAssignedAt(LocalDateTime.now());
+
+        LocalDateTime deadline = LocalDateTime.now().plusMinutes(5);
+        req.setSlaDeadline(deadline);
+        req.setDeliveryDeadline(deadline);
+
+        req.setStatus(RequestStatus.ASSIGNED);
+
+        staffRepo.save(staff);
+        requestRepo.save(req);
+
+        // 3️⃣ OPTIONAL: notify staff via WS
+        messagingTemplate.convertAndSendToUser(
+                staff.getStaffId(),
+                "/queue/notifications",
+                WsNotificationDTO.builder()
+                        .event("TASK_ASSIGNED")
+                        .requestId(req.getId())
+                        .message("New queued task assigned: Room " + req.getClassRoom())
+                        .type("info")
+                        .build()
+        );
+    }
+
 
 
 }
