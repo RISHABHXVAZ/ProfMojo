@@ -38,10 +38,6 @@ public class SecurityConfig {
                                 "/api/professors/login",
                                 "/api/professors/register",
                                 "/api/professors/check-id/**",
-                                "/api/canteen/login",
-                                "/api/canteen/register",
-                                "/api/canteen/check-id/**",
-                                "/api/canteen/*/upi",
                                 "/api/admin/auth/**",
                                 "/api/staff/auth/**",
                                 "/ws-notifications/**"
@@ -69,17 +65,9 @@ public class SecurityConfig {
                         // 👷 STAFF
                         .requestMatchers("/api/staff/**").hasRole("STAFF")
 
-                        // 🏪 CANTEEN
-                        .requestMatchers("/api/canteen/menu/my").hasRole("CANTEEN")
-                        .requestMatchers("/api/canteen/menu/add").hasRole("CANTEEN")
-                        .requestMatchers("/api/canteen/menu/availability").hasRole("CANTEEN")
-                        .requestMatchers("/api/canteen/menu/**").hasRole("PROFESSOR")
-                        .requestMatchers("/api/canteen/**").hasRole("CANTEEN")
-
                         // OTHER PROTECTED
                         .requestMatchers("/api/students/**").authenticated()
                         .requestMatchers("/api/professors/**").authenticated()
-                        .requestMatchers("/api/orders/**").authenticated()
 
                         .anyRequest().authenticated()
                 )

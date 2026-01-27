@@ -1,9 +1,0 @@
-package com.profmojo.models.dto;
-
-import lombok.Data;
-
-@Data
-public class UpdateOrderStatusRequest {
-    private Long orderId;
-    private String status; // PREPARING / READY / DELIVERED
-}
