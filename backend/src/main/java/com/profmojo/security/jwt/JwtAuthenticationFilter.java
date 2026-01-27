@@ -1,6 +1,5 @@
 package com.profmojo.security.jwt;
 
-import com.profmojo.models.CanteenFolder.Canteen;
 import com.profmojo.models.Professor;
 import com.profmojo.models.Staff;
 import com.profmojo.models.Student;
@@ -31,7 +30,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final ProfessorRepository professorRepository;
     private final StudentRepository studentRepository;
-    private final CanteenRepository canteenRepository;
     private final AdminRepository adminRepository;
     private final StaffRepository staffRepository;
 
@@ -86,21 +84,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     prof,
                                     null,
                                     List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
-                            );
-
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                }
-            }
-            // 🔥 CANTEEN AUTH
-            if ("CANTEEN".equals(role)) {
-                Canteen canteen = canteenRepository.findById(username).orElse(null);
-
-                if (canteen != null) {
-                    UsernamePasswordAuthenticationToken auth =
-                            new UsernamePasswordAuthenticationToken(
-                                    canteen,
-                                    null,
-                                    List.of(new SimpleGrantedAuthority("ROLE_CANTEEN"))
                             );
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
