@@ -1,8 +1,6 @@
 package com.profmojo.security.jwt;
 
-import com.profmojo.models.Professor;
-import com.profmojo.models.Staff;
-import com.profmojo.models.Student;
+import com.profmojo.models.*;
 import com.profmojo.repositories.*;
 
 import io.jsonwebtoken.ExpiredJwtException;
@@ -20,7 +18,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import com.profmojo.models.Admin;
 
 
 @Component
@@ -32,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final StudentRepository studentRepository;
     private final AdminRepository adminRepository;
     private final StaffRepository staffRepository;
+    private final DepartmentSecretRepository departmentSecretRepository;
 
 
 
@@ -107,21 +105,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
 
-            if ("ROLE_ADMIN".equals(role) || "ADMIN".equals(role)) {
+            if ("ADMIN".equals(role)) {
 
-                Admin admin = adminRepository.findById(username).orElse(null);
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        );
 
-                if (admin != null && admin.isActive()) {
-                    UsernamePasswordAuthenticationToken auth =
-                            new UsernamePasswordAuthenticationToken(
-                                    admin,
-                                    null,
-                                    List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                            );
-
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                }
+                SecurityContextHolder.getContext().setAuthentication(auth);
             }
+
+
+
 
 
 

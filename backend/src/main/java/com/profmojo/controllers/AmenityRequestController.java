@@ -53,9 +53,15 @@ public class AmenityRequestController {
         // 2. SAVE TO DATABASE (So it's there when they login later)
         notificationRepository.save(notif);
 
-        // 3. SEND REAL-TIME via WebSocket (with the (Object) cast fix)
-        messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) notif);
+        // 3. SEND REAL-TIME via WebSocket (using map format that frontend expects)
+        Map<String, Object> wsNotif = new HashMap<>();
+        wsNotif.put("message", notif.getMessage());
+        wsNotif.put("type", type);
+        wsNotif.put("department", request.getDepartment());
+
+        messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) wsNotif);
     }
+
     @GetMapping("/my")
     public List<AmenityRequest> myRequests(@AuthenticationPrincipal Professor professor) {
         return amenityRequestService.getMyRequests(professor.getProfId());
@@ -101,9 +107,20 @@ public class AmenityRequestController {
 
             AmenityRequest newRequest = amenityRequestService.reRequestDueToSLABreach(id, professor.getProfId());
 
-            // Notify admin about the Re-Request using the standard format
+            // FIXED: Save notification to database
+            Notification notif = Notification.builder()
+                    .message("🚨 SLA BREACH RE-REQUEST: Room " + newRequest.getClassRoom())
+                    .type("warning")
+                    .department(newRequest.getDepartment())
+                    .recipientRole("ADMIN")
+                    .createdAt(LocalDateTime.now())
+                    .isRead(false)
+                    .build();
+            notificationRepository.save(notif);
+
+            // Send WebSocket notification
             Map<String, Object> notification = new HashMap<>();
-            notification.put("message", "🚨 SLA BREACH RE-REQUEST: Room " + newRequest.getClassRoom());
+            notification.put("message", notif.getMessage());
             notification.put("type", "warning");
             notification.put("department", newRequest.getDepartment());
             messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) notification);

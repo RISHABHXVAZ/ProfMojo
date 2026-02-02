@@ -14,28 +14,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "admin")
-public class Admin {
+@Table(name = "department_secret")
+public class DepartmentSecret {
 
     @Id
-    private String adminId;
+    private String secretKey;   // e.g. CSE-ADMIN-2026
 
-    private String name;
+    @Column(nullable = false)
+    private String department;  // CSE, ECE, Arts, etc.
 
-    @Column(unique = true)
-    private String email;
-
-    private String password;
-
-    private String department;   // CSE, ECE, ME, etc.
+    @Column(nullable = false)
+    private String adminEmail;
 
     private boolean active = true;
 }
-
-
-
-
-
-
-
-

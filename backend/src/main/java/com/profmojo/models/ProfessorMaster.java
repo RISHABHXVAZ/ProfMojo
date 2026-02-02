@@ -12,11 +12,13 @@ public class ProfessorMaster {
 
     @Id
     @Column(name = "prof_id")
-    private String profId; // professor enters this ID when registering
+    private String profId;
 
-    @Column(name = "name")
     private String name;
 
-    @Column(name = "department")
     private String department;
+
+    @Column(unique = false, nullable = false)
+    private String email;
 }
+

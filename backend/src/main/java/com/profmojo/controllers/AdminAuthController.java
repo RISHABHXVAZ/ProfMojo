@@ -1,8 +1,6 @@
 package com.profmojo.controllers;
 
-import com.profmojo.models.dto.AdminLoginRequest;
-import com.profmojo.models.dto.AdminLoginResponse;
-import com.profmojo.models.dto.AdminSetPasswordRequest;
+import com.profmojo.models.dto.*;
 import com.profmojo.services.AdminAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,20 +16,23 @@ public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;
 
-    @PostMapping("/set-password")
-    public ResponseEntity<?> setPassword(
-            @RequestBody AdminSetPasswordRequest request
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(
+            @RequestBody AdminSendOtpRequest request
     ) {
-        adminAuthService.setPassword(request);
+        adminAuthService.sendOtp(request.getSecretKey());
         return ResponseEntity.ok(
-                Map.of("message", "Password set successfully")
+                Map.of("message", "OTP sent to admin email")
         );
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<AdminLoginResponse> login(
-            @RequestBody AdminLoginRequest request
+    @PostMapping("/verify-otp")
+    public ResponseEntity<AdminLoginResponse> verifyOtp(
+            @RequestBody AdminVerifyOtpRequest request
     ) {
-        return ResponseEntity.ok(adminAuthService.login(request));
+        return ResponseEntity.ok(
+                adminAuthService.verifyOtpAndLogin(request)
+        );
     }
 }
+

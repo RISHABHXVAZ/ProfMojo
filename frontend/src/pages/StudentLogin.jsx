@@ -31,6 +31,10 @@ export default function StudentLogin() {
       login();
     }
   };
+  const goHome = () => {
+    window.location.href = "/";
+  };
+
 
   return (
     <div className="student-login-page">
@@ -41,6 +45,10 @@ export default function StudentLogin() {
           <p className="login-subtitle">Student Login</p>
         </div>
       </header>
+      <button className="back-button" onClick={goHome}>
+        ← Back to Home
+      </button>
+
 
       {/* Main Content */}
       <main className="login-main">
@@ -105,8 +113,8 @@ export default function StudentLogin() {
               </div>
 
               {/* Login Button */}
-              <button 
-                className="login-button" 
+              <button
+                className="login-button"
                 onClick={login}
                 disabled={isLoading}
               >
@@ -122,13 +130,12 @@ export default function StudentLogin() {
                 )}
               </button>
 
-              {/* Register Link */}
               <div className="register-prompt">
-                Don't have an account?{" "}
-                <a href="/student/register" className="register-link">
-                  Register here
+                <a href="/student/forgot-password" className="register-link">
+                  Forgot Password?
                 </a>
               </div>
+
             </div>
           </div>
 

@@ -14,25 +14,29 @@ import lombok.*;
 public class Staff {
 
     @Id
-    private String staffId;  // STF-CSE-12
+    private String staffId;
 
     private String name;
     private String password;
     private String department;
     private String contactNo;
 
-
+    @Builder.Default
     private boolean available = true;
-    private boolean passwordSet = false;
-    private boolean online = true;
 
-    @Column(nullable = true)
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Builder.Default
+    private boolean online = false;
+
+    @Builder.Default
     private Integer stars = 0;
 
-    @Column(nullable = true)
+    @Builder.Default
     private Integer totalDeliveries = 0;
 
-
+    @Builder.Default
     private String role = "STAFF";
 }
 

@@ -59,4 +59,6 @@ public interface AmenityRequestRepository
             RequestStatus status,
             String department
     );
+
+    List<AmenityRequest> findByStatus(RequestStatus requestStatus);
 }

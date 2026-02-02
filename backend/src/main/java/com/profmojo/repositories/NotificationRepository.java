@@ -10,4 +10,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     // Fetch for specific user (Professor/Staff)
     List<Notification> findTop20ByRecipientIdOrderByCreatedAtDesc(String recipientId);
+
+    // ADD THIS: Get notifications for professor/staff by role
+    List<Notification> findTop20ByRecipientRoleAndRecipientIdOrderByCreatedAtDesc(String role, String recipientId);
 }

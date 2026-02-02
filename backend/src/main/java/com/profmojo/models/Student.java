@@ -18,9 +18,7 @@ public class Student {
 
     private String name;
     private String password;
-    private String branch;
-    private String year;
-    private String contactNo;
+    private String email;
 
     private String role = "STUDENT";
 

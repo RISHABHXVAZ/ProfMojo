@@ -23,4 +23,5 @@ public interface AdminAmenityService {
     List<AmenityRequest> getQueuedRequests(String department);
 
     void tryAssignQueuedRequest(Staff staff);
+
 }
