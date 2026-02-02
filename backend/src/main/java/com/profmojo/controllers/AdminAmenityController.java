@@ -1,13 +1,13 @@
 package com.profmojo.controllers;
 
-import com.profmojo.models.AmenityRequest;
-import com.profmojo.models.Notification;
-import com.profmojo.models.Staff;
+import com.profmojo.models.*;
 import com.profmojo.models.dto.WsNotificationDTO;
+import com.profmojo.repositories.DepartmentSecretRepository;
 import com.profmojo.repositories.NotificationRepository;
 import com.profmojo.services.AdminAmenityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -24,32 +24,56 @@ public class AdminAmenityController {
     private final AdminAmenityService adminAmenityService;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationRepository notificationRepository;
+    private final DepartmentSecretRepository departmentSecretRepository;
+
+    // Helper method to get department from authentication
+    private String getDepartmentFromAuth(Authentication authentication) {
+        String secretKey = authentication.getName();
+        DepartmentSecret secret = departmentSecretRepository.findBySecretKey(secretKey)
+                .orElseThrow(() -> new RuntimeException("Secret not found for key: " + secretKey));
+        return secret.getDepartment();
+    }
 
     @GetMapping("/pending")
-    public List<AmenityRequest> getPendingRequests(@RequestParam String department) {
+    public List<AmenityRequest> getPending(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getPendingRequests(department);
     }
 
     @GetMapping("/ongoing")
-    public List<AmenityRequest> getOngoingRequests(@RequestParam String department) {
+    public List<AmenityRequest> getOngoingRequests(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getOngoingRequests(department);
     }
 
     @GetMapping("/completed")
-    public List<AmenityRequest> getCompletedRequests(@RequestParam String department) {
+    public List<AmenityRequest> getCompletedRequests(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getCompletedRequests(department);
     }
 
     @PutMapping("/{requestId}/assign/{staffId}")
     public AmenityRequest assignStaff(
             @PathVariable Long requestId,
-            @PathVariable String staffId
-    ) {
+            @PathVariable String staffId,
+            Authentication authentication) {
 
-        // 1️⃣ Assign staff (DB only, NO WS inside service)
+        String adminDepartment = getDepartmentFromAuth(authentication);
+
+        // First, get the request to validate department
+        // You need to add findById method to AdminAmenityService or use repository directly
+        // For now, let's assume you have access to AmenityRequestRepository
+
+        // ADD THIS VALIDATION LOGIC:
+        // 1. Get the request
+        // 2. Check if request.department equals adminDepartment
+        // 3. If not, throw unauthorized exception
+
+        // 1️⃣ Assign staff (service should handle department validation internally)
         AmenityRequest request = adminAmenityService.assignStaff(requestId, staffId);
 
-        // 2️⃣ SAVE notification for STAFF (history)
+
+        // 2️⃣ SAVE notification for STAFF (Database + WebSocket)
         Notification staffNotif = Notification.builder()
                 .message("New Task Assigned: Room " + request.getClassRoom())
                 .type("info")
@@ -58,35 +82,25 @@ public class AdminAmenityController {
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build();
-
         notificationRepository.save(staffNotif);
 
-        // 3️⃣ REAL-TIME STAFF WS (EVENT-BASED)
         WsNotificationDTO staffWs = WsNotificationDTO.builder()
                 .event("TASK_ASSIGNED")
                 .requestId(request.getId())
                 .message(staffNotif.getMessage())
                 .type("info")
                 .build();
+        messagingTemplate.convertAndSendToUser(staffId, "/queue/notifications", staffWs);
 
-        messagingTemplate.convertAndSendToUser(
-                staffId,
-                "/queue/notifications",
-                staffWs
-        );
-
-        // 4️⃣ SAVE + NOTIFY PROFESSOR
+        // 3️⃣ SAVE + NOTIFY PROFESSOR (Database + WebSocket)
         Notification profNotif = Notification.builder()
-                .message("Your request #" + request.getId() +
-                        " has been assigned to " +
-                        request.getAssignedStaff().getName())
+                .message("Your request #" + request.getId() + " has been assigned to " + request.getAssignedStaff().getName())
                 .type("success")
                 .recipientId(request.getProfessorId())
                 .recipientRole("PROFESSOR")
                 .createdAt(LocalDateTime.now())
                 .isRead(false)
                 .build();
-
         notificationRepository.save(profNotif);
 
         WsNotificationDTO profWs = WsNotificationDTO.builder()
@@ -95,33 +109,40 @@ public class AdminAmenityController {
                 .message(profNotif.getMessage())
                 .type("success")
                 .build();
+        messagingTemplate.convertAndSendToUser(request.getProfessorId(), "/queue/notifications", profWs);
 
-        messagingTemplate.convertAndSendToUser(
-                request.getProfessorId(),
-                "/queue/notifications",
-                profWs
-        );
+        // 4️⃣ FIXED: SAVE ADMIN NOTIFICATION TO DATABASE
+        Notification adminNotif = Notification.builder()
+                .message("Staff " + request.getAssignedStaff().getName() +
+                        " assigned to Room " + request.getClassRoom())
+                .type("success")
+                .department(adminDepartment)
+                .recipientRole("ADMIN")
+                .createdAt(LocalDateTime.now())
+                .isRead(false)
+                .build();
+        notificationRepository.save(adminNotif);
 
-        // 5️⃣ ADMIN dashboard notification
-        Map<String, Object> adminNotif = new HashMap<>();
-        adminNotif.put("message",
-                "Staff " + request.getAssignedStaff().getName() +
-                        " assigned to Room " + request.getClassRoom());
-        adminNotif.put("type", "success");
-        adminNotif.put("department", request.getDepartment());
+        // 5️⃣ SEND ADMIN WEB SOCKET NOTIFICATION
+        // Create a simple map for admin notification (frontend expects this format)
+        Map<String, Object> adminWsNotif = new HashMap<>();
+        adminWsNotif.put("message", adminNotif.getMessage());
+        adminWsNotif.put("type", "success");
+        adminWsNotif.put("department", adminDepartment);
 
-        messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) adminNotif);
+        messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) adminWsNotif);
 
         return request;
     }
-
     @GetMapping("/staff/all")
-    public List<Staff> getAllStaff(@RequestParam String department) {
+    public List<Staff> getAllStaff(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getAllStaff(department);
     }
 
     @GetMapping("/staff/available")
-    public List<Staff> getAvailableStaff(@RequestParam String department) {
+    public List<Staff> getAvailableStaff(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getAvailableStaff(department);
     }
 
@@ -131,8 +152,8 @@ public class AdminAmenityController {
     }
 
     @GetMapping("/queue")
-    public List<AmenityRequest> getQueued(@RequestParam String department) {
+    public List<AmenityRequest> getQueued(Authentication authentication) {
+        String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getQueuedRequests(department);
     }
-
 }

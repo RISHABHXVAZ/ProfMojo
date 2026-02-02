@@ -31,6 +31,10 @@ export default function ProfessorLogin() {
       login();
     }
   };
+  const goHome = () => {
+    window.location.href = "/";
+  };
+
 
   return (
     <div className="professor-login-page">
@@ -41,6 +45,10 @@ export default function ProfessorLogin() {
           <p className="login-subtitle">Professor Login</p>
         </div>
       </header>
+        <button className="back-button" onClick={goHome}>
+          ← Back to Home
+        </button>
+
 
       {/* Main Content */}
       <main className="login-main">
@@ -105,8 +113,8 @@ export default function ProfessorLogin() {
               </div>
 
               {/* Login Button */}
-              <button 
-                className="login-button" 
+              <button
+                className="login-button"
                 onClick={login}
                 disabled={isLoading}
               >
@@ -122,13 +130,13 @@ export default function ProfessorLogin() {
                 )}
               </button>
 
-              {/* Register Link */}
               <div className="register-prompt">
-                Don't have an account?{" "}
-                <a href="/professor/register" className="register-link">
-                  Register here
+                First time here?{" "}
+                <a href="/professor/forgot-password" className="register-link">
+                  Forgot Password
                 </a>
               </div>
+
             </div>
           </div>
 

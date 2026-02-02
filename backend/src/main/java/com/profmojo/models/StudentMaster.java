@@ -4,17 +4,25 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "student_master")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class StudentMaster {
+
     @Id
-    @Column(name = "reg_no")
     private String regNo;
 
     private String name;
-    private String branch;
-    private String year;
+
+    private String department;
+
+    @Column(unique = true, nullable = false)
+    private String email;
 }

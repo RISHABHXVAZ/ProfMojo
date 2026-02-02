@@ -1,61 +1,100 @@
 package com.profmojo.services.impl;
 
 import com.profmojo.models.Admin;
+import com.profmojo.models.DepartmentSecret;
+import com.profmojo.models.OnboardingOtp;
 import com.profmojo.models.dto.AdminLoginRequest;
 import com.profmojo.models.dto.AdminLoginResponse;
 import com.profmojo.models.dto.AdminSetPasswordRequest;
+import com.profmojo.models.dto.AdminVerifyOtpRequest;
 import com.profmojo.repositories.AdminRepository;
+import com.profmojo.repositories.DepartmentSecretRepository;
+import com.profmojo.repositories.OnboardingOtpRepository;
 import com.profmojo.security.jwt.JwtUtil;
 import com.profmojo.services.AdminAuthService;
+import com.profmojo.services.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class AdminAuthServiceImpl implements AdminAuthService {
 
-    private final AdminRepository adminRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final DepartmentSecretRepository secretRepository;
+    private final OnboardingOtpRepository otpRepository;
+    private final EmailService emailService;
     private final JwtUtil jwtUtil;
 
     @Override
-    public AdminLoginResponse login(AdminLoginRequest request) {
+    public void sendOtp(String secretKey) {
 
-        Admin admin = adminRepository.findById(request.getAdminId())
-                .orElseThrow(() -> new RuntimeException("Invalid Admin ID"));
+        DepartmentSecret secret = secretRepository.findById(secretKey)
+                .orElseThrow(() -> new RuntimeException("Invalid secret key"));
 
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                admin.getPassword()
-        )) {
-            throw new RuntimeException("Invalid password");
+        if (!secret.isActive()) {
+            throw new RuntimeException("Secret key disabled");
         }
 
-        String token = jwtUtil.generateToken(
-                admin.getAdminId(),
-                "ROLE_ADMIN",
-                admin.getDepartment()
-        );
+        otpRepository.deleteById(secretKey);
 
-        return new AdminLoginResponse(
-                token,
-                admin.getDepartment(),
-                "ADMIN"
+        String otp = String.valueOf(100000 + new Random().nextInt(900000));
+
+        OnboardingOtp entity = new OnboardingOtp();
+        entity.setUserId(secretKey);
+        entity.setRole("ADMIN");
+        entity.setOtp(otp);
+        entity.setExpiry(LocalDateTime.now().plusMinutes(5));
+
+        otpRepository.save(entity);
+
+        emailService.send(
+                secret.getAdminEmail(),
+                "ProfMojo Admin OTP",
+                "Your admin login OTP is: " + otp
         );
     }
 
     @Override
-    public void setPassword(AdminSetPasswordRequest request) {
+    public AdminLoginResponse verifyOtpAndLogin(AdminVerifyOtpRequest request) {
 
-        Admin admin = adminRepository.findById(request.getAdminId())
-                .orElseThrow(() -> new RuntimeException("Admin ID not found"));
+        OnboardingOtp otp = otpRepository.findById(request.getSecretKey())
+                .orElseThrow(() -> new RuntimeException("OTP not found"));
 
-        if (admin.getPassword() != null) {
-            throw new RuntimeException("Password already set");
+        if (!"ADMIN".equals(otp.getRole())) {
+            throw new RuntimeException("Invalid OTP role");
         }
 
-        admin.setPassword(passwordEncoder.encode(request.getPassword()));
-        adminRepository.save(admin);
+        if (otp.getExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("OTP expired");
+        }
+
+        if (!otp.getOtp().equals(request.getOtp())) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        DepartmentSecret secret = secretRepository.findById(request.getSecretKey())
+                .orElseThrow(() -> new RuntimeException("Invalid secret key"));
+
+        // Verify department is being set in token
+        System.out.println("DEBUG: Creating token for department: " + secret.getDepartment());
+
+        String token = jwtUtil.generateToken(
+                request.getSecretKey(),
+                "ADMIN",
+                secret.getDepartment()  // This should be set
+        );
+
+        otpRepository.deleteById(request.getSecretKey());
+
+        return new AdminLoginResponse(
+                token,
+                secret.getDepartment(),
+                "ADMIN"
+        );
     }
 }
+

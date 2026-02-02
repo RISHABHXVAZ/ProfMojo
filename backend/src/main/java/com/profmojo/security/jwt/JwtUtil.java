@@ -64,5 +64,19 @@ public class JwtUtil {
                 .build()
                 .parseClaimsJws(token);
     }
+    public String extractDepartment(String token) {
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes()))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .get("department", String.class);
+        } catch (Exception e) {
+            System.out.println("ERROR extracting department from token: " + e.getMessage());
+            return null;
+        }
+    }
+
 
 }

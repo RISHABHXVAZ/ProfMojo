@@ -2109,3 +2109,77 @@
     text-align: center;
     margin: auto;
 }
+
+/* Queue badge color */
+.admin-nav-badge.queued {
+    background-color: #8b5cf6;
+}
+
+/* Queue stat card */
+.admin-stat-card.violet {
+    background: #ffffff;
+    border-top: 4px solid #7c3aed;
+}
+
+/* Queue info in cards */
+.queued-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #f5f3ff;
+    color: #6d28d9;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.queued-info svg {
+    color: #8b5cf6;
+}
+
+/* Queue button in modal */
+.admin-modal-queue-btn {
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.admin-modal-queue-btn:hover {
+    background-color: #edeaf1;
+    transform: translateY(-1px);
+}
+
+.admin-modal-queue-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.admin-modal-cancel-btn {
+    background-color: #e5e7eb;
+    color: #4b5563;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.admin-modal-cancel-btn:hover {
+    background-color: #d1d5db;
+}

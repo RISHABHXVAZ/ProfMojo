@@ -31,11 +31,11 @@ public class ProfessorController {
     private final ProfessorRepository professorRepository;
     private final ClassRoomService classRoomService;
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Professor professor) {
-        Professor saved = professorService.registerProfessor(professor);
-        return ResponseEntity.ok(saved);
-    }
+//    @PostMapping("/register")
+//    public ResponseEntity<?> register(@RequestBody Professor professor) {
+//        Professor saved = professorService.registerProfessor(professor);
+//        return ResponseEntity.ok(saved);
+//    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {

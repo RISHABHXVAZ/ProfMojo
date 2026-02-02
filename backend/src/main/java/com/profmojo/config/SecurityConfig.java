@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 "/api/professors/check-id/**",
                                 "/api/admin/auth/**",
                                 "/api/staff/auth/**",
+                                "/api/onboarding/**",
                                 "/ws-notifications/**"
                         ).permitAll()
 
@@ -49,6 +50,8 @@ public class SecurityConfig {
 
 // Staff history needs STAFF role
                                 .requestMatchers("/api/notifications/staff/**").hasRole("STAFF")
+                                // Add professor notification endpoint
+                                .requestMatchers("/api/notifications/professor/**").hasRole("PROFESSOR")
 
 // General notifications (if any) - authenticated users
                                 .requestMatchers("/api/notifications/**").authenticated()
