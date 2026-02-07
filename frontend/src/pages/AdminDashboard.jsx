@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useNotifications } from '../hooks/useNotification';
 import {
     Users,
     Clock,
@@ -15,7 +16,6 @@ import {
     Eye,
     RefreshCw,
     X,
-    FileText,
     Wifi,
     WifiOff,
     Star,
@@ -36,16 +36,15 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import "./AdminDashboard.css";
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
+import SlaTimer from "./SLATimer";
 
 export default function AdminDashboard() {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("pending");
-    const [notifications, setNotifications] = useState([]);
-    const [queuedRequests, setQueuedRequests] = useState([]); // NEW: Queue state
+
+    const [queuedRequests, setQueuedRequests] = useState([]);
 
     const [showStaffModal, setShowStaffModal] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
@@ -58,10 +57,9 @@ export default function AdminDashboard() {
     const [staffStatsLoading, setStaffStatsLoading] = useState(true);
     const [ongoingRequests, setOngoingRequests] = useState([]);
     const [completedRequests, setCompletedRequests] = useState([]);
-    const [now, setNow] = useState(Date.now());
+
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-    const [showNotificationPanel, setShowNotificationPanel] = useState(false);
 
     const [chartData, setChartData] = useState({
         staffRatings: [],
@@ -69,8 +67,7 @@ export default function AdminDashboard() {
     });
 
     const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
-    const [adminDepartment] = useState(
-        localStorage.getItem("department") || "");
+    const [adminDepartment] = useState(localStorage.getItem("department") || "");
 
     const [stats, setStats] = useState({
         totalPending: 0,
@@ -78,79 +75,225 @@ export default function AdminDashboard() {
         totalCompleted: 0,
         totalStaff: 0,
         onlineStaff: 0,
-        totalQueued: 0 // NEW: Queue stat
+        totalQueued: 0
     });
 
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
 
-    const fetchNotificationHistory = async () => {
+    // NEW: Use the notification hook
+    const {
+        notifications,
+        unreadNotifications,
+        unreadCount,
+        loading: notificationsLoading,
+        showNotificationPanel,
+        setShowNotificationPanel,
+        markAsRead,
+        markAllAsRead,
+        deleteNotification
+    } = useNotifications('ADMIN');
+
+    // Add effect to close notification panel when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (!event.target.closest('.admin-notification-center')) {
+                setShowNotificationPanel(false);
+            }
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
+
+
+    const formatRemaining = (deadline) => {
+        if (!deadline) return "—";
+        const diff = new Date(deadline).getTime() - Date.now(); // Use Date.now() directly
+        if (diff <= 0) return "SLA BREACHED";
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        if (m > 60) {
+            const h = Math.floor(m / 60);
+            const remainingM = m % 60;
+            return `${h}h ${remainingM}m`;
+        }
+        return `${m}m ${s}s`;
+    };
+
+    const fetchAllData = async () => {
         try {
-            const res = await axios.get("http://localhost:8080/api/notifications/admin/history", {
-                headers: { Authorization: `Bearer ${token}` },
-                params: { department: adminDepartment }
-            });
-
-            const formattedHistory = res.data.map(n => ({
-                id: n.id,
-                msg: n.message,
-                type: n.type,
-                timestamp: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }));
-
-            setNotifications(formattedHistory);
+            setLoading(true);
+            await Promise.all([
+                fetchPendingRequests(),
+                fetchOngoingRequests(),
+                fetchCompletedRequests(),
+                fetchQueuedRequests(),
+                fetchAllStaff()
+            ]);
         } catch (err) {
-            console.error("Failed to load notification history", err);
+            console.error("Failed to fetch data", err);
+            setError("Failed to fetch data. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
-    const addNotification = (msg, type = 'info') => {
-        const id = Date.now() + Math.random();
-        const notification = {
-            id,
-            msg,
-            type,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        };
-
-        setNotifications(prev => [notification, ...prev].slice(0, 5));
-
-        setTimeout(() => {
-            removeNotification(id);
-        }, type === 'success' ? 4000 : 6000);
-    };
-
-    const removeNotification = (id) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    };
-
-    const clearAllNotifications = () => {
-        setNotifications([]);
-    };
-
     useEffect(() => {
-        fetchNotificationHistory();
+        calculateStats();
+        generateChartData();
+    }, [requests, ongoingRequests, completedRequests, queuedRequests, allStaff]);
 
-        const socket = new SockJS('http://localhost:8080/ws-notifications');
-        const stompClient = Stomp.over(socket);
-
-        stompClient.connect({ Authorization: `Bearer ${token}` }, () => {
-            stompClient.subscribe('/topic/admin-notifications', (message) => {
-                try {
-                    const data = JSON.parse(message.body);
-                    // Always show notification (backend should filter by department)
-                    addNotification(data.message || data.msg || data, data.type || 'info');
-                    fetchAllData();
-                } catch (e) { 
-                    console.error("Parse error", e); 
+    const fetchPendingRequests = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/pending",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
                 }
-            });
-        });
+            );
+            setRequests(res.data);
+        } catch (err) {
+            console.error("Failed to fetch pending requests", err);
+        }
+    };
 
-        return () => { 
-            if (stompClient.connected) stompClient.disconnect(); 
-        };
-    }, [token, adminDepartment]);
+    const fetchOngoingRequests = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/ongoing",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setOngoingRequests(res.data);
+        } catch (err) {
+            console.error("Failed to fetch ongoing requests", err);
+        }
+    };
+
+    const fetchCompletedRequests = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/completed",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setCompletedRequests(res.data);
+        } catch (err) {
+            console.error("Failed to fetch completed requests", err);
+        }
+    };
+
+    const fetchQueuedRequests = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/queue",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setQueuedRequests(res.data);
+        } catch (err) {
+            console.error("Failed to fetch queued requests", err);
+        }
+    };
+
+    const fetchAllStaff = async () => {
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/staff/all",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setAllStaff(res.data);
+            generateChartData();
+        } catch (err) {
+            console.error("Failed to load staff list", err);
+        } finally {
+            setStaffStatsLoading(false);
+        }
+    };
+
+    const fetchStaff = async (requestId) => {
+        setStaffLoading(true);
+        try {
+            const res = await axios.get(
+                "http://localhost:8080/api/admin/amenities/staff/available",
+                {
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setStaffList(res.data);
+            const req = requests.find(r => r.id === requestId) ||
+                ongoingRequests.find(r => r.id === requestId) ||
+                completedRequests.find(r => r.id === requestId);
+            setSelectedRequest(req);
+        } catch (err) {
+            console.error("Failed to load staff", err);
+        } finally {
+            setStaffLoading(false);
+        }
+    };
+
+    const assignStaff = async (staffId) => {
+        try {
+            await axios.put(
+                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/assign/${staffId}`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setShowStaffModal(false);
+            fetchAllData();
+        } catch (err) {
+            console.error("Assignment failed", err);
+        }
+    };
+
+    const addToQueue = async () => {
+        try {
+            await axios.put(
+                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/queue`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setShowStaffModal(false);
+            fetchAllData();
+        } catch (err) {
+            console.error("Add to queue failed", err);
+        }
+    };
+
+    const viewRequestDetails = (request) => {
+        const details = `
+Request Details:
+----------------
+Request ID: #${request.id || request.requestId}
+Classroom: ${request.classRoom}
+Professor: ${request.professorName}
+Department: ${request.department}
+Status: ${getStatusText(request.status)}
+Items: ${request.items?.join(", ") || "No items specified"}
+${request.message ? `Message: ${request.message}` : ""}
+${request.assignedStaff ? `Assigned To: ${request.assignedStaff.name} (${request.assignedStaff.staffId || "N/A"})` : ""}
+${request.createdAt ? `Requested: ${new Date(request.createdAt).toLocaleString()}` : ""}
+${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDeadline).toLocaleString()}` : ""}
+        `.trim();
+        alert(details);
+    };
+
+    const calculateStats = () => {
+        const onlineStaff = allStaff.filter(staff => staff.online).length;
+        setStats({
+            totalPending: requests.length,
+            totalOngoing: ongoingRequests.length,
+            totalCompleted: completedRequests.length,
+            totalQueued: queuedRequests.length,
+            totalStaff: allStaff.length,
+            onlineStaff: onlineStaff
+        });
+    };
 
     const generateChartData = () => {
         if (allStaff.length === 0) return;
@@ -182,192 +325,6 @@ export default function AdminDashboard() {
         });
     };
 
-    const formatRemaining = (deadline) => {
-        if (!deadline) return "—";
-        const diff = new Date(deadline).getTime() - now;
-        if (diff <= 0) return "SLA BREACHED";
-        const m = Math.floor(diff / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        if (m > 60) {
-            const h = Math.floor(m / 60);
-            const remainingM = m % 60;
-            return `${h}h ${remainingM}m`;
-        }
-        return `${m}m ${s}s`;
-    };
-
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            await Promise.all([
-                fetchPendingRequests(),
-                fetchOngoingRequests(),
-                fetchCompletedRequests(),
-                fetchQueuedRequests(), // NEW: Fetch queue
-                fetchAllStaff()
-            ]);
-        } catch (err) {
-            console.error("Failed to fetch data", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        calculateStats();
-        generateChartData();
-    }, [requests, ongoingRequests, completedRequests, queuedRequests, allStaff]);
-
-    // FIXED: Remove department parameter from API calls
-    const fetchPendingRequests = async () => {
-        const res = await axios.get(
-            "http://localhost:8080/api/admin/amenities/pending",
-            {
-                headers: { Authorization: `Bearer ${token}` }
-                // REMOVED: params: { department: adminDepartment }
-            }
-        );
-        setRequests(res.data);
-    };
-
-    const fetchOngoingRequests = async () => {
-        const res = await axios.get(
-            "http://localhost:8080/api/admin/amenities/ongoing",
-            {
-                headers: { Authorization: `Bearer ${token}` }
-                // REMOVED: params: { department: adminDepartment }
-            }
-        );
-        setOngoingRequests(res.data);
-    };
-
-    const fetchCompletedRequests = async () => {
-        const res = await axios.get(
-            "http://localhost:8080/api/admin/amenities/completed",
-            {
-                headers: { Authorization: `Bearer ${token}` }
-                // REMOVED: params: { department: adminDepartment }
-            }
-        );
-        setCompletedRequests(res.data);
-    };
-
-    // NEW: Fetch queued requests
-    const fetchQueuedRequests = async () => {
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/queue",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
-            setQueuedRequests(res.data);
-        } catch (err) {
-            console.error("Failed to fetch queued requests", err);
-        }
-    };
-
-    const fetchAllStaff = async () => {
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/staff/all",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                    // REMOVED: params: { department: adminDepartment }
-                }
-            );
-            setAllStaff(res.data);
-            generateChartData();
-        } catch (err) {
-            console.error("Failed to load staff list", err);
-        } finally {
-            setStaffStatsLoading(false);
-        }
-    };
-
-    const fetchStaff = async (requestId) => {
-        setStaffLoading(true);
-        try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/staff/available",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                    // REMOVED: params: { department: adminDepartment }
-                }
-            );
-            setStaffList(res.data);
-            const req = requests.find(r => r.id === requestId) ||
-                ongoingRequests.find(r => r.id === requestId) ||
-                completedRequests.find(r => r.id === requestId);
-            setSelectedRequest(req);
-        } catch {
-            console.error("Failed to load staff");
-        } finally {
-            setStaffLoading(false);
-        }
-    };
-
-    const assignStaff = async (staffId) => {
-        try {
-            await axios.put(
-                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/assign/${staffId}`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setShowStaffModal(false);
-            fetchAllData();
-        } catch {
-            console.error("Assignment failed");
-        }
-    };
-
-    // NEW: Add to queue function
-    const addToQueue = async () => {
-        try {
-            await axios.put(
-                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/queue`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setShowStaffModal(false);
-            addNotification(`Request #${selectedRequestId} added to queue`, 'info');
-            fetchAllData();
-        } catch (err) {
-            console.error("Add to queue failed", err);
-            addNotification("Failed to add request to queue", 'error');
-        }
-    };
-
-    const viewRequestDetails = (request) => {
-        const details = `
-Request Details:
-----------------
-Request ID: #${request.id || request.requestId}
-Classroom: ${request.classRoom}
-Professor: ${request.professorName}
-Department: ${request.department}
-Status: ${getStatusText(request.status)}
-Items: ${request.items?.join(", ") || "No items specified"}
-${request.message ? `Message: ${request.message}` : ""}
-${request.assignedStaff ? `Assigned To: ${request.assignedStaff.name} (${request.assignedStaff.staffId || "N/A"})` : ""}
-${request.createdAt ? `Requested: ${new Date(request.createdAt).toLocaleString()}` : ""}
-${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDeadline).toLocaleString()}` : ""}
-        `.trim();
-        alert(details);
-    };
-
-    const calculateStats = () => {
-        const onlineStaff = allStaff.filter(staff => staff.online).length;
-        setStats({
-            totalPending: requests.length,
-            totalOngoing: ongoingRequests.length,
-            totalCompleted: completedRequests.length,
-            totalQueued: queuedRequests.length, // NEW: Queue count
-            totalStaff: allStaff.length,
-            onlineStaff: onlineStaff
-        });
-    };
-
     const handleLogout = () => {
         localStorage.clear();
         navigate("/admin/login");
@@ -388,7 +345,7 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
             case 'pending': return 'Pending';
             case 'assigned': return 'Assigned';
             case 'delivered': return 'Delivered';
-            case 'queued': return 'Queued'; // NEW: Queue text
+            case 'queued': return 'Queued';
             default: return status || 'Unknown';
         }
     };
@@ -396,26 +353,17 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
     const formatLastActive = (timestamp) => {
         if (!timestamp) return "Unknown";
         const lastActive = new Date(timestamp).getTime();
-        const diff = now - lastActive;
+        const diff = Date.now() - lastActive; // Use Date.now() instead of 'now'
         if (diff < 60000) return "Just now";
         if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
         return `${Math.floor(diff / 86400000)}d ago`;
     };
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setNow(Date.now());
-        }, 1000);
-        return () => clearInterval(interval);
-    }, []);
 
     useEffect(() => {
         fetchAllData();
-        const pollInterval = setInterval(() => {
-            fetchAllData();
-        }, 10000);
-        return () => clearInterval(pollInterval);
+
     }, []);
 
     const getFilteredRequests = () => {
@@ -424,7 +372,7 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
             case "pending": filtered = requests; break;
             case "ongoing": filtered = ongoingRequests; break;
             case "completed": filtered = completedRequests; break;
-            case "queued": filtered = queuedRequests; break; // NEW: Queue tab
+            case "queued": filtered = queuedRequests; break;
             default: filtered = requests;
         }
 
@@ -439,6 +387,60 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
         return filtered;
     };
 
+    // UPDATED: Simplified Notification Panel Component - Only shows notifications
+    const NotificationPanel = () => (
+        <div
+            className="admin-notification-panel"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="admin-notification-header">
+                <h3>Notifications {unreadCount > 0 && `(${unreadCount})`}</h3>
+                <button
+                    className="admin-notification-close-btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNotificationPanel(false);
+                    }}
+                >
+                    <X size={18} />
+                </button>
+            </div>
+
+            <div className="admin-notification-list">
+                {notifications.length === 0 ? (
+                    <div className="admin-notification-empty">
+                        <Bell size={32} />
+                        <p>No notifications</p>
+                        <span>All caught up!</span>
+                    </div>
+                ) : (
+                    notifications.map(notification => (
+                        <div
+                            key={notification.id}
+                            className={`admin-notification-item ${notification.type}`}
+                        >
+                            <div className="admin-notification-icon">
+                                {notification.type === 'success' && <CheckCircle size={18} />}
+                                {notification.type === 'error' && <AlertCircle size={18} />}
+                                {notification.type === 'warning' && <AlertCircle size={18} />}
+                                {notification.type === 'info' && <Bell size={18} />}
+                            </div>
+                            <div className="admin-notification-content">
+                                <p className="admin-notification-message">{notification.message}</p>
+                                <span className="admin-notification-time">
+                                    {new Date(notification.createdAt).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+
     if (loading) {
         return (
             <div className="admin-loading-screen">
@@ -450,53 +452,27 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
 
     return (
         <div className="admin-dashboard">
+            {/* Notification Area - Fixed Version */}
             <div className="admin-notification-center">
-                <div className="admin-notification-bell" onClick={() => setShowNotificationPanel(!showNotificationPanel)}>
+                <div
+                    className="admin-notification-bell"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNotificationPanel(prev => {
+                            if (!prev && unreadCount > 0) markAllAsRead();
+                            return !prev;
+                        });
+                    }}
+                >
                     <Bell size={22} />
-                    {notifications.length > 0 && (
-                        <span className="admin-notification-counter">{notifications.length}</span>
+                    {unreadCount > 0 && (
+                        <span className="admin-notification-counter">{unreadCount}</span>
                     )}
                 </div>
-
-                {showNotificationPanel && (
-                    <div className="admin-notification-panel">
-                        <div className="admin-notification-header">
-                            <h3>Notifications</h3>
-                            <div className="admin-notification-actions">
-                                <button className="admin-notification-clear-btn" onClick={clearAllNotifications} disabled={notifications.length === 0}>Clear All</button>
-                                <button className="admin-notification-close-btn" onClick={() => setShowNotificationPanel(false)}><X size={18} /></button>
-                            </div>
-                        </div>
-
-                        <div className="admin-notification-list">
-                            {notifications.length === 0 ? (
-                                <div className="admin-notification-empty">
-                                    <Bell size={32} />
-                                    <p>No notifications</p>
-                                    <span>All caught up!</span>
-                                </div>
-                            ) : (
-                                notifications.map(notification => (
-                                    <div key={notification.id} className={`admin-notification-item ${notification.type}`} onClick={() => removeNotification(notification.id)}>
-                                        <div className="admin-notification-icon">
-                                            {notification.type === 'success' && <CheckCircle size={18} />}
-                                            {notification.type === 'error' && <AlertCircle size={18} />}
-                                            {notification.type === 'warning' && <AlertCircle size={18} />}
-                                            {notification.type === 'info' && <Bell size={18} />}
-                                        </div>
-                                        <div className="admin-notification-content">
-                                            <p className="admin-notification-message">{notification.msg}</p>
-                                            <span className="admin-notification-time">{notification.timestamp}</span>
-                                        </div>
-                                        <button className="admin-notification-dismiss" onClick={(e) => { e.stopPropagation(); removeNotification(notification.id); }}><X size={14} /></button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
+                {showNotificationPanel && <NotificationPanel />}
             </div>
 
+            {/* Sidebar */}
             <div className="admin-sidebar">
                 <div className="admin-sidebar-header">
                     <div className="admin-logo">
@@ -533,6 +509,7 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                 </div>
             </div>
 
+            {/* Main Content */}
             <div className="admin-main">
                 <header className="admin-header">
                     <div className="admin-header-left">
@@ -603,11 +580,11 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                                         <Package size={48} />
                                         <h3>No requests found</h3>
                                         <p>
-                                            {searchQuery ? "No requests match your search" : 
-                                             activeTab === "pending" ? "All requests have been assigned!" :
-                                             activeTab === "queued" ? "No queued requests at the moment" :
-                                             activeTab === "ongoing" ? "No ongoing tasks at the moment" : 
-                                             "No completed requests yet"}
+                                            {searchQuery ? "No requests match your search" :
+                                                activeTab === "pending" ? "All requests have been assigned!" :
+                                                    activeTab === "queued" ? "No queued requests at the moment" :
+                                                        activeTab === "ongoing" ? "No ongoing tasks at the moment" :
+                                                            "No completed requests yet"}
                                         </p>
                                     </div>
                                 ) : (
@@ -617,11 +594,11 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                                                 <div className="admin-card-header">
                                                     <div className="admin-card-badges">
                                                         <span className="admin-department-badge">{req.department}</span>
-                                                        <span className="admin-status-badge" style={{ 
-                                                            backgroundColor: getStatusColor(req.status), 
-                                                            color: req.status?.toLowerCase() === 'pending' ? '#92400e' : 
-                                                                   req.status?.toLowerCase() === 'queued' ? '#4c1d95' :
-                                                                   (req.status?.toLowerCase() === 'completed' || req.status?.toLowerCase() === 'delivered') ? '#065f46' : '#1e40af' 
+                                                        <span className="admin-status-badge" style={{
+                                                            backgroundColor: getStatusColor(req.status),
+                                                            color: req.status?.toLowerCase() === 'pending' ? '#92400e' :
+                                                                req.status?.toLowerCase() === 'queued' ? '#4c1d95' :
+                                                                    (req.status?.toLowerCase() === 'completed' || req.status?.toLowerCase() === 'delivered') ? '#065f46' : '#1e40af'
                                                         }}>
                                                             {getStatusText(req.status)}
                                                         </span>
@@ -639,7 +616,10 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                                                     </div>
                                                     {activeTab === "ongoing" && req.deliveryDeadline && (
                                                         <div className={`admin-sla-indicator ${formatRemaining(req.deliveryDeadline).includes("BREACHED") ? "danger" : "safe"}`}>
-                                                            <Clock size={14} /><span>SLA: {formatRemaining(req.deliveryDeadline)}</span>
+                                                            <Clock size={14} />
+                                                            <span>
+                                                                SLA: <SlaTimer deadline={req.deliveryDeadline} />
+                                                            </span>
                                                         </div>
                                                     )}
                                                     {activeTab === "queued" && (
@@ -651,19 +631,19 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                                                 </div>
                                                 <div className="admin-card-footer">
                                                     {activeTab === "pending" && (
-                                                        <button className="admin-assign-btn" onClick={() => { 
-                                                            setSelectedRequestId(req.id || req.requestId); 
-                                                            setShowStaffModal(true); 
-                                                            fetchStaff(req.id || req.requestId); 
+                                                        <button className="admin-assign-btn" onClick={() => {
+                                                            setSelectedRequestId(req.id || req.requestId);
+                                                            setShowStaffModal(true);
+                                                            fetchStaff(req.id || req.requestId);
                                                         }}>
                                                             <UserCheck size={16} /><span>Assign Staff</span>
                                                         </button>
                                                     )}
                                                     {activeTab === "queued" && (
-                                                        <button className="admin-assign-btn" onClick={() => { 
-                                                            setSelectedRequestId(req.id || req.requestId); 
-                                                            setShowStaffModal(true); 
-                                                            fetchStaff(req.id || req.requestId); 
+                                                        <button className="admin-assign-btn" onClick={() => {
+                                                            setSelectedRequestId(req.id || req.requestId);
+                                                            setShowStaffModal(true);
+                                                            fetchStaff(req.id || req.requestId);
                                                         }}>
                                                             <UserCheck size={16} /><span>Assign Now</span>
                                                         </button>
@@ -721,6 +701,7 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                 )}
             </div>
 
+            {/* Staff Assignment Modal */}
             {showStaffModal && selectedRequest && (
                 <div className="admin-modal-overlay">
                     <div className="admin-modal">
@@ -798,6 +779,7 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
                 </div>
             )}
 
+            {/* Logout Confirmation Modal */}
             {showLogoutConfirm && (
                 <div className="admin-modal-overlay">
                     <div className="admin-modal logout-modal">

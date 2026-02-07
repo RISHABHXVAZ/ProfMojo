@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./ProfessorDashboard.css";
 import { useNavigate } from "react-router-dom";
+import { Flag, AlertTriangle, UserX, Key, Copy } from "lucide-react";
 
 export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
@@ -44,6 +45,19 @@ export default function ProfessorDashboard() {
   const [reRequestModal, setReRequestModal] = useState(false);
   const [selectedRequestForReRequest, setSelectedRequestForReRequest] = useState(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  
+  // NEW: Staff reporting
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedRequestForReport, setSelectedRequestForReport] = useState(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reporting, setReporting] = useState(false);
+  
+  // NEW: Delivery SLA breach
+  const [deliverySlaChecks, setDeliverySlaChecks] = useState({});
+
+  // NEW: Confirmation code modal state
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationRequest, setConfirmationRequest] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -61,12 +75,27 @@ export default function ProfessorDashboard() {
     navigate("/professor/login");
   };
 
-  const formatRemaining = (targetTime) => {
+  // UPDATED: Better SLA formatting
+  const formatRemaining = (targetTime, type = "assignment") => {
     if (!targetTime) return null;
     const diff = new Date(targetTime).getTime() - Date.now();
-    if (diff <= 0) return "Time expired";
+    
+    if (diff <= 0) {
+      if (type === "delivery") {
+        return "DELIVERY BREACHED 🚨";
+      }
+      return "ASSIGNMENT BREACHED 🚨";
+    }
+    
     const mins = Math.floor(diff / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
+    
+    if (mins > 60) {
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return `${hours}h ${remainingMins}m`;
+    }
+    
     return `${mins}m ${secs}s`;
   };
 
@@ -85,6 +114,12 @@ export default function ProfessorDashboard() {
 
   const resetCreateClassForm = () => {
     setNewClassName("");
+  };
+
+  // NEW: Reset report form
+  const resetReportForm = () => {
+    setReportReason("");
+    setSelectedRequestForReport(null);
   };
 
   useEffect(() => {
@@ -106,6 +141,12 @@ export default function ProfessorDashboard() {
   }, [showCreateModal]);
 
   useEffect(() => {
+    if (!showReportModal) {
+      resetReportForm();
+    }
+  }, [showReportModal]);
+
+  useEffect(() => {
     if (activeTab === "amenities") {
       loadAmenityRequests();
     }
@@ -122,7 +163,6 @@ export default function ProfessorDashboard() {
       return response.data;
     } catch (error) {
       console.error("Failed to check SLA:", error);
-      // Ensure we don't show a breach UI if the request fails
       setSlaChecks(prev => ({
         ...prev,
         [requestId]: { isSlaBreached: false, canReRequest: false }
@@ -131,11 +171,38 @@ export default function ProfessorDashboard() {
     }
   };
 
+  // NEW: Check delivery SLA
+  const checkDeliverySla = (request) => {
+    if (!request.deliveryDeadline || request.status !== "ASSIGNED") {
+      return null;
+    }
+    
+    const now = new Date();
+    const deadline = new Date(request.deliveryDeadline);
+    const isBreached = deadline < now;
+    
+    if (isBreached) {
+      setDeliverySlaChecks(prev => ({
+        ...prev,
+        [request.id]: {
+          isDeliveryBreached: true,
+          breachedFor: Math.floor((now - deadline) / 60000) // minutes
+        }
+      }));
+    }
+    
+    return isBreached;
+  };
+
   const checkAllPendingSLAs = async () => {
     const pendingRequests = amenityRequests.filter(req => req.status === "PENDING");
     for (const req of pendingRequests) {
       await checkSlaForRequest(req.id);
     }
+    
+    // NEW: Check delivery SLAs
+    const assignedRequests = amenityRequests.filter(req => req.status === "ASSIGNED");
+    assignedRequests.forEach(req => checkDeliverySla(req));
   };
 
   useEffect(() => {
@@ -152,6 +219,31 @@ export default function ProfessorDashboard() {
     }
   }, [activeTab, amenityRequests]);
 
+  // NEW: Function to show confirmation code modal
+  const showConfirmationCodeModal = (request) => {
+    setConfirmationRequest(request);
+    setShowConfirmationModal(true);
+  };
+
+  // NEW: Function to copy confirmation code to clipboard
+  const copyConfirmationCode = () => {
+    if (confirmationRequest?.deliveryConfirmationCode) {
+      navigator.clipboard.writeText(confirmationRequest.deliveryConfirmationCode)
+        .then(() => {
+          alert("Confirmation code copied to clipboard!");
+        })
+        .catch(err => {
+          console.error("Failed to copy code: ", err);
+        });
+    }
+  };
+
+  // NEW: Function to close confirmation modal
+  const handleConfirmationModalClose = () => {
+    setShowConfirmationModal(false);
+    setConfirmationRequest(null);
+  };
+
   const loadAmenityRequests = async () => {
     try {
       const [activeRes, historyRes] = await Promise.all([
@@ -159,7 +251,6 @@ export default function ProfessorDashboard() {
         api.get("/amenities/my/history"),
       ]);
 
-      // Filter only truly active requests for the dashboard
       const activeOnly = activeRes.data.filter(
         (req) => req.status === "PENDING" || req.status === "ASSIGNED"
       );
@@ -167,10 +258,24 @@ export default function ProfessorDashboard() {
       setAmenityRequests(activeOnly);
       setAmenityHistory(historyRes.data);
 
+      // NEW: Check for assigned requests with confirmation codes
+      const assignedRequests = activeOnly.filter(req => req.status === "ASSIGNED");
+      assignedRequests.forEach(req => {
+        // Check if this is a new assignment with a confirmation code
+        if (req.deliveryConfirmationCode && req.assignedStaff) {
+          // Show confirmation modal for new assignments
+          showConfirmationCodeModal(req);
+        }
+      });
+
       const pendingRequests = activeOnly.filter(req => req.status === "PENDING");
       for (const req of pendingRequests) {
         await checkSlaForRequest(req.id);
       }
+      
+      const assigned = activeOnly.filter(req => req.status === "ASSIGNED");
+      assigned.forEach(req => checkDeliverySla(req));
+      
     } catch (err) {
       console.error("Failed to load amenity requests", err);
     }
@@ -196,6 +301,45 @@ export default function ProfessorDashboard() {
       console.error("Re-request failed:", error);
     } finally {
       setReRequesting(false);
+    }
+  };
+
+  // NEW: Report staff function
+  const handleReportStaff = (request) => {
+    if (!request.assignedStaff) {
+      alert("No staff assigned to this request.");
+      return;
+    }
+    setSelectedRequestForReport(request);
+    setShowReportModal(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportReason.trim()) {
+      alert("Please enter a reason for reporting.");
+      return;
+    }
+
+    if (!selectedRequestForReport) return;
+
+    setReporting(true);
+    try {
+      await api.post("/amenities/report-staff", {
+        requestId: selectedRequestForReport.id,
+        staffId: selectedRequestForReport.assignedStaff.staffId,
+        reason: reportReason,
+        staffName: selectedRequestForReport.assignedStaff.name,
+        department: selectedRequestForReport.department
+      });
+      
+      alert("Staff reported successfully! Admin has been notified.");
+      setShowReportModal(false);
+      resetReportForm();
+    } catch (error) {
+      alert(error.response?.data?.error || "Failed to report staff. Please try again.");
+      console.error("Report failed:", error);
+    } finally {
+      setReporting(false);
     }
   };
 
@@ -637,23 +781,45 @@ export default function ProfessorDashboard() {
               <div className="amenity-list">
                 {amenityRequests.map(req => {
                   const slaInfo = slaChecks[req.id];
-                  // Strict boolean logic for UI rendering
-                  const isSlaBreached = slaInfo?.isSlaBreached === true;
+                  const deliverySlaInfo = deliverySlaChecks[req.id];
+                  
+                  const isAssignmentSlaBreached = slaInfo?.isSlaBreached === true;
                   const canReRequest = slaInfo?.canReRequest === true;
+                  const isDeliverySlaBreached = deliverySlaInfo?.isDeliveryBreached === true;
 
                   return (
-                    <div key={req.id} className={`amenity-card ${isSlaBreached ? 'sla-breached' : ''}`}>
+                    <div key={req.id} className={`amenity-card ${isAssignmentSlaBreached || isDeliverySlaBreached ? 'sla-breached' : ''}`}>
                       <div className="amenity-top">
                         <strong>{req.department}</strong>
                         <span className={`status-pill ${req.status.toLowerCase()}`}>{req.status}</span>
                       </div>
 
-                      {isSlaBreached && req.status === "PENDING" && (
-                        <div className="sla-breach-banner">
+                      {/* NEW: Confirmation Code Display for Assigned Requests */}
+                      {req.status === "ASSIGNED" && req.deliveryConfirmationCode && (
+                        <div className="confirmation-code-section">
+                          <div className="confirmation-code-header">
+                            <Key size={16} />
+                            <span className="confirmation-label">Delivery Confirmation Code</span>
+                            <button 
+                              className="show-code-btn"
+                              onClick={() => showConfirmationCodeModal(req)}
+                            >
+                              Show Code
+                            </button>
+                          </div>
+                          <p className="confirmation-instruction">
+                            Please share this 4-digit code with {req.assignedStaff?.name || "the staff"} when they deliver your items.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Assignment SLA Breach */}
+                      {isAssignmentSlaBreached && req.status === "PENDING" && (
+                        <div className="sla-breach-banner assignment">
                           <div className="sla-breach-content">
                             <span className="sla-breach-icon">⚠️</span>
                             <div>
-                              <strong>SLA BREACHED</strong>
+                              <strong>ASSIGNMENT SLA BREACHED</strong>
                               <p>Admin failed to assign staff within 2 minutes</p>
                               {canReRequest && (
                                 <button
@@ -669,42 +835,89 @@ export default function ProfessorDashboard() {
                         </div>
                       )}
 
+                      {/* Delivery SLA Breach */}
+                      {isDeliverySlaBreached && req.status === "ASSIGNED" && (
+                        <div className="sla-breach-banner delivery">
+                          <div className="sla-breach-content">
+                            <span className="sla-breach-icon">🚨</span>
+                            <div>
+                              <strong>DELIVERY SLA BREACHED</strong>
+                              <p>Staff failed to deliver within 5 minutes</p>
+                              <div className="breach-actions">
+                                <button
+                                  className="report-btn"
+                                  onClick={() => handleReportStaff(req)}
+                                >
+                                  <Flag size={14} /> Report Staff
+                                </button>
+                                <button
+                                  className="re-request-btn"
+                                  onClick={() => handleReRequest(req)}
+                                  disabled={reRequesting}
+                                >
+                                  {reRequesting ? "Processing..." : "Re-request Now"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <p>📍 Classroom: <strong>{req.classRoom}</strong></p>
 
                       {req.assignedStaff && (
                         <div className="assigned-staff">
                           <p>👷 Assigned to: <strong>{req.assignedStaff.name}</strong></p>
                           {req.assignedStaff.contactNo && <p>📞 Contact: <strong>{req.assignedStaff.contactNo}</strong></p>}
+                          
+                          {/* Report Button for Assigned Staff */}
+                          {req.status === "ASSIGNED" && !isDeliverySlaBreached && (
+                            <button 
+                              className="report-staff-btn"
+                              onClick={() => handleReportStaff(req)}
+                            >
+                              <UserX size={14} /> Report Staff Issue
+                            </button>
+                          )}
                         </div>
                       )}
 
-                      {req.status === "PENDING" && !isSlaBreached && req.createdAt && (
+                      {req.status === "PENDING" && !isAssignmentSlaBreached && req.createdAt && (
                         <div className="sla-timer">
                           <span className="sla-label">Assignment SLA:</span>
                           <span className={`sla-countdown ${slaInfo?.minutesPassed >= 1.5 ? "warning" : ""}`}>
                             {formatRemaining(
-                              new Date(req.createdAt).getTime() +
-                              (req.serverTimeOffset ?? 0) +
-                              120000
+                              new Date(req.createdAt).getTime() + 120000,
+                              "assignment"
                             )}
                           </span>
                         </div>
                       )}
 
-                      {isSlaBreached && slaInfo && (
+                      {isAssignmentSlaBreached && slaInfo && (
                         <div className="sla-breached-time">
                           <span>Breached for: {(slaInfo.minutesPassed || 0) - 2} minute(s)</span>
                         </div>
                       )}
 
                       {req.status === "ASSIGNED" && (
-                        <p className="sla delivery">Delivery SLA: {formatRemaining(req.slaDeadline)}</p>
+                        <div className={`sla-timer delivery ${isDeliverySlaBreached ? "breached" : ""}`}>
+                          <span className="sla-label">Delivery SLA:</span>
+                          <span className="sla-countdown">
+                            {formatRemaining(req.deliveryDeadline, "delivery")}
+                          </span>
+                          {isDeliverySlaBreached && (
+                            <span className="breached-time">
+                              Breached for: {deliverySlaInfo?.breachedFor || 0} minute(s)
+                            </span>
+                          )}
+                        </div>
                       )}
 
                       <div className="item-list">
                         {req.items.map(i => <span key={i} className="item-pill">{i}</span>)}
                       </div>
-                      <small>Raised on {new Date(req.createdAt).toLocaleString()}</small>
+                      <small style={{ color: "gray" }}>Raised on {new Date(req.createdAt).toLocaleString()}</small>
                     </div>
                   );
                 })}
@@ -754,6 +967,7 @@ export default function ProfessorDashboard() {
           </div>
         )}
 
+        {/* Re-Request Modal */}
         {reRequestModal && selectedRequestForReRequest && (
           <div className="modal-overlay">
             <div className="modal">
@@ -764,6 +978,100 @@ export default function ProfessorDashboard() {
                 <button className={`confirm ${reRequesting ? "loading" : ""}`} onClick={confirmReRequest} disabled={reRequesting}>
                   {reRequesting ? "Processing..." : "Yes, Re-request Now"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW: Report Staff Modal */}
+        {showReportModal && selectedRequestForReport && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <div className="modal-header">
+                <h2><Flag size={20} /> Report Staff</h2>
+                <button className="close-btn" onClick={() => setShowReportModal(false)}>✕</button>
+              </div>
+              
+              <div className="modal-content">
+                <div className="report-info">
+                  <p><strong>Staff:</strong> {selectedRequestForReport.assignedStaff?.name}</p>
+                  <p><strong>Request:</strong> #{selectedRequestForReport.id} - {selectedRequestForReport.classRoom}</p>
+                  <p><strong>Items:</strong> {selectedRequestForReport.items?.join(", ")}</p>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="reportReason">
+                    <AlertTriangle size={16} /> Reason for Reporting:
+                  </label>
+                  <textarea
+                    id="reportReason"
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    placeholder="Describe the issue (e.g., staff didn't deliver on time, rude behavior, wrong items delivered, etc.)"
+                    rows={4}
+                  />
+                </div>
+                
+                <div className="modal-actions">
+                  <button className="cancel" onClick={() => setShowReportModal(false)} disabled={reporting}>
+                    Cancel
+                  </button>
+                  <button 
+                    className={`confirm ${reporting ? "loading" : ""}`} 
+                    onClick={submitReport}
+                    disabled={reporting || !reportReason.trim()}
+                  >
+                    {reporting ? "Reporting..." : "Submit Report"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW: Confirmation Code Modal */}
+        {showConfirmationModal && confirmationRequest && (
+          <div className="modal-overlay" onClick={handleConfirmationModalClose}>
+            <div className="modal confirmation-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2><Key size={20} /> Delivery Confirmation Code</h2>
+                <button className="close-btn" onClick={handleConfirmationModalClose}>✕</button>
+              </div>
+              
+              <div className="modal-content">
+                <div className="confirmation-info">
+                  <p><strong>Request:</strong> #{confirmationRequest.id}</p>
+                  <p><strong>Room:</strong> {confirmationRequest.classRoom}</p>
+                  <p><strong>Staff:</strong> {confirmationRequest.assignedStaff?.name || "Unknown"}</p>
+                  <p><strong>Items:</strong> {confirmationRequest.items?.join(", ")}</p>
+                </div>
+                
+                <div className="confirmation-code-display">
+                  <div className="code-label">Share this code with staff:</div>
+                  <div className="code-container">
+                    <div className="confirmation-code">
+                      {confirmationRequest.deliveryConfirmationCode}
+                    </div>
+                    <button 
+                      className="copy-code-btn"
+                      onClick={copyConfirmationCode}
+                      title="Copy to clipboard"
+                    >
+                      <Copy size={18} />
+                    </button>
+                  </div>
+                  <div className="code-instructions">
+                    <p>✅ Staff needs this code to mark delivery as complete</p>
+                    <p>⚠️ Do not share this code until items are delivered</p>
+                    <p>⏰ Code expires in 2 hours</p>
+                  </div>
+                </div>
+                
+                <div className="modal-actions">
+                  <button className="confirm" onClick={handleConfirmationModalClose}>
+                    Got it, I'll share with staff
+                  </button>
+                </div>
               </div>
             </div>
           </div>

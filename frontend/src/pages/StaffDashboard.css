@@ -945,3 +945,434 @@
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
+
+/* Notification Styles for Staff Dashboard */
+.staff-notification-center {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.staff-notification-bell {
+    position: relative;
+    background: #4f46e5;
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    border: none;
+}
+
+.staff-notification-bell:hover {
+    background: #4338ca;
+    transform: translateY(-2px);
+}
+
+.staff-notification-counter {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    border: 2px solid white;
+}
+
+.staff-notification-panel-wrapper {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 8px;
+    z-index: 1001;
+}
+
+.staff-notification-panel {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    width: 380px;
+    max-height: 500px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #e5e7eb;
+}
+
+.staff-notification-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f9fafb;
+}
+
+.staff-notification-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.staff-notification-close-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.staff-notification-close-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.staff-notification-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.staff-notification-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #6b7280;
+}
+
+.staff-notification-empty svg {
+    color: #9ca3af;
+    margin-bottom: 12px;
+}
+
+.staff-notification-empty p {
+    margin: 0 0 4px 0;
+    font-weight: 500;
+    color: #4b5563;
+}
+
+.staff-notification-empty span {
+    font-size: 14px;
+    color: #9ca3af;
+}
+
+.staff-notification-item {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: background-color 0.2s ease;
+}
+
+.staff-notification-item:hover {
+    background-color: #f9fafb;
+}
+
+.staff-notification-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.staff-notification-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.staff-notification-item.success .staff-notification-icon svg {
+    color: #10b981;
+}
+
+.staff-notification-item.error .staff-notification-icon svg {
+    color: #ef4444;
+}
+
+.staff-notification-item.warning .staff-notification-icon svg {
+    color: #f59e0b;
+}
+
+.staff-notification-item.info .staff-notification-icon svg {
+    color: #3b82f6;
+}
+
+.staff-notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.staff-notification-message {
+    margin: 0 0 4px 0;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.staff-notification-time {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* Notification Header Actions */
+.staff-notification-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.staff-notification-clear-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.staff-notification-clear-btn:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.staff-notification-clear-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Delete button for individual notifications */
+.staff-notification-delete-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+}
+
+.staff-notification-item:hover .staff-notification-delete-btn {
+    opacity: 1;
+}
+
+.staff-notification-delete-btn:hover {
+    background: #f3f4f6;
+    color: #ef4444;
+}
+/* Confirmation Modal Styles */
+.confirmation-modal {
+    max-width: 450px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.modal-content {
+    padding: 24px;
+}
+
+.confirmation-info {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.confirmation-info p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.confirmation-info strong {
+    color: #4f46e5;
+    width: 100px;
+    display: inline-block;
+}
+
+.danger-text {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.safe-text {
+    color: #10b981;
+    font-weight: bold;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.confirmation-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 8px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    transition: all 0.2s;
+}
+
+.confirmation-input:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.hint {
+    display: block;
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    flex: 1;
+    padding: 12px 20px;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover:not(:disabled) {
+    background: #e5e7eb;
+}
+
+.confirm-btn {
+    flex: 1;
+    padding: 12px 20px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.confirm-btn:hover:not(:disabled) {
+    background: #4338ca;
+}
+
+.confirm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.confirm-btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.confirm-btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-top: -8px;
+    margin-left: -8px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Update deliver button to include key icon */
+.staff-deliver-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
