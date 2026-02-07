@@ -545,6 +545,7 @@
 /* ================= STUDENT ROW ================= */
 .student-row.grid-row {
   display: grid;
+  color: #475569;
   grid-template-columns: 60px 1.5fr 1fr 1fr;
   align-items: center;
   gap: 16px;
@@ -639,6 +640,107 @@
 .undo-btn:hover {
   background: #f1f5f9;
   text-decoration: none;
+}
+/* ================= VIEW ATTENDANCE MODE STYLES ================= */
+
+/* Student row in view attendance mode (simple list) */
+.student-row:not(.grid-row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s ease;
+}
+
+.student-row:not(.grid-row):hover {
+  background: #f8fafc;
+}
+
+/* Student registration number styling in view mode */
+.student-row:not(.grid-row) span:first-child {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb; /* Blue color for better visibility */
+  letter-spacing: 0.5px;
+}
+
+/* Status pill alignment in view mode */
+.student-row:not(.grid-row) .status-pill {
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Empty state for attendance view */
+.attendance-card .empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #94a3b8;
+  font-size: 16px;
+  font-weight: 500;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 2px dashed #e2e8f0;
+  margin: 20px 0;
+}
+
+/* Ensure attendance rows have proper spacing */
+.attendance-card > div {
+  margin-bottom: 8px;
+}
+
+/* If you want to make the status pill always appear on the extreme right */
+.student-row:not(.grid-row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Alternative: Use flexbox with space-between */
+.student-row:not(.grid-row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Make reg number stand out more */
+.student-row:not(.grid-row) span:first-child {
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e40af; /* Darker blue */
+  background: #eff6ff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #dbeafe;
+}
+
+/* Status pill on extreme right with better spacing */
+.student-row:not(.grid-row) .status-pill {
+  margin-left: auto;
+  min-width: 90px;
+  text-align: center;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Present status styling */
+.student-row:not(.grid-row) .status-pill.present {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: 1px solid #059669;
+}
+
+/* Absent status styling */
+.student-row:not(.grid-row) .status-pill.absent {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: 1px solid #dc2626;
 }
 
 /* ================= CLASS CODE ================= */
@@ -2098,3 +2200,4 @@
   background: #f3f4f6;
   color: #374151;
 }
+
