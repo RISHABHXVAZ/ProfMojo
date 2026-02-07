@@ -1,19 +1,17 @@
 package com.profmojo.controllers;
 
 import com.profmojo.models.*;
-import com.profmojo.models.dto.WsNotificationDTO;
+import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.DepartmentSecretRepository;
 import com.profmojo.repositories.NotificationRepository;
 import com.profmojo.services.AdminAmenityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Random;
 
 @RestController
 @RequestMapping("/api/admin/amenities")
@@ -22,9 +20,9 @@ import java.util.Map;
 public class AdminAmenityController {
 
     private final AdminAmenityService adminAmenityService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final NotificationRepository notificationRepository;
     private final DepartmentSecretRepository departmentSecretRepository;
+    private final AmenityRequestRepository amenityRequestRepository;
 
     // Helper method to get department from authentication
     private String getDepartmentFromAuth(Authentication authentication) {
@@ -59,81 +57,73 @@ public class AdminAmenityController {
             Authentication authentication) {
 
         String adminDepartment = getDepartmentFromAuth(authentication);
+        String adminId = authentication.getName();
 
-        // First, get the request to validate department
-        // You need to add findById method to AdminAmenityService or use repository directly
-        // For now, let's assume you have access to AmenityRequestRepository
-
-        // ADD THIS VALIDATION LOGIC:
-        // 1. Get the request
-        // 2. Check if request.department equals adminDepartment
-        // 3. If not, throw unauthorized exception
-
-        // 1️⃣ Assign staff (service should handle department validation internally)
+        // 1️⃣ Assign staff (make sure this generates confirmation code)
         AmenityRequest request = adminAmenityService.assignStaff(requestId, staffId);
 
+        // 2️⃣ Generate 4-digit confirmation code
+        String confirmationCode = String.format("%04d", new Random().nextInt(10000));
+        request.setDeliveryConfirmationCode(confirmationCode);
+        request.setConfirmationCodeExpiry(LocalDateTime.now().plusHours(2));
 
-        // 2️⃣ SAVE notification for STAFF (Database + WebSocket)
+        // Save the updated request
+        request = amenityRequestRepository.save(request);
+
+        // 3️⃣ SAVE notification for STAFF
         Notification staffNotif = Notification.builder()
-                .message("New Task Assigned: Room " + request.getClassRoom())
-                .type("info")
                 .recipientId(staffId)
                 .recipientRole("STAFF")
-                .createdAt(LocalDateTime.now())
+                .message("You have been assigned to Room " + request.getClassRoom() +
+                        ". Confirmation Code: " + confirmationCode)
+                .type("info")
+                .eventType("TASK_ASSIGNED")
+                .notificationKey("TASK_ASSIGNED-" + request.getId() + "-" + staffId)
+                .entityId(request.getId())
                 .isRead(false)
+                .isArchived(false)
+                .createdAt(LocalDateTime.now())
                 .build();
         notificationRepository.save(staffNotif);
 
-        WsNotificationDTO staffWs = WsNotificationDTO.builder()
-                .event("TASK_ASSIGNED")
-                .requestId(request.getId())
-                .message(staffNotif.getMessage())
-                .type("info")
-                .build();
-        messagingTemplate.convertAndSendToUser(staffId, "/queue/notifications", staffWs);
-
-        // 3️⃣ SAVE + NOTIFY PROFESSOR (Database + WebSocket)
+        // 4️⃣ SAVE notification for PROFESSOR (with confirmation code)
         Notification profNotif = Notification.builder()
-                .message("Your request #" + request.getId() + " has been assigned to " + request.getAssignedStaff().getName())
-                .type("success")
                 .recipientId(request.getProfessorId())
                 .recipientRole("PROFESSOR")
-                .createdAt(LocalDateTime.now())
+                .message("Your request #" + request.getId() + " has been assigned to " +
+                        request.getAssignedStaff().getName() +
+                        ". Please share this confirmation code with staff: " + confirmationCode)
+                .type("success")
+                .eventType("REQUEST_ASSIGNED")
+                .notificationKey("REQUEST_ASSIGNED-" + request.getId() + "-" + request.getProfessorId())
+                .entityId(request.getId())
                 .isRead(false)
+                .isArchived(false)
+                .createdAt(LocalDateTime.now())
                 .build();
         notificationRepository.save(profNotif);
 
-        WsNotificationDTO profWs = WsNotificationDTO.builder()
-                .event("REQUEST_ASSIGNED")
-                .requestId(request.getId())
-                .message(profNotif.getMessage())
-                .type("success")
-                .build();
-        messagingTemplate.convertAndSendToUser(request.getProfessorId(), "/queue/notifications", profWs);
-
-        // 4️⃣ FIXED: SAVE ADMIN NOTIFICATION TO DATABASE
+        // 5️⃣ SAVE ADMIN NOTIFICATION
         Notification adminNotif = Notification.builder()
-                .message("Staff " + request.getAssignedStaff().getName() +
-                        " assigned to Room " + request.getClassRoom())
-                .type("success")
-                .department(adminDepartment)
+                .recipientId(adminId)
                 .recipientRole("ADMIN")
-                .createdAt(LocalDateTime.now())
+                .department(adminDepartment)
+                .message("Staff " + request.getAssignedStaff().getName() +
+                        " assigned to Room " + request.getClassRoom() +
+                        ". Confirmation Code: " + confirmationCode)
+                .type("success")
+                .eventType("STAFF_ASSIGNED")
+                .notificationKey("STAFF_ASSIGNED-" + request.getId() + "-" + adminDepartment)
+                .entityId(request.getId())
                 .isRead(false)
+                .isArchived(false)
+                .createdAt(LocalDateTime.now())
                 .build();
         notificationRepository.save(adminNotif);
 
-        // 5️⃣ SEND ADMIN WEB SOCKET NOTIFICATION
-        // Create a simple map for admin notification (frontend expects this format)
-        Map<String, Object> adminWsNotif = new HashMap<>();
-        adminWsNotif.put("message", adminNotif.getMessage());
-        adminWsNotif.put("type", "success");
-        adminWsNotif.put("department", adminDepartment);
-
-        messagingTemplate.convertAndSend("/topic/admin-notifications", (Object) adminWsNotif);
-
         return request;
     }
+
     @GetMapping("/staff/all")
     public List<Staff> getAllStaff(Authentication authentication) {
         String department = getDepartmentFromAuth(authentication);

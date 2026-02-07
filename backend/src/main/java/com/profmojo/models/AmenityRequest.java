@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
 @Table(name = "amenity_request")
 public class AmenityRequest {
 
@@ -68,4 +70,12 @@ public class AmenityRequest {
     private LocalDateTime deliveredAt;
 
     private boolean slaBreached = false;
+
+    @Column(name = "delivery_confirmation_code")
+    private String deliveryConfirmationCode;
+
+    @Column(name = "confirmation_code_expiry")
+    private LocalDateTime confirmationCodeExpiry;
+
+
 }

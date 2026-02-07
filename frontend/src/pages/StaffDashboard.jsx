@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
+import { Bell, X, CheckCircle, AlertCircle, Key } from "lucide-react";
 import "./StaffDashboard.css";
 
 export default function StaffDashboard() {
@@ -13,130 +12,48 @@ export default function StaffDashboard() {
     const [showLevels, setShowLevels] = useState(false);
     const [activeTab, setActiveTab] = useState("tasks");
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    
+    // Notification state
     const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
     const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-
-    // WebSocket refs
-    const stompClientRef = useRef(null);
-    const notificationIdsRef = useRef(new Set());
+    
+    // NEW: Confirmation code modal state
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [selectedRequest, setSelectedRequest] = useState(null);
+    const [confirmationCode, setConfirmationCode] = useState("");
+    const [confirming, setConfirming] = useState(false);
 
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
 
-    const addNotification = (msg, type = 'info') => {
-        const notificationId = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        setNotifications(prev => {
-            const normalizedMsg = msg.toLowerCase().trim();
-            const exists = prev.some(n => n.msg.toLowerCase().trim() === normalizedMsg);
-            if (exists) return prev;
-
-            return [...prev, {
-                id: notificationId,
-                msg,
-                type,
-                timestamp: Date.now()
-            }];
+    // Fetch notifications from backend
+    const fetchNotifications = async () => {
+    try {
+        const res = await axios.get("http://localhost:8080/api/notifications/staff", {
+            headers: { Authorization: `Bearer ${token}` }
         });
+        setNotifications(res.data.notifications || []);
+        setUnreadCount(res.data.unreadCount || 0);
+    } catch (err) {
+        console.error("Failed to fetch notifications", err);
+    }
+};
 
-        setTimeout(() => {
-            setNotifications(prev => prev.filter(n => n.id !== notificationId));
-        }, 5000);
-    };
-
-    const removeNotification = (id) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    };
-
-    const clearAllNotifications = () => {
-        setNotifications([]);
-    };
-
-    const fetchHistory = async () => {
-        try {
-            const res = await axios.get("http://localhost:8080/api/notifications/staff/history", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const history = res.data.map(n => ({
-                id: n.id,
-                msg: n.message,
-                type: n.type
-            }));
-            setNotifications(history);
-        } catch (err) {
-            console.error("Failed to load notification history", err);
-        }
-    };
-
+    // Add this useEffect to close notification panel when clicking outside
     useEffect(() => {
-        fetchAssignedRequests();
-        fetchProfile();
-    }, []);
-
-    useEffect(() => {
-        const i = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(i);
-    }, []);
-
-    /* ===================== WEBSOCKET ===================== */
-    useEffect(() => {
-        if (stompClientRef.current && stompClientRef.current.connected) {
-            stompClientRef.current.disconnect();
-        }
-
-        const socket = new SockJS('http://localhost:8080/ws-notifications');
-        const stompClient = Stomp.over(socket);
-        stompClientRef.current = stompClient;
-        stompClient.debug = null;
-
-        stompClient.connect(
-            { Authorization: `Bearer ${token}` },
-            () => {
-                console.log("WebSocket connected for staff");
-
-                stompClient.subscribe('/user/queue/notifications', (message) => {
-                    try {
-                        const data = JSON.parse(message.body);
-
-                        // 🔒 ONLY process assignment events
-                        if (data.event !== "TASK_ASSIGNED") return;
-
-                        const notificationKey = `${data.event}-${data.requestId}`;
-
-                        if (notificationIdsRef.current.has(notificationKey)) {
-                            console.log("Duplicate notification skipped:", notificationKey);
-                            return;
-                        }
-
-                        notificationIdsRef.current.add(notificationKey);
-
-                        addNotification(data.message, data.type || 'info');
-                        fetchAssignedRequests();
-
-                        setTimeout(() => {
-                            notificationIdsRef.current.delete(notificationKey);
-                        }, 30000);
-
-                    } catch (e) {
-                        console.error("Error parsing notification:", e);
-                    }
-                });
-            },
-            (error) => {
-                console.error("WebSocket connection error:", error);
-                addNotification("Connection lost. Reconnecting...", "error");
-            }
-        );
-
-        return () => {
-            if (stompClientRef.current && stompClientRef.current.connected) {
-                stompClientRef.current.disconnect();
-                console.log("WebSocket disconnected");
+        const handleClickOutside = (event) => {
+            if (showNotificationPanel && !event.target.closest('.staff-notification-center')) {
+                setShowNotificationPanel(false);
             }
         };
-    }, [token]);
 
-    /* ===================== API ===================== */
+        document.addEventListener('click', handleClickOutside);
+        
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showNotificationPanel]);
 
     const fetchAssignedRequests = async () => {
         try {
@@ -164,30 +81,65 @@ export default function StaffDashboard() {
         }
     };
 
-    const markDelivered = async (id, deadline) => {
-        try {
-            const isBreached = new Date(deadline).getTime() < Date.now();
+    // UPDATED: Open confirmation modal instead of directly marking delivered
+    const openConfirmationModal = (request) => {
+        setSelectedRequest(request);
+        setConfirmationCode("");
+        setShowConfirmationModal(true);
+    };
 
-            await axios.put(
-                `http://localhost:8080/api/staff/amenities/${id}/delivered`,
+    // UPDATED: Mark delivered with confirmation code
+    const markDeliveredWithConfirmation = async () => {
+        if (!selectedRequest || !confirmationCode.trim()) {
+            alert("Please enter the confirmation code");
+            return;
+        }
+
+        if (confirmationCode.length !== 4) {
+            alert("Confirmation code must be 4 digits");
+            return;
+        }
+
+        setConfirming(true);
+        try {
+            const isBreached = new Date(selectedRequest.slaDeadline).getTime() < Date.now();
+
+            const res = await axios.put(
+                `http://localhost:8080/api/staff/amenities/${selectedRequest.id}/delivered`,
                 {},
                 {
                     headers: { Authorization: `Bearer ${token}` },
-                    params: { slaBreached: isBreached }
+                    params: { 
+                        confirmationCode: confirmationCode.trim(),
+                        slaBreached: isBreached
+                    }
                 }
             );
 
-            if (isBreached) {
-                addNotification("SLA Breached! Star count decreased by 1.", "warning");
-            } else {
-                addNotification("Task marked as delivered successfully!", "success");
+            // Show success message
+            if (res.data.message) {
+                alert(res.data.message);
             }
 
+            // Refresh data
             fetchAssignedRequests();
             fetchProfile();
+            fetchNotifications();
+            
+            // Close modal
+            setShowConfirmationModal(false);
+            setSelectedRequest(null);
+            setConfirmationCode("");
+            
         } catch (err) {
             console.error("Failed to mark as delivered", err);
-            addNotification("Failed to mark as delivered. Please try again.", "error");
+            if (err.response?.data?.error) {
+                alert(`Error: ${err.response.data.error}`);
+            } else {
+                alert("Failed to mark as delivered. Please try again.");
+            }
+        } finally {
+            setConfirming(false);
         }
     };
 
@@ -228,34 +180,81 @@ export default function StaffDashboard() {
         level === "gold" ? "Gold" :
         level === "silver" ? "Silver" : "Bronze";
 
-    const NotificationToasts = () => (
-        <div className="staff-toast-container">
-            {notifications.map(n => (
-                <div
-                    key={n.id}
-                    className={`staff-toast ${n.type || 'info'}`}
-                    style={{ animation: 'toastSlideIn 0.3s ease-out' }}
+    // Notification Panel Component (Read-only)
+    const NotificationPanel = () => (
+        <div 
+            className="staff-notification-panel"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="staff-notification-header">
+                <h3>Notifications {unreadCount > 0 && `(${unreadCount})`}</h3>
+                <button 
+                    className="staff-notification-close-btn" 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNotificationPanel(false);
+                    }}
                 >
-                    <div className="staff-toast-content">
-                        <p>{n.msg}</p>
-                        <div className="staff-toast-progress">
-                            <div
-                                className="staff-toast-progress-bar"
-                                style={{ animation: 'toastProgress 5s linear forwards' }}
-                            />
-                        </div>
+                    <X size={18} />
+                </button>
+            </div>
+
+            <div className="staff-notification-list">
+                {notifications.length === 0 ? (
+                    <div className="staff-notification-empty">
+                        <Bell size={32} />
+                        <p>No notifications</p>
+                        <span>All caught up!</span>
                     </div>
-                    <button
-                        className="staff-toast-close"
-                        onClick={() => removeNotification(n.id)}
-                        aria-label="Dismiss notification"
-                    >
-                        ✕
-                    </button>
-                </div>
-            ))}
+                ) : (
+                    notifications.map(notification => (
+                        <div 
+                            key={notification.id} 
+                            className={`staff-notification-item ${notification.type}`}
+                        >
+                            <div className="staff-notification-icon">
+                                {notification.type === 'success' && <CheckCircle size={18} />}
+                                {notification.type === 'error' && <AlertCircle size={18} />}
+                                {notification.type === 'warning' && <AlertCircle size={18} />}
+                                {notification.type === 'info' && <Bell size={18} />}
+                            </div>
+                            <div className="staff-notification-content">
+                                <p className="staff-notification-message">{notification.message || notification.msg}</p>
+                                <span className="staff-notification-time">
+                                    {notification.createdAt ? 
+                                        new Date(notification.createdAt).toLocaleTimeString([], { 
+                                            hour: '2-digit', 
+                                            minute: '2-digit' 
+                                        }) : 
+                                        "Recently"
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
+
+    useEffect(() => {
+        fetchAssignedRequests();
+        fetchProfile();
+        fetchNotifications();
+        
+        // Set up polling for notifications
+        const pollInterval = setInterval(() => {
+            fetchNotifications();
+            fetchAssignedRequests();
+        }, 10000); // Poll every 10 seconds
+        
+        return () => clearInterval(pollInterval);
+    }, []);
+
+    useEffect(() => {
+        const i = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(i);
+    }, []);
 
     if (loading) {
         return (
@@ -268,7 +267,30 @@ export default function StaffDashboard() {
 
     return (
         <div className="staff-dashboard">
-            <NotificationToasts />
+            {/* Notification Area */}
+            <div className="staff-notification-center">
+                <div 
+                    className="staff-notification-bell" 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNotificationPanel(!showNotificationPanel);
+                    }}
+                >
+                    <Bell size={22} />
+                    {unreadCount > 0 && (
+                        <span className="staff-notification-counter">{unreadCount}</span>
+                    )}
+                </div>
+
+                {showNotificationPanel && (
+                    <div 
+                        className="staff-notification-panel-wrapper"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <NotificationPanel />
+                    </div>
+                )}
+            </div>
 
             <div className="staff-sidebar">
                 <h2 className="staff-sidebar-logo">ProfMojo</h2>
@@ -404,10 +426,12 @@ export default function StaffDashboard() {
                                             </div>
                                         </div>
 
+                                        {/* UPDATED: Open confirmation modal */}
                                         <button
                                             className="staff-deliver-btn"
-                                            onClick={() => markDelivered(r.id, r.slaDeadline)}
+                                            onClick={() => openConfirmationModal(r)}
                                         >
+                                            <Key size={16} style={{ marginRight: '8px' }} />
                                             Mark as Delivered
                                         </button>
                                     </div>
@@ -458,6 +482,82 @@ export default function StaffDashboard() {
                                     <span className={`staff-detail-value level ${level}`}>
                                         {levelLabel}
                                     </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* NEW: Confirmation Code Modal */}
+                {showConfirmationModal && selectedRequest && (
+                    <div className="staff-modal-overlay">
+                        <div className="staff-modal confirmation-modal">
+                            <div className="modal-header">
+                                <h2><Key size={20} /> Confirm Delivery</h2>
+                                <button 
+                                    className="close-btn" 
+                                    onClick={() => {
+                                        setShowConfirmationModal(false);
+                                        setSelectedRequest(null);
+                                        setConfirmationCode("");
+                                    }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+                            
+                            <div className="modal-content">
+                                <div className="confirmation-info">
+                                    <p><strong>Room:</strong> {selectedRequest.classRoom}</p>
+                                    <p><strong>Professor:</strong> {selectedRequest.professorName}</p>
+                                    <p><strong>Items:</strong> {selectedRequest.items?.join(", ")}</p>
+                                    <p><strong>SLA Status:</strong> <span className={slaText(selectedRequest.slaDeadline).includes("BREACHED") ? "danger-text" : "safe-text"}>
+                                        {slaText(selectedRequest.slaDeadline)}
+                                    </span></p>
+                                </div>
+                                
+                                <div className="form-group">
+                                    <label htmlFor="confirmationCode">
+                                        <Key size={16} /> Enter 4-digit confirmation code from professor:
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="confirmationCode"
+                                        value={confirmationCode}
+                                        onChange={(e) => {
+                                            // Only allow numbers and limit to 4 digits
+                                            const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                            setConfirmationCode(value);
+                                        }}
+                                        placeholder="0000"
+                                        maxLength={4}
+                                        className="confirmation-input"
+                                        autoFocus
+                                    />
+                                    <small className="hint">
+                                        Get this code from the professor after delivering items to {selectedRequest.classRoom}
+                                    </small>
+                                </div>
+                                
+                                <div className="modal-actions">
+                                    <button 
+                                        className="cancel-btn" 
+                                        onClick={() => {
+                                            setShowConfirmationModal(false);
+                                            setSelectedRequest(null);
+                                            setConfirmationCode("");
+                                        }}
+                                        disabled={confirming}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        className={`confirm-btn ${confirming ? "loading" : ""}`}
+                                        onClick={markDeliveredWithConfirmation}
+                                        disabled={confirming || confirmationCode.length !== 4}
+                                    >
+                                        {confirming ? "Confirming..." : "Confirm Delivery"}
+                                    </button>
                                 </div>
                             </div>
                         </div>

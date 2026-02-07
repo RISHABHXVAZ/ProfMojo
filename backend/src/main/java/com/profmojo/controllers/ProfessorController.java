@@ -31,11 +31,6 @@ public class ProfessorController {
     private final ProfessorRepository professorRepository;
     private final ClassRoomService classRoomService;
 
-//    @PostMapping("/register")
-//    public ResponseEntity<?> register(@RequestBody Professor professor) {
-//        Professor saved = professorService.registerProfessor(professor);
-//        return ResponseEntity.ok(saved);
-//    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -61,27 +56,6 @@ public class ProfessorController {
         );
     }
 
-
-    @GetMapping("/check-id/{profId}")
-    public ResponseEntity<?> checkProfId(@PathVariable String profId) {
-
-        // Check if professor exists in master table
-        boolean existsInMaster = professorMasterRepository.existsByProfId(profId);
-
-        if (!existsInMaster) {
-            return ResponseEntity.ok(Map.of("canRegister", false));
-        }
-
-        // Check if already registered in Professor table
-        boolean alreadyRegistered = professorRepository.existsById(profId);
-
-        if (alreadyRegistered) {
-            return ResponseEntity.ok(Map.of("canRegister", false));
-        }
-
-        // If exists in master AND not registered → can register ✔
-        return ResponseEntity.ok(Map.of("canRegister", true));
-    }
 
     @DeleteMapping("/{classCode}")
     public ResponseEntity<?> deleteClass(

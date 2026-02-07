@@ -8,7 +8,6 @@ import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.services.AmenityRequestService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate; // Required for WebSocket
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,7 +19,7 @@ import java.util.List;
 public class AmenityRequestServiceImpl implements AmenityRequestService {
 
     private final AmenityRequestRepository repository;
-    private final SimpMessagingTemplate messagingTemplate; // Inject Messaging Template
+    // REMOVED: private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public AmenityRequest raiseRequest(AmenityRequestDTO dto, Professor professor) {
@@ -41,10 +40,11 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
 
         AmenityRequest savedRequest = repository.save(request);
 
+        // REMOVED: WebSocket notification
         // REAL-TIME NOTIFICATION TO ADMIN
         // Admin Dashboard will subscribe to this topic
-        messagingTemplate.convertAndSend("/topic/admin-notifications",
-                "New Amenity Request: Room " + savedRequest.getClassRoom() + " by Prof. " + savedRequest.getProfessorName());
+        // messagingTemplate.convertAndSend("/topic/admin-notifications",
+        //         "New Amenity Request: Room " + savedRequest.getClassRoom() + " by Prof. " + savedRequest.getProfessorName());
 
         return savedRequest;
     }
@@ -89,9 +89,10 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
 
         AmenityRequest savedNewReq = repository.save(newReq);
 
+        // REMOVED: WebSocket notification
         // NOTIFY ADMIN ABOUT RE-REQUEST
-        messagingTemplate.convertAndSend("/topic/admin-notifications",
-                "RE-REQUEST (SLA BREACH): Room " + savedNewReq.getClassRoom());
+        // messagingTemplate.convertAndSend("/topic/admin-notifications",
+        //         "RE-REQUEST (SLA BREACH): Room " + savedNewReq.getClassRoom());
 
         return savedNewReq;
     }

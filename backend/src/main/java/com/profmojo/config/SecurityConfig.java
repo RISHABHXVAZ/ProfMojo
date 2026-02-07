@@ -28,9 +28,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // OPTIONS requests always allowed
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 🔓 PUBLIC
+                        // 🔓 PUBLIC ENDPOINTS (No authentication needed)
                         .requestMatchers(
                                 "/api/students/login",
                                 "/api/students/register",
@@ -40,43 +41,35 @@ public class SecurityConfig {
                                 "/api/professors/check-id/**",
                                 "/api/admin/auth/**",
                                 "/api/staff/auth/**",
-                                "/api/onboarding/**",
-                                "/ws-notifications/**"
+                                "/api/onboarding/**"
                         ).permitAll()
 
-                                // 🔔 NOTIFICATIONS
-// Admin history needs ADMIN role
-                                .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
+                        // 🛠️ ADMIN ENDPOINTS (Highest priority - most specific)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-// Staff history needs STAFF role
-                                .requestMatchers("/api/notifications/staff/**").hasRole("STAFF")
-                                // Add professor notification endpoint
-                                .requestMatchers("/api/notifications/professor/**").hasRole("PROFESSOR")
-
-// General notifications (if any) - authenticated users
-                                .requestMatchers("/api/notifications/**").authenticated()
-                                .requestMatchers(
-                                        "/api/admin/amenities/*/queue"
-                                ).hasRole("ADMIN")
-
-                        // 🛠️ ADMIN — MUST COME FIRST
-                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                                // 👨‍🏫 PROFESSOR AMENITIES
+                        // 👨‍🏫 PROFESSOR ENDPOINTS
                         .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/professors/**").hasRole("PROFESSOR")
 
-                        // 👷 STAFF
+                        // 👷 STAFF ENDPOINTS
                         .requestMatchers("/api/staff/**").hasRole("STAFF")
 
-                        // OTHER PROTECTED
-                        .requestMatchers("/api/students/**").authenticated()
-                        .requestMatchers("/api/professors/**").authenticated()
+                        // 👨‍🎓 STUDENT ENDPOINTS
+                        .requestMatchers("/api/students/**").hasRole("STUDENT")
 
+                        // 🔔 NOTIFICATION ENDPOINTS (Role-based)
+                        .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/notifications/staff/**").hasRole("STAFF")
+                        .requestMatchers("/api/notifications/professor/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/notifications/**").authenticated()
+
+                        // 📚 ATTENDANCE & NOTICE ENDPOINTS (Professor only)
+                        .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/notices/**").hasRole("PROFESSOR")
+
+                        // Default - all other endpoints need authentication
                         .anyRequest().authenticated()
                 )
-
-
-
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
