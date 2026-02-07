@@ -28,6 +28,7 @@ export default function ProfessorDashboard() {
   const [showNoticeSuccess, setShowNoticeSuccess] = useState(false);
   const [noticeSentClasses, setNoticeSentClasses] = useState([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isViewingAttendance, setIsViewingAttendance] = useState(false);
 
   // ===== AMENITIES =====
   const [amenityRequests, setAmenityRequests] = useState([]);
@@ -45,13 +46,13 @@ export default function ProfessorDashboard() {
   const [reRequestModal, setReRequestModal] = useState(false);
   const [selectedRequestForReRequest, setSelectedRequestForReRequest] = useState(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  
+
   // NEW: Staff reporting
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedRequestForReport, setSelectedRequestForReport] = useState(null);
   const [reportReason, setReportReason] = useState("");
   const [reporting, setReporting] = useState(false);
-  
+
   // NEW: Delivery SLA breach
   const [deliverySlaChecks, setDeliverySlaChecks] = useState({});
 
@@ -79,23 +80,23 @@ export default function ProfessorDashboard() {
   const formatRemaining = (targetTime, type = "assignment") => {
     if (!targetTime) return null;
     const diff = new Date(targetTime).getTime() - Date.now();
-    
+
     if (diff <= 0) {
       if (type === "delivery") {
         return "DELIVERY BREACHED 🚨";
       }
       return "ASSIGNMENT BREACHED 🚨";
     }
-    
+
     const mins = Math.floor(diff / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
-    
+
     if (mins > 60) {
       const hours = Math.floor(mins / 60);
       const remainingMins = mins % 60;
       return `${hours}h ${remainingMins}m`;
     }
-    
+
     return `${mins}m ${secs}s`;
   };
 
@@ -176,11 +177,11 @@ export default function ProfessorDashboard() {
     if (!request.deliveryDeadline || request.status !== "ASSIGNED") {
       return null;
     }
-    
+
     const now = new Date();
     const deadline = new Date(request.deliveryDeadline);
     const isBreached = deadline < now;
-    
+
     if (isBreached) {
       setDeliverySlaChecks(prev => ({
         ...prev,
@@ -190,7 +191,7 @@ export default function ProfessorDashboard() {
         }
       }));
     }
-    
+
     return isBreached;
   };
 
@@ -199,7 +200,7 @@ export default function ProfessorDashboard() {
     for (const req of pendingRequests) {
       await checkSlaForRequest(req.id);
     }
-    
+
     // NEW: Check delivery SLAs
     const assignedRequests = amenityRequests.filter(req => req.status === "ASSIGNED");
     assignedRequests.forEach(req => checkDeliverySla(req));
@@ -272,10 +273,10 @@ export default function ProfessorDashboard() {
       for (const req of pendingRequests) {
         await checkSlaForRequest(req.id);
       }
-      
+
       const assigned = activeOnly.filter(req => req.status === "ASSIGNED");
       assigned.forEach(req => checkDeliverySla(req));
-      
+
     } catch (err) {
       console.error("Failed to load amenity requests", err);
     }
@@ -331,7 +332,7 @@ export default function ProfessorDashboard() {
         staffName: selectedRequestForReport.assignedStaff.name,
         department: selectedRequestForReport.department
       });
-      
+
       alert("Staff reported successfully! Admin has been notified.");
       setShowReportModal(false);
       resetReportForm();
@@ -419,6 +420,7 @@ export default function ProfessorDashboard() {
 
   const openClass = async (cls) => {
     setSelectedClass(cls);
+    setIsViewingAttendance(false);
     setAttendance([]);
     setMarkedMap({});
     setLoading(true);
@@ -438,6 +440,7 @@ export default function ProfessorDashboard() {
 
   const loadAttendanceByDate = async (date) => {
     setLoading(true);
+    setIsViewingAttendance(true);
     try {
       const res = await api.get(
         `/attendance/${selectedClass.classCode}/date`,
@@ -682,7 +685,7 @@ export default function ProfessorDashboard() {
                   </div>
                 )}
                 <div className="attendance-toggle">
-                  <button className={!showAnalytics ? "active" : ""} onClick={() => setShowAnalytics(false)}>Mark Attendance</button>
+                  <button className={!showAnalytics ? "active" : ""} onClick={() => { setShowAnalytics(false); setIsViewingAttendance(false); }}>Mark Attendance</button>
                   <button className={showAnalytics ? "active" : ""} onClick={() => { setShowAnalytics(true); loadStudentAnalytics(); }}>📊 View Analytics</button>
                 </div>
                 <div className="attendance-toolbar">
@@ -702,35 +705,43 @@ export default function ProfessorDashboard() {
                         ))}
                       </tbody>
                     </table>
-                  ) : (
+                  ) : isViewingAttendance ? ( // <-- Check if we're viewing attendance
                     attendance.length > 0 ? (
                       attendance.map((a) => (
-                        <div key={a.studentRegNo} className="student-row"><span>{a.studentRegNo}</span><span className={`status-pill ${a.present ? "present" : "absent"}`}>{a.present ? "Present" : "Absent"}</span></div>
+                        <div key={a.studentRegNo} className="student-row">
+                          <span>{a.studentRegNo}</span>
+                          <span className={`status-pill ${a.present ? "present" : "absent"}`}>
+                            {a.present ? "Present" : "Absent"}
+                          </span>
+                        </div>
                       ))
-                    ) : students.length > 0 ? (
-                      students.map((enrollment, index) => {
-                        const student = enrollment.student;
-                        const marked = markedMap[student.regNo];
-                        return (
-                          <div key={student.regNo} className="student-row grid-row">
-                            <div className="col-serial">{index + 1}</div>
-                            <div className="student-info"><div className="avatar">{student.name.charAt(0)}</div><span className="student-name">{student.name}</span></div>
-                            <div className="reg-no">{student.regNo}</div>
-                            <div className="actions">
-                              {marked ? (
-                                <div className="marked-box">
-                                  <span className={`status-pill ${marked.status ? "present" : "absent"}`}>{marked.status ? "Marked: Present" : "Marked: Absent"}</span>
-                                  {marked.undoable && <button className="undo-btn" onClick={() => undoAttendance(student.regNo)}>Undo</button>}
-                                </div>
-                              ) : (
-                                <><button className="present" onClick={() => markAttendance(student.regNo, true)}>Present</button><button className="absent" onClick={() => markAttendance(student.regNo, false)}>Absent</button></>
-                              )}
-                            </div>
+                    ) : (
+                      <p className="empty">No attendance available for {selectedDate}</p>
+                    )
+                  ) : students.length > 0 ? ( // <-- Show student list for marking
+                    students.map((enrollment, index) => {
+                      const student = enrollment.student;
+                      const marked = markedMap[student.regNo];
+                      return (
+                        <div key={student.regNo} className="student-row grid-row">
+                          <div className="col-serial">{index + 1}</div>
+                          <div className="student-info"><div className="avatar">{student.name.charAt(0)}</div><span className="student-name">{student.name}</span></div>
+                          <div className="reg-no">{student.regNo}</div>
+                          <div className="actions">
+                            {marked ? (
+                              <div className="marked-box">
+                                <span className={`status-pill ${marked.status ? "present" : "absent"}`}>{marked.status ? "Marked: Present" : "Marked: Absent"}</span>
+                                {marked.undoable && <button className="undo-btn" onClick={() => undoAttendance(student.regNo)}>Undo</button>}
+                              </div>
+                            ) : (
+                              <><button className="present" onClick={() => markAttendance(student.regNo, true)}>Present</button><button className="absent" onClick={() => markAttendance(student.regNo, false)}>Absent</button></>
+                            )}
                           </div>
-                        );
-                      })
-                    ) : <p className="empty">No students joined yet</p>
-                  )}
+                        </div>
+                      );
+                    })
+                  ) : <p className="empty">No students joined yet</p>
+                  }
                 </div>
               </>
             )}
@@ -782,7 +793,7 @@ export default function ProfessorDashboard() {
                 {amenityRequests.map(req => {
                   const slaInfo = slaChecks[req.id];
                   const deliverySlaInfo = deliverySlaChecks[req.id];
-                  
+
                   const isAssignmentSlaBreached = slaInfo?.isSlaBreached === true;
                   const canReRequest = slaInfo?.canReRequest === true;
                   const isDeliverySlaBreached = deliverySlaInfo?.isDeliveryBreached === true;
@@ -800,7 +811,7 @@ export default function ProfessorDashboard() {
                           <div className="confirmation-code-header">
                             <Key size={16} />
                             <span className="confirmation-label">Delivery Confirmation Code</span>
-                            <button 
+                            <button
                               className="show-code-btn"
                               onClick={() => showConfirmationCodeModal(req)}
                             >
@@ -869,10 +880,10 @@ export default function ProfessorDashboard() {
                         <div className="assigned-staff">
                           <p>👷 Assigned to: <strong>{req.assignedStaff.name}</strong></p>
                           {req.assignedStaff.contactNo && <p>📞 Contact: <strong>{req.assignedStaff.contactNo}</strong></p>}
-                          
+
                           {/* Report Button for Assigned Staff */}
                           {req.status === "ASSIGNED" && !isDeliverySlaBreached && (
-                            <button 
+                            <button
                               className="report-staff-btn"
                               onClick={() => handleReportStaff(req)}
                             >
@@ -991,14 +1002,14 @@ export default function ProfessorDashboard() {
                 <h2><Flag size={20} /> Report Staff</h2>
                 <button className="close-btn" onClick={() => setShowReportModal(false)}>✕</button>
               </div>
-              
+
               <div className="modal-content">
                 <div className="report-info">
                   <p><strong>Staff:</strong> {selectedRequestForReport.assignedStaff?.name}</p>
                   <p><strong>Request:</strong> #{selectedRequestForReport.id} - {selectedRequestForReport.classRoom}</p>
                   <p><strong>Items:</strong> {selectedRequestForReport.items?.join(", ")}</p>
                 </div>
-                
+
                 <div className="form-group">
                   <label htmlFor="reportReason">
                     <AlertTriangle size={16} /> Reason for Reporting:
@@ -1011,13 +1022,13 @@ export default function ProfessorDashboard() {
                     rows={4}
                   />
                 </div>
-                
+
                 <div className="modal-actions">
                   <button className="cancel" onClick={() => setShowReportModal(false)} disabled={reporting}>
                     Cancel
                   </button>
-                  <button 
-                    className={`confirm ${reporting ? "loading" : ""}`} 
+                  <button
+                    className={`confirm ${reporting ? "loading" : ""}`}
                     onClick={submitReport}
                     disabled={reporting || !reportReason.trim()}
                   >
@@ -1037,7 +1048,7 @@ export default function ProfessorDashboard() {
                 <h2><Key size={20} /> Delivery Confirmation Code</h2>
                 <button className="close-btn" onClick={handleConfirmationModalClose}>✕</button>
               </div>
-              
+
               <div className="modal-content">
                 <div className="confirmation-info">
                   <p><strong>Request:</strong> #{confirmationRequest.id}</p>
@@ -1045,14 +1056,14 @@ export default function ProfessorDashboard() {
                   <p><strong>Staff:</strong> {confirmationRequest.assignedStaff?.name || "Unknown"}</p>
                   <p><strong>Items:</strong> {confirmationRequest.items?.join(", ")}</p>
                 </div>
-                
+
                 <div className="confirmation-code-display">
                   <div className="code-label">Share this code with staff:</div>
                   <div className="code-container">
                     <div className="confirmation-code">
                       {confirmationRequest.deliveryConfirmationCode}
                     </div>
-                    <button 
+                    <button
                       className="copy-code-btn"
                       onClick={copyConfirmationCode}
                       title="Copy to clipboard"
@@ -1066,7 +1077,7 @@ export default function ProfessorDashboard() {
                     <p>⏰ Code expires in 2 hours</p>
                   </div>
                 </div>
-                
+
                 <div className="modal-actions">
                   <button className="confirm" onClick={handleConfirmationModalClose}>
                     Got it, I'll share with staff
