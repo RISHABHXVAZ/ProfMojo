@@ -36,7 +36,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import "./AdminDashboard.css";
-import SlaTimer from "./SLATimer";
+import SlaTimer from "./SlaTimer.jsx";
 
 export default function AdminDashboard() {
     const [requests, setRequests] = useState([]);
