@@ -28,6 +28,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: profmojo
       # Add wait time for database connection
       SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
+
+      TZ: Asia/Kolkata
     restart: always
 
   frontend:

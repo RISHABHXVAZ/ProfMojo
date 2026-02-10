@@ -19,7 +19,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column
     private String recipientId;
 
     @Column(nullable = false)
@@ -31,19 +31,19 @@ public class Notification {
     @Column(nullable = false)
     private String type;
 
-    @Column(nullable = true)
+    @Column
     private String eventType;
 
-    @Column(nullable = true)
+    @Column
     private String notificationKey;
 
     @Column(nullable = true)
     private Long entityId;
 
-    @Column(nullable = false)
+    @Column
     private Boolean isRead = false;
 
-    @Column(nullable = false)
+    @Column
     private Boolean isArchived = false;
 
     @Column(nullable = false)
