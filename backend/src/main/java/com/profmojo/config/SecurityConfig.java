@@ -64,10 +64,17 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
 
                         // 📚 ATTENDANCE & NOTICE ENDPOINTS (Professor only)
+                        .requestMatchers("/api/attendance/student/**").hasRole("STUDENT")
                         .requestMatchers("/api/attendance/**").hasRole("PROFESSOR")
-                        .requestMatchers("/api/notices/**").hasRole("PROFESSOR")
 
-                        // Default - all other endpoints need authentication
+                                // STUDENT notice endpoints
+                                .requestMatchers("/api/notices/student/**").hasRole("STUDENT")
+
+                                // PROFESSOR notice endpoints
+                                .requestMatchers("/api/notices/**").hasRole("PROFESSOR")
+
+
+                                // Default - all other endpoints need authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
