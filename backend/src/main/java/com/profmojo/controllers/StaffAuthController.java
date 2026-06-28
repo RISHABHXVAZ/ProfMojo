@@ -13,7 +13,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/staff/auth")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class StaffAuthController {
 
     private final StaffAuthService staffAuthService;

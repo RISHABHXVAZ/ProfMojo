@@ -20,7 +20,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/staff/amenities")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class StaffAmenityController {
 
     private final AmenityRequestRepository amenityRepo;

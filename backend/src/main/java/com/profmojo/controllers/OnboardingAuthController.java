@@ -13,7 +13,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/onboarding")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class OnboardingAuthController {
 
     private final OnboardingAuthService onboardingAuthService;

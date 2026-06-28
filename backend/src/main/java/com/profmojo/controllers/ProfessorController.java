@@ -19,11 +19,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/professors")
 @RequiredArgsConstructor
-@CrossOrigin(
-        origins = "http://localhost:5173",
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST}
-)
 public class ProfessorController {
 
     private final ProfessorService professorService;

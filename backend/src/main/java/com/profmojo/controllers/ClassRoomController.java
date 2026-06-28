@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/professor/classes")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class ClassRoomController {
 
     private final ClassRoomService classRoomService;

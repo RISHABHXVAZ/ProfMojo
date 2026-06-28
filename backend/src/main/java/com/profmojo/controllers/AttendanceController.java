@@ -17,7 +17,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/attendance")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class AttendanceController {
 
     private final AttendanceService attendanceService;

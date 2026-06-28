@@ -23,7 +23,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/amenities")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class AmenityRequestController {
 
     private final AmenityRequestService amenityRequestService;

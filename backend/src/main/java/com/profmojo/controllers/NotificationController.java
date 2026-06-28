@@ -15,7 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class NotificationController {
 
     private final NotificationRepository notificationRepository;

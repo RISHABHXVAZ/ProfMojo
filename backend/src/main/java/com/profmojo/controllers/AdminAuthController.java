@@ -11,7 +11,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/auth")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;

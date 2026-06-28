@@ -18,7 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/onboarding")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
+
 public class AdminOnboardingController {
 
     private final AdminOnboardingService adminOnboardingService;

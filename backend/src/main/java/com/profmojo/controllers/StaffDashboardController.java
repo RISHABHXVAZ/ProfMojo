@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/staff/dashboard")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
 public class StaffDashboardController {
 
     private final AmenityRequestRepository amenityRepo;

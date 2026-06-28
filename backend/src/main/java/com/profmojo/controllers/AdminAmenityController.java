@@ -16,7 +16,7 @@ import java.util.Random;
 @RestController
 @RequestMapping("/api/admin/amenities")
 @RequiredArgsConstructor
-@CrossOrigin("http://localhost:5173")
+
 public class AdminAmenityController {
 
     private final AdminAmenityService adminAmenityService;
