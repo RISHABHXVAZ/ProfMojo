@@ -8,5 +8,7 @@ public interface DepartmentSecretRepository
         extends JpaRepository<DepartmentSecret, String> {
 
     Optional<DepartmentSecret> findBySecretKey(String secretKey);
+
+    Optional<DepartmentSecret> findByDepartment(String department);
 }
 

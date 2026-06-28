@@ -1,0 +1,14 @@
+# Root .gitignore
+
+# Secret environment files - NEVER commit these
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
