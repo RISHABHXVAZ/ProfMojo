@@ -1,8 +1,8 @@
 import axios from "axios";
 
 export const api = axios.create({
-  // Checks for the cloud variable first, defaults to localhost if missing
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
+  // Hardcode the deployed render URL directly here to bypass Vercel env bugs
+  baseURL: "https://profmojo-backend.onrender.com/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -11,5 +11,4 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Adding this back to match your original export structure
 export default api;
