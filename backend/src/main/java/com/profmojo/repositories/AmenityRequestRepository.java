@@ -4,8 +4,13 @@ import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,7 +67,7 @@ public interface AmenityRequestRepository
 
     List<AmenityRequest> findByStatus(RequestStatus requestStatus);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE AmenityRequest ar SET ar.slaBreached = true, ar.deliverySlaBreached = true WHERE ar.status = :status AND ar.slaDeadline < :now AND ar.slaBreached = false")
     int markBreachedDeliverySlaRequests(
             @Param("status") RequestStatus status,
