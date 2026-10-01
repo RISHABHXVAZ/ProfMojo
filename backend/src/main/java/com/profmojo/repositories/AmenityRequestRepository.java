@@ -61,4 +61,11 @@ public interface AmenityRequestRepository
     );
 
     List<AmenityRequest> findByStatus(RequestStatus requestStatus);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE AmenityRequest ar SET ar.slaBreached = true, ar.deliverySlaBreached = true WHERE ar.status = :status AND ar.slaDeadline < :now AND ar.slaBreached = false")
+    int markBreachedDeliverySlaRequests(
+            @Param("status") RequestStatus status,
+            @Param("now") LocalDateTime now
+    );
 }

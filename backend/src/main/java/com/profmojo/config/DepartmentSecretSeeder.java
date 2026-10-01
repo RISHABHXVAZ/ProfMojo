@@ -57,7 +57,19 @@ public class DepartmentSecretSeeder implements CommandLineRunner {
                 repository.save(newSecret);
                 System.out.println(">>> [Seeder] Successfully saved secret for department: " + departmentName);
             } else {
-                System.out.println(">>> [Seeder] Department " + departmentName + " already exists. Skipping.");
+                DepartmentSecret current = existing.get();
+                if (!current.getSecretKey().equals(secretKey) || !current.getAdminEmail().equals(adminEmail) || !current.isActive()) {
+                    repository.delete(current);
+                    DepartmentSecret updated = new DepartmentSecret();
+                    updated.setDepartment(departmentName);
+                    updated.setAdminEmail(adminEmail);
+                    updated.setSecretKey(secretKey);
+                    updated.setActive(true);
+                    repository.save(updated);
+                    System.out.println(">>> [Seeder] Successfully updated secret for department: " + departmentName);
+                } else {
+                    System.out.println(">>> [Seeder] Department " + departmentName + " already up to date.");
+                }
             }
         }
     }

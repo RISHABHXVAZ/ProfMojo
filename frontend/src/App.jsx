@@ -7,7 +7,7 @@ import StudentLogin from "./pages/StudentLogin";
 import StudentDashboard from "./pages/StudentDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
-import StaffLogin from "./pages//StaffLogin";
+import StaffLogin from "./pages/StaffLogin";
 import StaffDashboard from "./pages/StaffDashboard";
 import ProfessorForgotPassword from "./pages/ProfessorForgotPassword";
 import ProfessorVerifyOtp from "./pages/ProfessorVerifyOtp";

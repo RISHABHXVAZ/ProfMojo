@@ -41,9 +41,11 @@ public class Notification {
     private Long entityId;
 
     @Column
+    @Builder.Default
     private Boolean isRead = false;
 
     @Column
+    @Builder.Default
     private Boolean isArchived = false;
 
     @Column(nullable = false)

@@ -1,8 +1,15 @@
 import axios from "axios";
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    const url = import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "");
+    return url.endsWith("/api") ? url : `${url}/api`;
+  }
+  return "/api";
+};
+
 export const api = axios.create({
-  // Hardcode the deployed render URL directly here to bypass Vercel env bugs
-  baseURL: "https://profmojo-backend.onrender.com/api",
+  baseURL: getBaseURL(),
 });
 
 api.interceptors.request.use((config) => {

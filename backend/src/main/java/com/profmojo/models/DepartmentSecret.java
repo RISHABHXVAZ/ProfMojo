@@ -26,5 +26,6 @@ public class DepartmentSecret {
     @Column(nullable = false)
     private String adminEmail;
 
+    @Builder.Default
     private boolean active = true;
 }

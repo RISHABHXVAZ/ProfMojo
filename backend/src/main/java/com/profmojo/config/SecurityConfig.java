@@ -13,6 +13,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.security.config.http.SessionCreationPolicy;
+
 import java.util.List;
 
 @Configuration
@@ -28,6 +30,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // OPTIONS requests always allowed
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -50,7 +53,7 @@ public class SecurityConfig {
 
                         // 👨‍🏫 PROFESSOR ENDPOINTS
                         .requestMatchers("/api/amenities/**").hasRole("PROFESSOR")
-                        .requestMatchers("/api/professors/**").hasRole("PROFESSOR")
+                        .requestMatchers("/api/professors/**", "/api/professor/**").hasRole("PROFESSOR")
 
                         // 👷 STAFF ENDPOINTS
                         .requestMatchers("/api/staff/**").hasRole("STAFF")

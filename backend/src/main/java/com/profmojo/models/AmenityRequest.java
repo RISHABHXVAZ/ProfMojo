@@ -57,9 +57,11 @@ public class AmenityRequest {
     private LocalDateTime deliveryDeadline;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean assignmentSlaBreached = false;
 
     @Column(nullable = false)
+    @Builder.Default
     private Boolean deliverySlaBreached = false;
 
 
@@ -69,6 +71,7 @@ public class AmenityRequest {
     // ===== STAFF =====
     private LocalDateTime deliveredAt;
 
+    @Builder.Default
     private boolean slaBreached = false;
 
     @Column(name = "delivery_confirmation_code")

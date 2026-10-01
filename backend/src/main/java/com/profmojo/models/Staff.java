@@ -17,6 +17,8 @@ public class Staff {
     private String staffId;
 
     private String name;
+
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String password;
     private String department;
     private String contactNo;

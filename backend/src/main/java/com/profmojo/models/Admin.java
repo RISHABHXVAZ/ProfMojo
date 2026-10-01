@@ -1,5 +1,6 @@
 package com.profmojo.models;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -25,10 +26,12 @@ public class Admin {
     @Column(unique = true)
     private String email;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private String department;   // CSE, ECE, ME, etc.
 
+    @Builder.Default
     private boolean active = true;
 }
 
