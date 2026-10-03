@@ -14,7 +14,9 @@ import java.util.List;
 @AllArgsConstructor
 @Getter
 @Setter
-@Table(name = "amenity_request")
+@Table(name = "amenity_request", indexes = {
+        @Index(name = "idx_amenity_fifo_queue", columnList = "department, status, created_at ASC")
+})
 public class AmenityRequest {
 
     @Id
@@ -28,9 +30,13 @@ public class AmenityRequest {
     private String classRoom;
 
     @ElementCollection
+    @org.hibernate.annotations.BatchSize(size = 50)
     @CollectionTable(
             name = "amenity_request_items",
-            joinColumns = @JoinColumn(name = "amenity_request_id")
+            joinColumns = @JoinColumn(name = "amenity_request_id"),
+            indexes = {
+                    @Index(name = "idx_amenity_items_req_id", columnList = "amenity_request_id")
+            }
     )
     @Column(name = "item")
     private List<String> items;

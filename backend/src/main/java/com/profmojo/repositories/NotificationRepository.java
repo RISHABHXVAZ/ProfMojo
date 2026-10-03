@@ -23,10 +23,19 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc(String role, String department);
 
     // Check for duplicate notification
+    Optional<Notification> findByNotificationKey(String notificationKey);
+
+    // Check for duplicate notification
     Optional<Notification> findByNotificationKeyAndRecipientId(String notificationKey, String recipientId);
 
     // Get unread count
     long countByRecipientIdAndIsReadFalse(String recipientId);
+
+    // Get notifications by role and department
+    List<Notification> findByRecipientRoleAndDepartment(String role, String department);
+
+    // Get unread count by role and department
+    long countByRecipientRoleAndDepartmentAndIsReadFalse(String role, String department);
 
     // Get notifications for professor/staff by role and recipientId
     List<Notification> findTop20ByRecipientRoleAndRecipientIdAndIsArchivedFalseOrderByCreatedAtDesc(

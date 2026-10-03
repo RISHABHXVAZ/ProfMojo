@@ -10,4 +10,6 @@ public interface NoticeClassMappingRepository extends JpaRepository<NoticeClassM
     List<NoticeClassMapping> findByClassCodeIn(List<String> classCodes);
 
     List<NoticeClassMapping> findByNotice(Notice notice);
+
+    List<NoticeClassMapping> findByNoticeIn(List<Notice> notices);
 }

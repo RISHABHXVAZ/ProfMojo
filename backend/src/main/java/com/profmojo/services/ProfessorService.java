@@ -11,4 +11,5 @@ public interface ProfessorService {
 
     boolean existsByProfId(String profId);
 
+    void logout(String authHeader);
 }

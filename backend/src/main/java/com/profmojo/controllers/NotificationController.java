@@ -1,38 +1,85 @@
 package com.profmojo.controllers;
 
+import com.profmojo.models.DepartmentSecret;
 import com.profmojo.models.Notification;
+import com.profmojo.models.Professor;
 import com.profmojo.models.Staff;
+import com.profmojo.models.Student;
+import com.profmojo.repositories.DepartmentSecretRepository;
 import com.profmojo.repositories.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class NotificationController {
 
     private final NotificationRepository notificationRepository;
+    private final DepartmentSecretRepository departmentSecretRepository;
+
+    // Helper: Safely resolve userId string across all authenticated principal types
+    private String resolveUserId(Authentication authentication) {
+        if (authentication == null) return null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Professor prof) {
+            return prof.getProfId();
+        } else if (principal instanceof Staff staff) {
+            return staff.getStaffId();
+        } else if (principal instanceof Student student) {
+            return student.getRegNo();
+        } else if (principal instanceof String str) {
+            return str;
+        }
+        return authentication.getName();
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        if (authentication == null) return false;
+        return authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ADMIN".equals(a.getAuthority()));
+    }
+
+    private String getDepartmentFromAdminAuth(Authentication authentication) {
+        String secretKey = resolveUserId(authentication);
+        if (secretKey == null) return null;
+        return departmentSecretRepository.findBySecretKey(secretKey)
+                .map(DepartmentSecret::getDepartment)
+                .orElse(secretKey);
+    }
+
+    private boolean isAuthorizedForNotification(Notification n, String userId, boolean isAdmin, String adminDept) {
+        if (isAdmin && "ADMIN".equalsIgnoreCase(n.getRecipientRole())) {
+            return adminDept == null || adminDept.equalsIgnoreCase(n.getDepartment());
+        }
+        return n.getRecipientId() != null && n.getRecipientId().equals(userId);
+    }
 
     // 🔔 GET NOTIFICATIONS FOR ADMIN (Department-specific)
     @GetMapping("/admin")
     public ResponseEntity<?> getAdminNotifications(
             Authentication authentication,
-            @RequestParam String department) {
+            @RequestParam(required = false) String department) {
 
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
 
-        List<Notification> notifications = notificationRepository
-                .findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", department);
+        String targetDepartment = (department != null && !department.isBlank())
+                ? department
+                : getDepartmentFromAdminAuth(authentication);
 
-        long unreadCount = notifications.stream().filter(n -> !n.getIsRead()).count();
+        List<Notification> notifications = notificationRepository
+                .findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", targetDepartment);
+
+        long unreadCount = notifications.stream().filter(n -> !Boolean.TRUE.equals(n.getIsRead())).count();
 
         return ResponseEntity.ok(Map.of(
                 "notifications", notifications,
@@ -47,11 +94,11 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        String professorId = authentication.getName();
+        String professorId = resolveUserId(authentication);
         List<Notification> notifications = notificationRepository
                 .findTop50ByRecipientIdOrderByCreatedAtDesc(professorId);
 
-        long unreadCount = notifications.stream().filter(n -> !n.getIsRead()).count();
+        long unreadCount = notifications.stream().filter(n -> !Boolean.TRUE.equals(n.getIsRead())).count();
 
         return ResponseEntity.ok(Map.of(
                 "notifications", notifications,
@@ -66,38 +113,11 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        System.out.println("=== STAFF NOTIFICATION ENDPOINT ===");
-
-        // Get the principal (Staff object)
-        Object principal = authentication.getPrincipal();
-        System.out.println("Principal class: " + principal.getClass().getName());
-        System.out.println("Principal: " + principal);
-
-        String staffId;
-
-        if (principal instanceof Staff) {
-            // Cast to Staff object and get the staffId
-            Staff staff = (Staff) principal;
-            staffId = staff.getStaffId();
-            System.out.println("Extracted staffId from Staff object: " + staffId);
-        } else if (principal instanceof String) {
-            // If it's already a string (username), use it directly
-            staffId = (String) principal;
-            System.out.println("Principal is string: " + staffId);
-        } else {
-            // Fallback to authentication name
-            staffId = authentication.getName();
-            System.out.println("Using authentication name as fallback: " + staffId);
-        }
-
-        System.out.println("Final staffId for query: " + staffId);
-
+        String staffId = resolveUserId(authentication);
         List<Notification> notifications = notificationRepository
                 .findTop50ByRecipientIdOrderByCreatedAtDesc(staffId);
 
-        long unreadCount = notifications.stream().filter(n -> !n.getIsRead()).count();
-
-        System.out.println("Found " + notifications.size() + " notifications for staff ID: " + staffId);
+        long unreadCount = notifications.stream().filter(n -> !Boolean.TRUE.equals(n.getIsRead())).count();
 
         return ResponseEntity.ok(Map.of(
                 "notifications", notifications,
@@ -112,12 +132,15 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        String userId = authentication.getName();
+        String userId = resolveUserId(authentication);
+        boolean isAdmin = isAdmin(authentication);
+        String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
 
         return notificationRepository.findById(id)
-                .filter(n -> n.getRecipientId().equals(userId))
+                .filter(n -> isAuthorizedForNotification(n, userId, isAdmin, adminDept))
                 .map(notification -> {
                     notification.setIsRead(true);
+                    notification.setReadAt(LocalDateTime.now());
                     notificationRepository.save(notification);
                     return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
                 })
@@ -131,21 +154,30 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        String userId = authentication.getName();
+        String userId = resolveUserId(authentication);
+        boolean isAdmin = isAdmin(authentication);
+        String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
 
-        List<Notification> notifications = notificationRepository.findByRecipientId(userId);
+        List<Notification> notifications;
+        if (isAdmin) {
+            notifications = notificationRepository.findByRecipientRoleAndDepartment("ADMIN", adminDept);
+        } else {
+            notifications = notificationRepository.findByRecipientId(userId);
+        }
 
-        notifications.forEach(n -> {
-            if (!n.getIsRead()) {
+        int count = 0;
+        for (Notification n : notifications) {
+            if (!Boolean.TRUE.equals(n.getIsRead())) {
                 n.setIsRead(true);
+                n.setReadAt(LocalDateTime.now());
+                count++;
             }
-        });
-
+        }
         notificationRepository.saveAll(notifications);
 
         return ResponseEntity.ok(Map.of(
                 "message", "All notifications marked as read",
-                "count", notifications.size()
+                "count", count
         ));
     }
 
@@ -156,10 +188,12 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        String userId = authentication.getName();
+        String userId = resolveUserId(authentication);
+        boolean isAdmin = isAdmin(authentication);
+        String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
 
         return notificationRepository.findById(id)
-                .filter(n -> n.getRecipientId().equals(userId))
+                .filter(n -> isAuthorizedForNotification(n, userId, isAdmin, adminDept))
                 .map(notification -> {
                     notificationRepository.delete(notification);
                     return ResponseEntity.ok(Map.of("message", "Notification deleted"));

@@ -8,7 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -50,19 +53,29 @@ public class NoticeServiceImpl implements NoticeService {
     }
 
     public List<NoticeResponseDTO> getProfessorNotices(Professor professor) {
+        List<Notice> notices = noticeRepo.findByCreatedByOrderByCreatedAtDesc(professor);
+        if (notices.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        return noticeRepo.findByCreatedByOrderByCreatedAtDesc(professor)
-                .stream()
-                .flatMap(n ->
-                        mappingRepo.findByNotice(n).stream()
-                                .map(m -> new NoticeResponseDTO(
-                                        n.getTitle(),
-                                        n.getMessage(),
-                                        m.getClassCode(),
-                                        n.getCreatedAt(),
-                                        professor.getName()
-                                ))
-                )
+        List<NoticeClassMapping> allMappings = mappingRepo.findByNoticeIn(notices);
+        Map<Long, List<NoticeClassMapping>> mappingsByNoticeId = allMappings.stream()
+                .collect(Collectors.groupingBy(m -> m.getNotice().getId()));
+
+        String profName = professor != null ? professor.getName() : null;
+
+        return notices.stream()
+                .flatMap(n -> {
+                    List<NoticeClassMapping> mappings = mappingsByNoticeId.getOrDefault(n.getId(), Collections.emptyList());
+                    return mappings.stream()
+                            .map(m -> new NoticeResponseDTO(
+                                    n.getTitle(),
+                                    n.getMessage(),
+                                    m.getClassCode(),
+                                    n.getCreatedAt(),
+                                    profName
+                            ));
+                })
                 .toList();
     }
 }

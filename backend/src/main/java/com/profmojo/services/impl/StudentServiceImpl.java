@@ -11,12 +11,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class StudentServiceImpl implements StudentService {
 
     private final StudentRepository studentRepo;
     private final StudentMasterRepository masterRepo;
     private final PasswordEncoder encoder;
     private final JwtUtil jwtUtil;
+    private final com.profmojo.security.jwt.TokenBlacklistService tokenBlacklistService;
 
     @Override
     public boolean canRegister(String regNo) {
@@ -52,10 +54,16 @@ public class StudentServiceImpl implements StudentService {
             throw new RuntimeException("Invalid password!");
         }
 
-        // ADD THIS TEMP LOG
-        System.out.println("GENERATING JWT FOR STUDENT: " + regNo);
+        log.debug("Generating JWT for student registration: {}", regNo);
 
         return jwtUtil.generateToken(student.getRegNo(), "STUDENT");
+    }
+
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader != null && !authHeader.isBlank()) {
+            tokenBlacklistService.revokeToken(authHeader);
+        }
     }
 
 }

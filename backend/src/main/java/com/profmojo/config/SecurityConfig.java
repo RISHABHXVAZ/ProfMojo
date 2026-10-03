@@ -23,6 +23,7 @@ public class SecurityConfig {
     @org.springframework.beans.factory.annotation.Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.profmojo.security.CorrelationIdFilter correlationIdFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -35,17 +36,27 @@ public class SecurityConfig {
                         // OPTIONS requests always allowed
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // 📊 OBSERVABILITY / ACTUATOR (Internal monitoring / health checks)
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/info",
+                                "/actuator/prometheus"
+                        ).permitAll()
+
                         // 🔓 PUBLIC ENDPOINTS (No authentication needed)
                         .requestMatchers(
                                 "/api/students/login",
                                 "/api/students/register",
                                 "/api/students/check-id/**",
+                                "/api/students/logout",
                                 "/api/professors/login",
                                 "/api/professors/register",
                                 "/api/professors/check-id/**",
+                                "/api/professors/logout",
                                 "/api/admin/auth/**",
                                 "/api/staff/auth/**",
-                                "/api/onboarding/**"
+                                "/api/onboarding/**",
+                                "/api/auth/**"
                         ).permitAll()
 
                         // 🛠️ ADMIN ENDPOINTS (Highest priority - most specific)
@@ -80,6 +91,10 @@ public class SecurityConfig {
 
                                 // Default - all other endpoints need authentication
                         .anyRequest().authenticated()
+                )
+                .addFilterBefore(
+                        correlationIdFilter,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class
                 )
                 .addFilterBefore(
                         jwtAuthenticationFilter,

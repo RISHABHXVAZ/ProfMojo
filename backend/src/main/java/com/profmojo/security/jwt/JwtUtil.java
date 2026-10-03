@@ -13,18 +13,26 @@ import java.util.Date;
 @Slf4j
 public class JwtUtil {
 
-    @Value("${jwt.secret:THIS_IS_A_VERY_LONG_SECRET_KEY_FOR_PROFMOJO_123456789}")
+    @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration:36000000}")
     private long expiration;
 
+    @jakarta.annotation.PostConstruct
+    public void validateSecretKey() {
+        if (secretKey == null || secretKey.trim().isEmpty() || secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT signing secret ('jwt.secret' / 'JWT_SECRET') must be configured and be at least 256 bits (32 bytes).");
+        }
+    }
+
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+        return Keys.hmacShaKeyFor(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public String generateToken(String username, String role) {
         return Jwts.builder()
+                .setId(java.util.UUID.randomUUID().toString())
                 .setSubject(username)
                 .claim("role", role)
                 .setIssuedAt(new Date())
@@ -34,6 +42,7 @@ public class JwtUtil {
     }
     public String generateToken(String username, String role, String department) {
         return Jwts.builder()
+                .setId(java.util.UUID.randomUUID().toString())
                 .setSubject(username)
                 .claim("role", role)
                 .claim("department", department)
@@ -41,6 +50,18 @@ public class JwtUtil {
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public String extractJti(String token) {
+        return parse(token).getBody().getId();
+    }
+
+    public Date extractExpiration(String token) {
+        return parse(token).getBody().getExpiration();
+    }
+
+    public Claims extractAllClaims(String token) {
+        return parse(token).getBody();
     }
 
     public String extractUsername(String token) {

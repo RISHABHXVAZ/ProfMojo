@@ -3,6 +3,7 @@ package com.profmojo.services.impl;
 import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Notification;
 import com.profmojo.models.Staff;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.NotificationRepository;
@@ -24,6 +25,15 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
     private final AmenityRequestRepository requestRepo;
     private final StaffRepository staffRepo;
     private final NotificationRepository notificationRepository;
+    private final com.profmojo.metrics.AppMetricsService appMetricsService;
+
+    private void saveNotificationIfNotExists(Notification notif) {
+        if (notif.getNotificationKey() != null &&
+                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
+            return;
+        }
+        notificationRepository.save(notif);
+    }
 
     @Override
     @Transactional
@@ -60,18 +70,30 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         return savedRequest;
     }
     @Override
-    public List<AmenityRequest> getPendingRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.PENDING);
+    @Transactional(readOnly = true)
+    public List<AmenityResponseDTO> getPendingRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.PENDING)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Override
-    public List<AmenityRequest> getOngoingRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.ASSIGNED);
+    @Transactional(readOnly = true)
+    public List<AmenityResponseDTO> getOngoingRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.ASSIGNED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Override
-    public List<AmenityRequest> getCompletedRequests(String department) {
-        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.DELIVERED);
+    @Transactional(readOnly = true)
+    public List<AmenityResponseDTO> getCompletedRequests(String department) {
+        return requestRepo.findByDepartmentAndStatus(department, RequestStatus.DELIVERED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Override
@@ -118,29 +140,38 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(notification);
+        saveNotificationIfNotExists(notification);
 
-        return requestRepo.save(request);
+        AmenityRequest saved = requestRepo.save(request);
+        appMetricsService.refreshQueueDepth();
+        return saved;
     }
 
     @Override
-    public List<AmenityRequest> getQueuedRequests(String department) {
+    @Transactional(readOnly = true)
+    public List<AmenityResponseDTO> getQueuedRequests(String department) {
         return requestRepo
                 .findByDepartmentAndStatusOrderByCreatedAtAsc(
-                        department, RequestStatus.QUEUED);
+                        department, RequestStatus.QUEUED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Transactional
     public void tryAssignQueuedRequest(Staff staff) {
-        // 1️⃣ Get oldest queued request for staff's department
+        // 1️⃣ Atomically claim the oldest QUEUED request for staff's department.
+        //    FOR UPDATE SKIP LOCKED ensures concurrent callers skip already-locked
+        //    rows rather than blocking, so each transaction claims a distinct request.
         AmenityRequest req = requestRepo
-                .findFirstByStatusAndDepartmentOrderByCreatedAtAsc(
-                        RequestStatus.QUEUED,
-                        staff.getDepartment()
+                .findOldestQueuedForUpdate(
+                        staff.getDepartment(),
+                        RequestStatus.QUEUED.name()
                 )
                 .orElse(null);
 
         if (req == null) return;
+
 
         // 2️⃣ Generate confirmation code (same as controller)
         String confirmationCode = String.format("%04d", new Random().nextInt(10000));
@@ -161,6 +192,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
         // 4️⃣ Save to database
         staffRepo.save(staff);
         requestRepo.save(req);
+        appMetricsService.refreshQueueDepth();
 
         // 5️⃣ Create notifications (same as controller)
         // Notification to Staff
@@ -177,7 +209,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(staffNotif);
+        saveNotificationIfNotExists(staffNotif);
 
         // Notification to Professor
         Notification profNotif = Notification.builder()
@@ -194,7 +226,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(profNotif);
+        saveNotificationIfNotExists(profNotif);
 
     }
 }

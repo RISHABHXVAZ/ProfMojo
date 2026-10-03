@@ -19,6 +19,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: profmojo-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: always
+
   backend:
     build: ./backend
     container_name: profmojo-backend
@@ -27,13 +40,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       # Database connection inside Docker network
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profmojo
       SPRING_DATASOURCE_USERNAME: profmojo
       SPRING_DATASOURCE_PASSWORD: profmojo
       SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
-      JWT_SECRET: ${JWT_SECRET:-dev-super-secret-jwt-key-2026-profmojo-secure-signing-token}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET environment variable must be set in .env}
       ADMIN_DEPARTMENT_SEEDS: ${ADMIN_DEPARTMENT_SEEDS:-}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
@@ -52,6 +70,20 @@ services:
       VITE_API_BASE_URL: http://localhost:8080
     depends_on:
       - backend
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: profmojo-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    depends_on:
+      - backend
+    restart: always
 
 volumes:
   postgres_data:

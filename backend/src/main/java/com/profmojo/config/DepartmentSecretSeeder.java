@@ -2,12 +2,14 @@ package com.profmojo.config;
 
 import com.profmojo.models.DepartmentSecret;
 import com.profmojo.repositories.DepartmentSecretRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 @Component
+@Slf4j
 public class DepartmentSecretSeeder implements CommandLineRunner {
 
     private final DepartmentSecretRepository repository;
@@ -24,7 +26,7 @@ public class DepartmentSecretSeeder implements CommandLineRunner {
     public void run(String... args) throws Exception {
         // 1. If no seed data environment variable is provided, stop here
         if (seedData == null || seedData.isBlank()) {
-            System.out.println(">>> [Seeder] No admin seeds found. Skipping.");
+            log.info("No admin department seeds configured. Skipping seeder.");
             return;
         }
 
@@ -35,7 +37,7 @@ public class DepartmentSecretSeeder implements CommandLineRunner {
             // 3. Split by colon to extract details -> DEPARTMENT:EMAIL:SECRET_KEY
             String[] details = deptData.split(":");
             if (details.length != 3) {
-                System.err.println(">>> [Seeder] Invalid format for entry: " + deptData);
+                log.error("Invalid format for admin department seed entry; expected DEPARTMENT:EMAIL:SECRET");
                 continue;
             }
 
@@ -55,7 +57,7 @@ public class DepartmentSecretSeeder implements CommandLineRunner {
                 newSecret.setActive(true);
 
                 repository.save(newSecret);
-                System.out.println(">>> [Seeder] Successfully saved secret for department: " + departmentName);
+                log.info("Successfully seeded secret for department: {}", departmentName);
             } else {
                 DepartmentSecret current = existing.get();
                 if (!current.getSecretKey().equals(secretKey) || !current.getAdminEmail().equals(adminEmail) || !current.isActive()) {
@@ -66,9 +68,9 @@ public class DepartmentSecretSeeder implements CommandLineRunner {
                     updated.setSecretKey(secretKey);
                     updated.setActive(true);
                     repository.save(updated);
-                    System.out.println(">>> [Seeder] Successfully updated secret for department: " + departmentName);
+                    log.info("Successfully updated secret for department: {}", departmentName);
                 } else {
-                    System.out.println(">>> [Seeder] Department " + departmentName + " already up to date.");
+                    log.info("Department {} already up to date.", departmentName);
                 }
             }
         }

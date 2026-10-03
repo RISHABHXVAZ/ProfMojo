@@ -3,10 +3,12 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,13 +21,14 @@ public class StaffDashboardController {
     private final AmenityRequestRepository amenityRepo;
 
     @GetMapping("/assigned")
-    public List<AmenityRequest> getAssignedRequests(
+    @Transactional(readOnly = true)
+    public List<AmenityResponseDTO> getAssignedRequests(
             @AuthenticationPrincipal Staff staff
     ) {
         return amenityRepo.findByAssignedStaff_StaffIdAndStatus(
                 staff.getStaffId(),
                 RequestStatus.ASSIGNED
-        );
+        ).stream().map(AmenityResponseDTO::fromEntity).toList();
     }
 }
 

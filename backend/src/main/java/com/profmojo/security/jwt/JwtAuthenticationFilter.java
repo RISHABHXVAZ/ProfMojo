@@ -30,8 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AdminRepository adminRepository;
     private final StaffRepository staffRepository;
     private final DepartmentSecretRepository departmentSecretRepository;
-
-
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -50,13 +49,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         try {
-            String username = jwtUtil.extractUsername(token);
-            String role = jwtUtil.extractRole(token);
+            // 1. Signature and expiration validation happen first
+            io.jsonwebtoken.Claims claims = jwtUtil.extractAllClaims(token);
+            String username = claims.getSubject();
+            String role = claims.get("role", String.class);
+            String jti = claims.getId();
 
-            // 🔥 SET FOR CONTROLLER USE
+            // 2. Reject legacy tokens without JTI
+            if (jti == null || jti.isBlank()) {
+                SecurityContextHolder.clearContext();
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"Invalid token: missing JTI claim\"}");
+                return;
+            }
+
+            // 3. Check Redis token blacklist
+            if (tokenBlacklistService.isRevoked(jti)) {
+                String requestUri = request.getRequestURI();
+                boolean isLogoutRequest = requestUri != null && requestUri.endsWith("/logout");
+                if (!isLogoutRequest) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\":\"Token has been revoked\"}");
+                    return;
+                }
+            }
+
+            // 4. Role resolution and DB lookups (only for valid, non-revoked tokens)
             request.setAttribute("username", username);
 
-            // 🔥 STUDENT AUTH
             if ("STUDENT".equals(role)) {
                 Student student = studentRepository.findById(username).orElse(null);
 
@@ -72,7 +95,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
 
-            // 🔥 PROFESSOR AUTH
             if ("PROFESSOR".equals(role)) {
                 Professor prof = professorRepository.findById(username).orElse(null);
 
@@ -87,11 +109,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
+
             if ("ROLE_STAFF".equals(role) || "STAFF".equals(role)) {
                 Staff staff = staffRepository.findById(username).orElse(null);
 
                 if (staff != null) {
-                    System.out.println("DEBUG: Staff Authenticated: " + username); // Add this
                     UsernamePasswordAuthenticationToken auth =
                             new UsernamePasswordAuthenticationToken(
                                     staff,
@@ -99,14 +121,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     List.of(new SimpleGrantedAuthority("ROLE_STAFF"))
                             );
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                } else {
-                    System.out.println("DEBUG: Staff NOT found in DB for username: " + username); // Add this
                 }
             }
 
-
             if ("ADMIN".equals(role)) {
-
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
                                 username,
@@ -117,13 +135,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
 
-
-
-
-
-
         } catch (ExpiredJwtException e) {
-            // token expired → let request fail naturally
+            // token expired -> let request fail naturally without querying Redis
         }
         catch (io.jsonwebtoken.security.SignatureException |
                io.jsonwebtoken.MalformedJwtException |

@@ -111,5 +111,22 @@ class FullWorkflowIntegrationTest extends BasePostgresContainerTest {
 
         Staff updatedStaff = staffRepo.findById("IT_STAFF_01").orElseThrow();
         assertFalse(updatedStaff.isAvailable(), "Staff should be marked unavailable after assignment");
+
+        // 7. Verify DTO Retrieval (Admin ongoing requests & Professor my requests)
+        List<com.profmojo.models.dto.AmenityResponseDTO> ongoingList = adminAmenityService.getOngoingRequests("CSE");
+        assertFalse(ongoingList.isEmpty());
+        com.profmojo.models.dto.AmenityResponseDTO found = ongoingList.stream()
+                .filter(r -> r.getId().equals(raisedRequest.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(found, "Raised request should be in ongoing requests");
+        assertEquals("Hall 404", found.getClassRoom());
+        assertEquals(List.of("HDMI Cable", "Marker"), found.getItems());
+        assertNotNull(found.getAssignedStaff());
+        assertEquals("IT_STAFF_01", found.getAssignedStaff().getStaffId());
+
+        List<com.profmojo.models.dto.AmenityResponseDTO> myRequests = amenityRequestService.getMyRequests("IT_PROF_01");
+        assertEquals(1, myRequests.size());
+        assertEquals(List.of("HDMI Cable", "Marker"), myRequests.get(0).getItems());
     }
 }

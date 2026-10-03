@@ -70,10 +70,16 @@ export default function ProfessorDashboard() {
 
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    delete api.defaults.headers.common["Authorization"];
-    navigate("/professor/login");
+  const handleLogout = async () => {
+    try {
+      await api.post("/professors/logout");
+    } catch (err) {
+      console.error("Professor logout failed:", err);
+    } finally {
+      localStorage.removeItem("token");
+      delete api.defaults.headers.common["Authorization"];
+      navigate("/professor/login");
+    }
   };
 
   // UPDATED: Better SLA formatting

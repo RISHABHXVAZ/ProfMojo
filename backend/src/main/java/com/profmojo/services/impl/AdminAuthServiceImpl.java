@@ -1,94 +1,112 @@
 package com.profmojo.services.impl;
 
-import com.profmojo.models.Admin;
 import com.profmojo.models.DepartmentSecret;
-import com.profmojo.models.OnboardingOtp;
-import com.profmojo.models.dto.AdminLoginRequest;
 import com.profmojo.models.dto.AdminLoginResponse;
-import com.profmojo.models.dto.AdminSetPasswordRequest;
 import com.profmojo.models.dto.AdminVerifyOtpRequest;
-import com.profmojo.repositories.AdminRepository;
+import com.profmojo.otp.OtpStore;
+import com.profmojo.otp.StoredOtp;
+import com.profmojo.ratelimit.OtpRateLimiter;
 import com.profmojo.repositories.DepartmentSecretRepository;
-import com.profmojo.repositories.OnboardingOtpRepository;
 import com.profmojo.security.jwt.JwtUtil;
 import com.profmojo.services.AdminAuthService;
 import com.profmojo.services.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.Random;
+import java.security.SecureRandom;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AdminAuthServiceImpl implements AdminAuthService {
 
     private final DepartmentSecretRepository secretRepository;
-    private final OnboardingOtpRepository otpRepository;
+    private final OtpStore otpStore;
     private final EmailService emailService;
     private final JwtUtil jwtUtil;
+    private final OtpRateLimiter otpRateLimiter;
+    private final com.profmojo.security.jwt.TokenBlacklistService tokenBlacklistService;
+    private final com.profmojo.metrics.AppMetricsService appMetricsService;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Duration OTP_TTL = Duration.ofSeconds(300);
 
     @Override
     public void sendOtp(String secretKey) {
+        try {
+            DepartmentSecret secret = secretRepository.findById(secretKey)
+                    .orElseThrow(() -> new RuntimeException("Invalid secret key"));
 
-        DepartmentSecret secret = secretRepository.findById(secretKey)
-                .orElseThrow(() -> new RuntimeException("Invalid secret key"));
+            if (!secret.isActive()) {
+                throw new RuntimeException("Secret key disabled");
+            }
 
-        if (!secret.isActive()) {
-            throw new RuntimeException("Secret key disabled");
+            // Reset any previous failed verify attempts when generating a new OTP
+            otpRateLimiter.resetVerifyAttempts("ADMIN", secretKey);
+
+            String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
+
+            // Save into OTP store (primary Redis, fallback PostgreSQL) with atomic 300s TTL
+            otpStore.saveOtp("ADMIN", secretKey, otp, OTP_TTL);
+
+            emailService.send(
+                    secret.getAdminEmail(),
+                    "ProfMojo Admin OTP",
+                    "Your admin login OTP is: " + otp
+            );
+            appMetricsService.incrementOtpRequest("admin", "success");
+        } catch (Exception e) {
+            appMetricsService.incrementOtpRequest("admin", "failed");
+            throw e;
         }
-
-        otpRepository.deleteById(secretKey);
-
-        String otp = String.valueOf(100000 + new Random().nextInt(900000));
-
-        OnboardingOtp entity = new OnboardingOtp();
-        entity.setUserId(secretKey);
-        entity.setRole("ADMIN");
-        entity.setOtp(otp);
-        entity.setExpiry(LocalDateTime.now().plusMinutes(5));
-
-        otpRepository.save(entity);
-
-        emailService.send(
-                secret.getAdminEmail(),
-                "ProfMojo Admin OTP",
-                "Your admin login OTP is: " + otp
-        );
     }
 
     @Override
     public AdminLoginResponse verifyOtpAndLogin(AdminVerifyOtpRequest request) {
+        String secretKey = request.getSecretKey();
 
-        OnboardingOtp otp = otpRepository.findById(request.getSecretKey())
-                .orElseThrow(() -> new RuntimeException("OTP not found"));
+        // Check if user has exceeded the 5-attempt limit
+        otpRateLimiter.checkVerifyAttemptLimit("ADMIN", secretKey);
 
-        if (!"ADMIN".equals(otp.getRole())) {
+        StoredOtp otp = otpStore.findOtp("ADMIN", secretKey)
+                .orElseThrow(() -> {
+                    appMetricsService.incrementOtpVerification("admin", "invalid");
+                    return new RuntimeException("OTP not found");
+                });
+
+        if (!"ADMIN".equalsIgnoreCase(otp.role())) {
+            appMetricsService.incrementOtpVerification("admin", "invalid");
             throw new RuntimeException("Invalid OTP role");
         }
 
-        if (otp.getExpiry().isBefore(LocalDateTime.now())) {
+        if (otp.isExpired()) {
+            appMetricsService.incrementOtpVerification("admin", "expired");
             throw new RuntimeException("OTP expired");
         }
 
-        if (!otp.getOtp().equals(request.getOtp())) {
+        if (!otp.otp().equals(request.getOtp())) {
+            otpRateLimiter.recordFailedVerifyAttempt("ADMIN", secretKey);
+            appMetricsService.incrementOtpVerification("admin", "invalid");
             throw new RuntimeException("Invalid OTP");
         }
 
-        DepartmentSecret secret = secretRepository.findById(request.getSecretKey())
+        DepartmentSecret secret = secretRepository.findById(secretKey)
                 .orElseThrow(() -> new RuntimeException("Invalid secret key"));
 
-        // Verify department is being set in token
-        System.out.println("DEBUG: Creating token for department: " + secret.getDepartment());
+        log.debug("Creating token for department: {}", secret.getDepartment());
 
         String token = jwtUtil.generateToken(
-                request.getSecretKey(),
+                secretKey,
                 "ADMIN",
-                secret.getDepartment()  // This should be set
+                secret.getDepartment()
         );
 
-        otpRepository.deleteById(request.getSecretKey());
+        // Single-use: immediately delete OTP to prevent replay attacks
+        otpStore.deleteOtp("ADMIN", secretKey);
+        otpRateLimiter.resetVerifyAttempts("ADMIN", secretKey);
+
+        appMetricsService.incrementOtpVerification("admin", "success");
 
         return new AdminLoginResponse(
                 token,
@@ -96,5 +114,11 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                 "ADMIN"
         );
     }
-}
 
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader != null && !authHeader.isBlank()) {
+            tokenBlacklistService.revokeToken(authHeader);
+        }
+    }
+}

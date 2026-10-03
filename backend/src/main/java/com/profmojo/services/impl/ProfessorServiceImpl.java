@@ -18,6 +18,7 @@ public class ProfessorServiceImpl implements ProfessorService {
     private final ProfessorMasterRepository professorMasterRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final com.profmojo.security.jwt.TokenBlacklistService tokenBlacklistService;
 
     @Override
     public Professor registerProfessor(Professor professor) {
@@ -68,5 +69,12 @@ public class ProfessorServiceImpl implements ProfessorService {
     @Override
     public boolean existsByProfId(String profId) {
         return professorRepository.existsByProfId(profId);
+    }
+
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader != null && !authHeader.isBlank()) {
+            tokenBlacklistService.revokeToken(authHeader);
+        }
     }
 }

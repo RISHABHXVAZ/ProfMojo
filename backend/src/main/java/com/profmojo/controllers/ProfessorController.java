@@ -61,4 +61,11 @@ public class ProfessorController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        professorService.logout(authHeader);
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
 }

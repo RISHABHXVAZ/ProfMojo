@@ -3,6 +3,7 @@ package com.profmojo.services.impl;
 import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Professor;
 import com.profmojo.models.dto.AmenityRequestDTO;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.services.AmenityRequestService;
@@ -50,13 +51,21 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
     }
 
     @Override
-    public List<AmenityRequest> getMyRequests(String professorId) {
-        return repository.findByProfessorIdAndStatusNot(professorId, RequestStatus.DELIVERED);
+    @Transactional
+    public List<AmenityResponseDTO> getMyRequests(String professorId) {
+        return repository.findByProfessorIdAndStatusNot(professorId, RequestStatus.DELIVERED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Override
-    public List<AmenityRequest> getMyDeliveredRequests(String professorId) {
-        return repository.findByProfessorIdAndStatusOrderByDeliveredAtDesc(professorId, RequestStatus.DELIVERED);
+    @Transactional
+    public List<AmenityResponseDTO> getMyDeliveredRequests(String professorId) {
+        return repository.findByProfessorIdAndStatusOrderByDeliveredAtDesc(professorId, RequestStatus.DELIVERED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @Override

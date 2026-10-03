@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from '../hooks/useNotification';
 import {
@@ -145,12 +145,7 @@ export default function AdminDashboard() {
 
     const fetchPendingRequests = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/pending",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/pending");
             setRequests(res.data);
         } catch (err) {
             console.error("Failed to fetch pending requests", err);
@@ -159,12 +154,7 @@ export default function AdminDashboard() {
 
     const fetchOngoingRequests = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/ongoing",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/ongoing");
             setOngoingRequests(res.data);
         } catch (err) {
             console.error("Failed to fetch ongoing requests", err);
@@ -173,12 +163,7 @@ export default function AdminDashboard() {
 
     const fetchCompletedRequests = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/completed",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/completed");
             setCompletedRequests(res.data);
         } catch (err) {
             console.error("Failed to fetch completed requests", err);
@@ -187,12 +172,7 @@ export default function AdminDashboard() {
 
     const fetchQueuedRequests = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/queue",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/queue");
             setQueuedRequests(res.data);
         } catch (err) {
             console.error("Failed to fetch queued requests", err);
@@ -201,12 +181,7 @@ export default function AdminDashboard() {
 
     const fetchAllStaff = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/staff/all",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/staff/all");
             setAllStaff(res.data);
             generateChartData();
         } catch (err) {
@@ -219,12 +194,7 @@ export default function AdminDashboard() {
     const fetchStaff = async (requestId) => {
         setStaffLoading(true);
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/admin/amenities/staff/available",
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const res = await api.get("/admin/amenities/staff/available");
             setStaffList(res.data);
             const req = requests.find(r => r.id === requestId) ||
                 ongoingRequests.find(r => r.id === requestId) ||
@@ -239,11 +209,7 @@ export default function AdminDashboard() {
 
     const assignStaff = async (staffId) => {
         try {
-            await axios.put(
-                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/assign/${staffId}`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.put(`/admin/amenities/${selectedRequestId}/assign/${staffId}`);
             setShowStaffModal(false);
             fetchAllData();
         } catch (err) {
@@ -253,11 +219,7 @@ export default function AdminDashboard() {
 
     const addToQueue = async () => {
         try {
-            await axios.put(
-                `http://localhost:8080/api/admin/amenities/${selectedRequestId}/queue`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.put(`/admin/amenities/${selectedRequestId}/queue`);
             setShowStaffModal(false);
             fetchAllData();
         } catch (err) {
@@ -325,9 +287,17 @@ ${request.deliveryDeadline ? `Delivery Deadline: ${new Date(request.deliveryDead
         });
     };
 
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate("/admin/login");
+    const handleLogout = async () => {
+        try {
+            if (token) {
+                await api.post("/admin/auth/logout");
+            }
+        } catch (err) {
+            console.error("Admin logout failed:", err);
+        } finally {
+            localStorage.clear();
+            navigate("/admin/login");
+        }
     };
 
     const getStatusColor = (status) => {

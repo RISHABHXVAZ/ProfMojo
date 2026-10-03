@@ -3,7 +3,6 @@ package com.profmojo.controllers;
 import com.profmojo.models.Student;
 import com.profmojo.models.dto.StudentClassDTO;
 import com.profmojo.repositories.StudentRepository;
-import com.profmojo.services.AttendanceService;
 import com.profmojo.services.ClassRoomService;
 import com.profmojo.services.StudentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +23,6 @@ public class StudentController {
     private final StudentService studentService;
     private final StudentRepository studentRepository;
     private final ClassRoomService classRoomService;
-    private final AttendanceService attendanceService;
 
     @GetMapping("/check-id/{regNo}")
     public ResponseEntity<?> checkRegistrationNumber(@PathVariable String regNo) {
@@ -74,7 +72,11 @@ public class StudentController {
         return ResponseEntity.ok().build();
     }
 
-
-
-
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        studentService.logout(authHeader);
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
+    }
 }

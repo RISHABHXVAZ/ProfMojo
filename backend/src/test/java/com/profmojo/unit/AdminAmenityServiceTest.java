@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,6 +37,9 @@ class AdminAmenityServiceTest {
 
     @Mock
     private NotificationRepository notificationRepository;
+
+    @Mock
+    private com.profmojo.metrics.AppMetricsService appMetricsService;
 
     @InjectMocks
     private AdminAmenityServiceImpl amenityService;
@@ -134,7 +138,7 @@ class AdminAmenityServiceTest {
                 .status(RequestStatus.QUEUED)
                 .build();
 
-        when(requestRepo.findFirstByStatusAndDepartmentOrderByCreatedAtAsc(RequestStatus.QUEUED, "CSE"))
+        when(requestRepo.findOldestQueuedForUpdate("CSE", RequestStatus.QUEUED.name()))
                 .thenReturn(Optional.of(queuedRequest));
 
         amenityService.tryAssignQueuedRequest(availableStaff);
@@ -145,5 +149,67 @@ class AdminAmenityServiceTest {
 
         verify(staffRepo).save(availableStaff);
         verify(requestRepo).save(queuedRequest);
+    }
+
+    @Test
+    @DisplayName("getPendingRequests: Returns List<AmenityResponseDTO> with mapped items and staff")
+    void getPendingRequests_ReturnsDtoList() {
+        testRequest.setItems(List.of("Markers"));
+        when(requestRepo.findByDepartmentAndStatus("CSE", RequestStatus.PENDING))
+                .thenReturn(List.of(testRequest));
+
+        java.util.List<com.profmojo.models.dto.AmenityResponseDTO> dtos = amenityService.getPendingRequests("CSE");
+
+        assertNotNull(dtos);
+        assertEquals(1, dtos.size());
+        assertEquals(100L, dtos.get(0).getId());
+        assertEquals(List.of("Markers"), dtos.get(0).getItems());
+        assertNull(dtos.get(0).getAssignedStaff());
+    }
+
+    @Test
+    @DisplayName("getOngoingRequests: Returns List<AmenityResponseDTO> with assigned staff summary")
+    void getOngoingRequests_ReturnsDtoListWithStaff() {
+        testRequest.setStatus(RequestStatus.ASSIGNED);
+        testRequest.setAssignedStaff(availableStaff);
+        testRequest.setItems(List.of("Projector"));
+        when(requestRepo.findByDepartmentAndStatus("CSE", RequestStatus.ASSIGNED))
+                .thenReturn(List.of(testRequest));
+
+        java.util.List<com.profmojo.models.dto.AmenityResponseDTO> dtos = amenityService.getOngoingRequests("CSE");
+
+        assertNotNull(dtos);
+        assertEquals(1, dtos.size());
+        assertEquals("STAFF01", dtos.get(0).getAssignedStaff().getStaffId());
+        assertEquals("Ramesh Kumar", dtos.get(0).getAssignedStaff().getName());
+        assertEquals(List.of("Projector"), dtos.get(0).getItems());
+    }
+
+    @Test
+    @DisplayName("getCompletedRequests: Returns List<AmenityResponseDTO>")
+    void getCompletedRequests_ReturnsDtoList() {
+        testRequest.setStatus(RequestStatus.DELIVERED);
+        when(requestRepo.findByDepartmentAndStatus("CSE", RequestStatus.DELIVERED))
+                .thenReturn(List.of(testRequest));
+
+        java.util.List<com.profmojo.models.dto.AmenityResponseDTO> dtos = amenityService.getCompletedRequests("CSE");
+
+        assertNotNull(dtos);
+        assertEquals(1, dtos.size());
+        assertEquals(RequestStatus.DELIVERED, dtos.get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("getQueuedRequests: Returns List<AmenityResponseDTO> ordered by createdAt")
+    void getQueuedRequests_ReturnsDtoList() {
+        testRequest.setStatus(RequestStatus.QUEUED);
+        when(requestRepo.findByDepartmentAndStatusOrderByCreatedAtAsc("CSE", RequestStatus.QUEUED))
+                .thenReturn(List.of(testRequest));
+
+        java.util.List<com.profmojo.models.dto.AmenityResponseDTO> dtos = amenityService.getQueuedRequests("CSE");
+
+        assertNotNull(dtos);
+        assertEquals(1, dtos.size());
+        assertEquals(RequestStatus.QUEUED, dtos.get(0).getStatus());
     }
 }

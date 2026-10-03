@@ -10,4 +10,6 @@ public interface AdminAuthService {
     void sendOtp(String secretKey);
 
     AdminLoginResponse verifyOtpAndLogin(AdminVerifyOtpRequest request);
+
+    void logout(String authHeader);
 }

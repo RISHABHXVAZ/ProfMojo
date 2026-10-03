@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useNavigate, Link } from "react-router-dom";
 import "./StaffLogin.css";
 
@@ -23,8 +23,8 @@ export default function StaffLogin() {
         }
 
         try {
-            const res = await axios.post(
-                "http://localhost:8080/api/staff/auth/login",
+            const res = await api.post(
+                "/staff/auth/login",
                 { staffId, password }
             );
 

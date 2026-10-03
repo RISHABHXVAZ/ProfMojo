@@ -1,11 +1,13 @@
 package com.profmojo.unit;
 
 import com.profmojo.models.DepartmentSecret;
-import com.profmojo.models.OnboardingOtp;
 import com.profmojo.models.dto.AdminLoginResponse;
 import com.profmojo.models.dto.AdminVerifyOtpRequest;
+import com.profmojo.otp.OtpSource;
+import com.profmojo.otp.OtpStore;
+import com.profmojo.otp.StoredOtp;
+import com.profmojo.ratelimit.OtpRateLimiter;
 import com.profmojo.repositories.DepartmentSecretRepository;
-import com.profmojo.repositories.OnboardingOtpRepository;
 import com.profmojo.security.jwt.JwtUtil;
 import com.profmojo.services.EmailService;
 import com.profmojo.services.impl.AdminAuthServiceImpl;
@@ -19,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -34,13 +37,22 @@ class AdminAuthServiceTest {
     private DepartmentSecretRepository secretRepository;
 
     @Mock
-    private OnboardingOtpRepository otpRepository;
+    private OtpStore otpStore;
 
     @Mock
     private EmailService emailService;
 
     @Mock
     private JwtUtil jwtUtil;
+
+    @Mock
+    private OtpRateLimiter otpRateLimiter;
+
+    @Mock
+    private com.profmojo.security.jwt.TokenBlacklistService tokenBlacklistService;
+
+    @Mock
+    private com.profmojo.metrics.AppMetricsService appMetricsService;
 
     @InjectMocks
     private AdminAuthServiceImpl adminAuthService;
@@ -60,18 +72,15 @@ class AdminAuthServiceTest {
 
         adminAuthService.sendOtp(testKey);
 
-        verify(otpRepository).deleteById(testKey);
+        verify(otpRateLimiter).resetVerifyAttempts("ADMIN", testKey);
 
-        ArgumentCaptor<OnboardingOtp> otpCaptor = ArgumentCaptor.forClass(OnboardingOtp.class);
-        verify(otpRepository).save(otpCaptor.capture());
-        OnboardingOtp savedOtp = otpCaptor.getValue();
-        assertEquals(testKey, savedOtp.getUserId());
-        assertEquals("ADMIN", savedOtp.getRole());
-        assertNotNull(savedOtp.getOtp());
-        assertEquals(6, savedOtp.getOtp().length());
-        assertTrue(savedOtp.getExpiry().isAfter(LocalDateTime.now()));
+        ArgumentCaptor<String> otpCaptor = ArgumentCaptor.forClass(String.class);
+        verify(otpStore).saveOtp(eq("ADMIN"), eq(testKey), otpCaptor.capture(), eq(Duration.ofSeconds(300)));
+        String savedOtp = otpCaptor.getValue();
+        assertNotNull(savedOtp);
+        assertEquals(6, savedOtp.length());
 
-        verify(emailService).send(eq("admin@test.edu"), contains("ProfMojo Admin OTP"), contains(savedOtp.getOtp()));
+        verify(emailService).send(eq("admin@test.edu"), contains("ProfMojo Admin OTP"), contains(savedOtp));
     }
 
     @Test
@@ -82,7 +91,7 @@ class AdminAuthServiceTest {
         RuntimeException ex = assertThrows(RuntimeException.class, () -> adminAuthService.sendOtp("unknown-key"));
         assertEquals("Invalid secret key", ex.getMessage());
         verifyNoInteractions(emailService);
-        verify(otpRepository, never()).save(any());
+        verify(otpStore, never()).saveOtp(any(), any(), any(), any());
     }
 
     @Test
@@ -100,9 +109,9 @@ class AdminAuthServiceTest {
     @DisplayName("verifyOtpAndLogin: Successful verification returns JWT token and deletes OTP")
     void verifyOtpAndLogin_ValidOtp_ReturnsTokenAndDeletesOtp() {
         String validOtpCode = "654321";
-        OnboardingOtp validOtp = TestDataFactory.createOtp(testKey, "ADMIN", validOtpCode, 5);
+        StoredOtp validOtp = new StoredOtp(validOtpCode, "ADMIN", testKey, OtpSource.REDIS, LocalDateTime.now().plusMinutes(5));
 
-        when(otpRepository.findById(testKey)).thenReturn(Optional.of(validOtp));
+        when(otpStore.findOtp("ADMIN", testKey)).thenReturn(Optional.of(validOtp));
         when(secretRepository.findById(testKey)).thenReturn(Optional.of(activeSecret));
         when(jwtUtil.generateToken(testKey, "ADMIN", "CSE")).thenReturn("mock-jwt-token-12345");
 
@@ -118,13 +127,14 @@ class AdminAuthServiceTest {
         assertEquals("ADMIN", response.getRole());
 
         // Verify OTP is deleted to prevent replay attacks
-        verify(otpRepository).deleteById(testKey);
+        verify(otpStore).deleteOtp("ADMIN", testKey);
+        verify(otpRateLimiter).resetVerifyAttempts("ADMIN", testKey);
     }
 
     @Test
     @DisplayName("verifyOtpAndLogin: Non-existent OTP throws RuntimeException")
     void verifyOtpAndLogin_OtpNotFound_ThrowsException() {
-        when(otpRepository.findById(testKey)).thenReturn(Optional.empty());
+        when(otpStore.findOtp("ADMIN", testKey)).thenReturn(Optional.empty());
 
         AdminVerifyOtpRequest request = new AdminVerifyOtpRequest();
         request.setSecretKey(testKey);
@@ -138,14 +148,9 @@ class AdminAuthServiceTest {
     @Test
     @DisplayName("verifyOtpAndLogin: Expired OTP throws RuntimeException")
     void verifyOtpAndLogin_ExpiredOtp_ThrowsException() {
-        OnboardingOtp expiredOtp = OnboardingOtp.builder()
-                .userId(testKey)
-                .role("ADMIN")
-                .otp("123456")
-                .expiry(LocalDateTime.now().minusMinutes(1))
-                .build();
+        StoredOtp expiredOtp = new StoredOtp("123456", "ADMIN", testKey, OtpSource.REDIS, LocalDateTime.now().minusMinutes(1));
 
-        when(otpRepository.findById(testKey)).thenReturn(Optional.of(expiredOtp));
+        when(otpStore.findOtp("ADMIN", testKey)).thenReturn(Optional.of(expiredOtp));
 
         AdminVerifyOtpRequest request = new AdminVerifyOtpRequest();
         request.setSecretKey(testKey);
@@ -159,8 +164,8 @@ class AdminAuthServiceTest {
     @Test
     @DisplayName("verifyOtpAndLogin: Incorrect OTP code throws RuntimeException")
     void verifyOtpAndLogin_IncorrectOtp_ThrowsException() {
-        OnboardingOtp validOtp = TestDataFactory.createOtp(testKey, "ADMIN", "999999", 5);
-        when(otpRepository.findById(testKey)).thenReturn(Optional.of(validOtp));
+        StoredOtp validOtp = new StoredOtp("999999", "ADMIN", testKey, OtpSource.REDIS, LocalDateTime.now().plusMinutes(5));
+        when(otpStore.findOtp("ADMIN", testKey)).thenReturn(Optional.of(validOtp));
 
         AdminVerifyOtpRequest request = new AdminVerifyOtpRequest();
         request.setSecretKey(testKey);
@@ -168,6 +173,7 @@ class AdminAuthServiceTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> adminAuthService.verifyOtpAndLogin(request));
         assertEquals("Invalid OTP", ex.getMessage());
+        verify(otpRateLimiter).recordFailedVerifyAttempt("ADMIN", testKey);
         verify(jwtUtil, never()).generateToken(any(), any(), any());
     }
 }

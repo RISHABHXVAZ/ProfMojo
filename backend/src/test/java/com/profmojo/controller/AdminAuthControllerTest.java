@@ -48,6 +48,32 @@ class AdminAuthControllerTest {
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @MockitoBean
+    private com.profmojo.ratelimit.OtpRateLimiter otpRateLimiter;
+
+    @MockitoBean
+    private com.profmojo.metrics.AppMetricsService appMetricsService;
+
+    @Test
+    @DisplayName("POST /api/admin/auth/send-otp: Returns 429 Too Many Requests when rate limit is exceeded")
+    void sendOtp_RateLimitExceeded_Returns429WithRetryAfter() throws Exception {
+        AdminSendOtpRequest req = new AdminSendOtpRequest();
+        req.setSecretKey("19472026");
+
+        doThrow(new com.profmojo.ratelimit.RateLimitExceededException("Too many OTP requests from your IP. Please try again in 45 seconds.", 45))
+                .when(otpRateLimiter).checkSendOtpRateLimit(any(), any());
+
+        mockMvc.perform(post("/api/admin/auth/send-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Retry-After", "45"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.error").value("Too Many Requests"))
+                .andExpect(jsonPath("$.message").value("Too many OTP requests from your IP. Please try again in 45 seconds."))
+                .andExpect(jsonPath("$.retryAfter").value(45));
+    }
+
     @Test
     @DisplayName("POST /api/admin/auth/send-otp: Returns 200 and success message when key is valid")
     void sendOtp_Success_Returns200() throws Exception {

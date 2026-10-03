@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class AmenitySlaMonitor {
 
     private final AmenityRequestRepository repo;
+    private final com.profmojo.metrics.AppMetricsService appMetricsService;
 
     @Scheduled(fixedRate = 30000)
     @Transactional
@@ -23,6 +24,7 @@ public class AmenitySlaMonitor {
         try {
             int breached = repo.markBreachedDeliverySlaRequests(RequestStatus.ASSIGNED, LocalDateTime.now());
             if (breached > 0) {
+                appMetricsService.incrementSlaBreaches("delivery", breached);
                 log.warn("SLA Monitor: Marked {} overdue amenity requests as breached", breached);
             }
         } catch (Exception e) {

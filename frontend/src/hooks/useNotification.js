@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 
 export const useNotifications = (userRole) => {
     const [notifications, setNotifications] = useState([]);
@@ -23,7 +23,7 @@ export const useNotifications = (userRole) => {
             
             switch(userRole) {
                 case 'ADMIN':
-                    endpoint = '/api/notifications/admin';
+                    endpoint = '/notifications/admin';
                     const department = localStorage.getItem("department");
                     if (department) {
                         params = { department };
@@ -32,25 +32,19 @@ export const useNotifications = (userRole) => {
                     }
                     break;
                 case 'PROFESSOR':
-                    endpoint = '/api/notifications/professor';
+                    endpoint = '/notifications/professor';
                     break;
                 case 'STAFF':
-                    endpoint = '/api/notifications/staff';
+                    endpoint = '/notifications/staff';
                     break;
                 default:
                     throw new Error(`Invalid user role: ${userRole}`);
             }
 
-            const response = await axios.get(`http://localhost:8080${endpoint}`, {
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
+            const response = await api.get(endpoint, {
                 params: params,
                 timeout: 8000
             });
-
-            console.log('Notifications API Response:', response.data);
 
             // Handle the response format correctly
             let notificationsData = [];
@@ -97,12 +91,7 @@ export const useNotifications = (userRole) => {
 
     const markAsRead = async (notificationId) => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(
-                `http://localhost:8080/api/notifications/${notificationId}/read`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.put(`/notifications/${notificationId}/read`);
 
             // Update local state
             setNotifications(prev =>
@@ -116,12 +105,7 @@ export const useNotifications = (userRole) => {
 
     const markAllAsRead = async () => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(
-                'http://localhost:8080/api/notifications/mark-all-read',
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.put('/notifications/mark-all-read');
 
             // Update all notifications as read
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
@@ -133,11 +117,7 @@ export const useNotifications = (userRole) => {
 
     const deleteNotification = async (notificationId) => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.delete(
-                `http://localhost:8080/api/notifications/${notificationId}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.delete(`/notifications/${notificationId}`);
 
             // Remove from state
             setNotifications(prev => prev.filter(n => n.id !== notificationId));

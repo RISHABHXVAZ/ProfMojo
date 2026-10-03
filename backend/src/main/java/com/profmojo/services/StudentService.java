@@ -12,4 +12,5 @@ public interface StudentService {
 
     Student findByRegNo(String regNo);
 
+    void logout(String authHeader);
 }

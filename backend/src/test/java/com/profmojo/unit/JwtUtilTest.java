@@ -49,4 +49,41 @@ class JwtUtilTest {
     void malformedToken_ReturnsFalse() {
         assertFalse(jwtUtil.validateToken("not-a-valid-jwt-token"));
     }
+
+    @Test
+    @DisplayName("jwtContainsJti: Newly generated tokens contain valid UUIDv4 JTI")
+    void jwtContainsJti() {
+        String token = jwtUtil.generateToken("USER002", "STUDENT");
+        String jti = jwtUtil.extractJti(token);
+
+        assertNotNull(jti);
+        assertFalse(jti.isBlank());
+        // Verify UUID format
+        assertDoesNotThrow(() -> java.util.UUID.fromString(jti));
+    }
+
+    @Test
+    @DisplayName("multiDevice: Successive token generations produce distinct JTIs")
+    void tokensForSameUser_ProduceDistinctJtis() {
+        String tokenA = jwtUtil.generateToken("USER002", "STUDENT");
+        String tokenB = jwtUtil.generateToken("USER002", "STUDENT");
+
+        String jtiA = jwtUtil.extractJti(tokenA);
+        String jtiB = jwtUtil.extractJti(tokenB);
+
+        assertNotNull(jtiA);
+        assertNotNull(jtiB);
+        assertNotEquals(jtiA, jtiB);
+    }
+
+    @Test
+    @DisplayName("validateSecretKey: Rejects missing or weak signing secret")
+    void secretKeyValidation_RejectsWeakSecret() {
+        JwtUtil weakUtil = new JwtUtil();
+        ReflectionTestUtils.setField(weakUtil, "secretKey", "too-short");
+        assertThrows(IllegalStateException.class, weakUtil::validateSecretKey);
+
+        ReflectionTestUtils.setField(weakUtil, "secretKey", null);
+        assertThrows(IllegalStateException.class, weakUtil::validateSecretKey);
+    }
 }

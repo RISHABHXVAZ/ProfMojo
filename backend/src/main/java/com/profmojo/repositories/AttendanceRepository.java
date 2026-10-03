@@ -72,35 +72,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     """)
     List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode);
 
-    @Query("""
-SELECT COUNT(a.id),
-       SUM(CASE WHEN a.present = true THEN 1 ELSE 0 END)
-FROM Attendance a
-WHERE a.classCode = :classCode
-  AND a.studentRegNo = :regNo
-""")
-    List<Object[]> getStudentAttendanceStats(
-            @Param("classCode") String classCode,
-            @Param("regNo") String regNo
-    );
-
-
-
-    @Query("""
-SELECT DISTINCT a.classCode
-FROM Attendance a
-WHERE a.studentRegNo = :regNo
-""")
-    List<String> findDistinctClassCodesByStudent(@Param("regNo") String regNo);
-
     void deleteByClassCode(String classCode);
-
-    long countDistinctByClassCode(String classCode);
-
-    long countByClassCodeAndStudentRegNoAndPresentTrue(
-            String classCode,
-            String studentRegNo
-    );
 
     @Query("""
 SELECT new com.profmojo.models.dto.StudentAttendanceSummaryDTO(

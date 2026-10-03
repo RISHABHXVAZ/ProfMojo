@@ -5,6 +5,7 @@ import com.profmojo.models.Notification;
 import com.profmojo.models.Professor;
 import com.profmojo.models.StaffReport;
 import com.profmojo.models.dto.AmenityRequestDTO;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.dto.ReportStaffRequest;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.NotificationRepository;
@@ -29,6 +30,14 @@ public class AmenityRequestController {
     private final NotificationRepository notificationRepository;
     private final StaffReportRepository staffReportRepository;
 
+    private void saveNotificationIfNotExists(Notification notif) {
+        if (notif.getNotificationKey() != null &&
+                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
+            return;
+        }
+        notificationRepository.save(notif);
+    }
+
     @PostMapping("/request")
     public ResponseEntity<?> raiseRequest(
             @RequestBody AmenityRequestDTO dto,
@@ -36,12 +45,13 @@ public class AmenityRequestController {
     ) {
         AmenityRequest request = amenityRequestService.raiseRequest(dto, professor);
         sendAdminNotification(request, "info");
-        return ResponseEntity.ok(request);
+        return ResponseEntity.ok(AmenityResponseDTO.fromEntity(request));
     }
 
     private void sendAdminNotification(AmenityRequest request, String type) {
         // 1. Create the Notification Entity (Database only)
         Notification notif = Notification.builder()
+                .recipientId("ADMIN-" + request.getDepartment())
                 .recipientRole("ADMIN")
                 .department(request.getDepartment())
                 .message("New request from Prof. " + request.getProfessorName() + " in " + request.getClassRoom())
@@ -54,17 +64,17 @@ public class AmenityRequestController {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 2. SAVE TO DATABASE ONLY (No WebSocket)
-        notificationRepository.save(notif);
+        // 2. SAVE TO DATABASE ONLY (No WebSocket, deduplicated)
+        saveNotificationIfNotExists(notif);
     }
 
     @GetMapping("/my")
-    public List<AmenityRequest> myRequests(@AuthenticationPrincipal Professor professor) {
+    public List<AmenityResponseDTO> myRequests(@AuthenticationPrincipal Professor professor) {
         return amenityRequestService.getMyRequests(professor.getProfId());
     }
 
     @GetMapping("/my/history")
-    public List<AmenityRequest> myDeliveredRequests(@AuthenticationPrincipal Professor professor) {
+    public List<AmenityResponseDTO> myDeliveredRequests(@AuthenticationPrincipal Professor professor) {
         return amenityRequestService.getMyDeliveredRequests(professor.getProfId());
     }
 
@@ -104,6 +114,7 @@ public class AmenityRequestController {
             AmenityRequest newRequest = amenityRequestService.reRequestDueToSLABreach(id, professor.getProfId());
 
             Notification notif = Notification.builder()
+                    .recipientId("ADMIN-" + newRequest.getDepartment())
                     .recipientRole("ADMIN")
                     .department(newRequest.getDepartment())
                     .message("🚨 SLA BREACH RE-REQUEST: Room " + newRequest.getClassRoom())
@@ -115,7 +126,7 @@ public class AmenityRequestController {
                     .isArchived(false)
                     .createdAt(LocalDateTime.now())
                     .build();
-            notificationRepository.save(notif);
+            saveNotificationIfNotExists(notif);
 
             return ResponseEntity.ok(Map.of("message", "New request raised", "newRequestId", newRequest.getId()));
         } catch (Exception e) {
@@ -154,16 +165,19 @@ public class AmenityRequestController {
 
             // Notify admin (Database only)
             Notification adminNotif = Notification.builder()
+                    .recipientId("ADMIN-" + request.getDepartment())
                     .message("🚨 STAFF REPORT: Prof. " + professor.getName() +
                             " reported staff " + request.getStaffName() +
                             " for request #" + request.getRequestId())
                     .type("error")
                     .department(request.getDepartment())
                     .recipientRole("ADMIN")
+                    .notificationKey("STAFF_REPORT-" + request.getRequestId() + "-" + request.getStaffId())
+                    .entityId(request.getRequestId())
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build();
-            notificationRepository.save(adminNotif);
+            saveNotificationIfNotExists(adminNotif);
 
             return ResponseEntity.ok(Map.of("message", "Staff reported successfully"));
 

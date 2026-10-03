@@ -2,6 +2,7 @@ package com.profmojo.controllers;
 
 import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.StaffRepository;
@@ -25,6 +26,15 @@ public class StaffAmenityController {
     private final AmenityRequestRepository amenityRepo;
     private final StaffRepository staffRepo;
     private final NotificationRepository notificationRepository;
+    private final com.profmojo.services.AdminAmenityService adminAmenityService;
+
+    private void saveNotificationIfNotExists(Notification notif) {
+        if (notif.getNotificationKey() != null &&
+                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
+            return;
+        }
+        notificationRepository.save(notif);
+    }
 
     @PutMapping("/{requestId}/delivered")
     @Transactional
@@ -125,7 +135,7 @@ public class StaffAmenityController {
                     .isArchived(false)
                     .createdAt(LocalDateTime.now())
                     .build();
-            notificationRepository.save(staffNotif);
+            saveNotificationIfNotExists(staffNotif);
 
             Notification profNotif = Notification.builder()
                     .recipientId(request.getProfessorId())
@@ -139,27 +149,10 @@ public class StaffAmenityController {
                     .isArchived(false)
                     .createdAt(LocalDateTime.now())
                     .build();
-            notificationRepository.save(profNotif);
+            saveNotificationIfNotExists(profNotif);
 
-            // 12. Auto-assign next queued request (your existing logic)
-            amenityRepo
-                    .findFirstByDepartmentAndStatusOrderByCreatedAtAsc(
-                            staff.getDepartment(), RequestStatus.QUEUED
-                    )
-                    .ifPresent(queuedRequest -> {
-                        queuedRequest.setAssignedStaff(staff);
-                        queuedRequest.setAssignedAt(LocalDateTime.now());
-
-                        LocalDateTime deadline = LocalDateTime.now().plusMinutes(5);
-                        queuedRequest.setSlaDeadline(deadline);
-                        queuedRequest.setDeliveryDeadline(deadline);
-
-                        queuedRequest.setStatus(RequestStatus.ASSIGNED);
-                        staff.setAvailable(false);
-
-                        amenityRepo.save(queuedRequest);
-                        staffRepo.save(staff);
-                    });
+            // 12. Auto-assign next queued request via atomic FIFO service (sets confirmation code & notifications)
+            adminAmenityService.tryAssignQueuedRequest(staff);
 
             return ResponseEntity.ok(Map.of(
                     "message", message,
@@ -175,8 +168,12 @@ public class StaffAmenityController {
     }
 
     @GetMapping("/my")
-    public List<AmenityRequest> getMyAssignedRequests(@AuthenticationPrincipal Staff staff) {
-        return amenityRepo.findByAssignedStaffAndStatus(staff, RequestStatus.ASSIGNED);
+    @Transactional
+    public List<AmenityResponseDTO> getMyAssignedRequests(@AuthenticationPrincipal Staff staff) {
+        return amenityRepo.findByAssignedStaffAndStatus(staff, RequestStatus.ASSIGNED)
+                .stream()
+                .map(AmenityResponseDTO::fromEntity)
+                .toList();
     }
 
     @GetMapping("/me")

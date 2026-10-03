@@ -1,6 +1,7 @@
 package com.profmojo.controllers;
 
 import com.profmojo.models.*;
+import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.DepartmentSecretRepository;
 import com.profmojo.repositories.NotificationRepository;
@@ -24,6 +25,14 @@ public class AdminAmenityController {
     private final DepartmentSecretRepository departmentSecretRepository;
     private final AmenityRequestRepository amenityRequestRepository;
 
+    private void saveNotificationIfNotExists(Notification notif) {
+        if (notif.getNotificationKey() != null &&
+                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
+            return;
+        }
+        notificationRepository.save(notif);
+    }
+
     // Helper method to get department from authentication
     private String getDepartmentFromAuth(Authentication authentication) {
         String secretKey = authentication.getName();
@@ -33,25 +42,25 @@ public class AdminAmenityController {
     }
 
     @GetMapping("/pending")
-    public List<AmenityRequest> getPending(Authentication authentication) {
+    public List<AmenityResponseDTO> getPending(Authentication authentication) {
         String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getPendingRequests(department);
     }
 
     @GetMapping("/ongoing")
-    public List<AmenityRequest> getOngoingRequests(Authentication authentication) {
+    public List<AmenityResponseDTO> getOngoingRequests(Authentication authentication) {
         String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getOngoingRequests(department);
     }
 
     @GetMapping("/completed")
-    public List<AmenityRequest> getCompletedRequests(Authentication authentication) {
+    public List<AmenityResponseDTO> getCompletedRequests(Authentication authentication) {
         String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getCompletedRequests(department);
     }
 
     @PutMapping("/{requestId}/assign/{staffId}")
-    public AmenityRequest assignStaff(
+    public AmenityResponseDTO assignStaff(
             @PathVariable Long requestId,
             @PathVariable String staffId,
             Authentication authentication) {
@@ -84,7 +93,7 @@ public class AdminAmenityController {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(staffNotif);
+        saveNotificationIfNotExists(staffNotif);
 
         // 4️⃣ SAVE notification for PROFESSOR (with confirmation code)
         Notification profNotif = Notification.builder()
@@ -101,7 +110,7 @@ public class AdminAmenityController {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(profNotif);
+        saveNotificationIfNotExists(profNotif);
 
         // 5️⃣ SAVE ADMIN NOTIFICATION
         Notification adminNotif = Notification.builder()
@@ -119,9 +128,9 @@ public class AdminAmenityController {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        notificationRepository.save(adminNotif);
+        saveNotificationIfNotExists(adminNotif);
 
-        return request;
+        return AmenityResponseDTO.fromEntity(request);
     }
 
     @GetMapping("/staff/all")
@@ -137,12 +146,12 @@ public class AdminAmenityController {
     }
 
     @PutMapping("/{requestId}/queue")
-    public AmenityRequest addToQueue(@PathVariable Long requestId) {
-        return adminAmenityService.addToQueue(requestId);
+    public AmenityResponseDTO addToQueue(@PathVariable Long requestId) {
+        return AmenityResponseDTO.fromEntity(adminAmenityService.addToQueue(requestId));
     }
 
     @GetMapping("/queue")
-    public List<AmenityRequest> getQueued(Authentication authentication) {
+    public List<AmenityResponseDTO> getQueued(Authentication authentication) {
         String department = getDepartmentFromAuth(authentication);
         return adminAmenityService.getQueuedRequests(department);
     }

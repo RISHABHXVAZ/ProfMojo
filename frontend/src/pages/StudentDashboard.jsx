@@ -58,10 +58,16 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    delete api.defaults.headers.common["Authorization"];
-    navigate("/student/login");
+  const handleLogout = async () => {
+    try {
+      await api.post("/students/logout");
+    } catch (err) {
+      console.error("Student logout failed:", err);
+    } finally {
+      localStorage.removeItem("token");
+      delete api.defaults.headers.common["Authorization"];
+      navigate("/student/login");
+    }
   };
 
   if (loading) {

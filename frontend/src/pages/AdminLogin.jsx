@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useNavigate, Link } from "react-router-dom";
 import { Shield, Key, Mail, AlertCircle } from "lucide-react";
 import "./AdminLogin.css";
@@ -19,8 +19,8 @@ export default function AdminLogin() {
         setLoading(true);
 
         try {
-            await axios.post(
-                "http://localhost:8080/api/admin/auth/send-otp",
+            await api.post(
+                "/admin/auth/send-otp",
                 { secretKey }
             );
 
@@ -41,8 +41,8 @@ export default function AdminLogin() {
         setLoading(true);
 
         try {
-            const res = await axios.post(
-                "http://localhost:8080/api/admin/auth/verify-otp",
+            const res = await api.post(
+                "/admin/auth/verify-otp",
                 { secretKey, otp }
             );
 

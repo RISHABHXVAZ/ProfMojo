@@ -20,6 +20,7 @@ public class StaffAuthServiceImpl implements StaffAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AdminAmenityService adminAmenityService;
+    private final com.profmojo.security.jwt.TokenBlacklistService tokenBlacklistService;
 
     @Override
     public void setPassword(StaffSetPasswordRequest request) {
@@ -60,19 +61,34 @@ public class StaffAuthServiceImpl implements StaffAuthService {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void logout(String authHeader) {
+        if (authHeader == null || authHeader.isBlank()) {
+            return;
+        }
+
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim();
+
+        // 1. Database state update (essential for FIFO staff availability)
         try {
-            String token = authHeader.replace("Bearer ", "");
             String staffId = jwtUtil.extractUsername(token);
-
-            Staff staff = staffRepository.findById(staffId)
-                    .orElseThrow(() -> new RuntimeException("Staff not found"));
-
-            staff.setOnline(false);
-            staffRepository.save(staff);
-
+            if (staffId != null) {
+                staffRepository.findById(staffId).ifPresent(staff -> {
+                    staff.setOnline(false);
+                    staffRepository.save(staff);
+                });
+            }
         } catch (Exception e) {
-            System.err.println("Error during logout: " + e.getMessage());
+            org.slf4j.LoggerFactory.getLogger(StaffAuthServiceImpl.class)
+                    .warn("Error updating staff offline state during logout: {}", e.getMessage());
+        }
+
+        // 2. Redis token revocation
+        try {
+            tokenBlacklistService.revokeToken(token);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(StaffAuthServiceImpl.class)
+                    .warn("Error revoking staff token during logout: {}", e.getMessage());
         }
     }
 }

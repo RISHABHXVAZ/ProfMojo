@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import axios from "axios";
+import api from "../services/api";
 import { useNavigate } from "react-router-dom";
 import { Bell, X, CheckCircle, AlertCircle, Key } from "lucide-react";
 import "./StaffDashboard.css";
@@ -29,16 +29,14 @@ export default function StaffDashboard() {
 
     // Fetch notifications from backend
     const fetchNotifications = async () => {
-    try {
-        const res = await axios.get("http://localhost:8080/api/notifications/staff", {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        setNotifications(res.data.notifications || []);
-        setUnreadCount(res.data.unreadCount || 0);
-    } catch (err) {
-        console.error("Failed to fetch notifications", err);
-    }
-};
+        try {
+            const res = await api.get("/notifications/staff");
+            setNotifications(res.data.notifications || []);
+            setUnreadCount(res.data.unreadCount || 0);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        }
+    };
 
     // Add this useEffect to close notification panel when clicking outside
     useEffect(() => {
@@ -57,10 +55,7 @@ export default function StaffDashboard() {
 
     const fetchAssignedRequests = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/staff/amenities/my",
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.get("/staff/amenities/my");
             setRequests(res.data);
         } catch (err) {
             console.error("Failed to fetch requests", err);
@@ -71,10 +66,7 @@ export default function StaffDashboard() {
 
     const fetchProfile = async () => {
         try {
-            const res = await axios.get(
-                "http://localhost:8080/api/staff/amenities/me",
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.get("/staff/amenities/me");
             setStaff(res.data);
         } catch (err) {
             console.error("Failed to fetch profile", err);
@@ -104,11 +96,10 @@ export default function StaffDashboard() {
         try {
             const isBreached = new Date(selectedRequest.slaDeadline).getTime() < Date.now();
 
-            const res = await axios.put(
-                `http://localhost:8080/api/staff/amenities/${selectedRequest.id}/delivered`,
+            const res = await api.put(
+                `/staff/amenities/${selectedRequest.id}/delivered`,
                 {},
                 {
-                    headers: { Authorization: `Bearer ${token}` },
                     params: { 
                         confirmationCode: confirmationCode.trim(),
                         slaBreached: isBreached
@@ -145,16 +136,9 @@ export default function StaffDashboard() {
 
     const handleLogout = async () => {
         try {
-            await axios.post(
-                "http://localhost:8080/api/staff/auth/logout",
-                {},
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+            await api.post("/staff/auth/logout");
+        } catch (err) {
+            console.error("Staff logout failed:", err);
         } finally {
             localStorage.removeItem("token");
             localStorage.removeItem("role");

@@ -7,7 +7,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Entity
-@Table(name = "notifications")
+@Table(name = "notifications", indexes = {
+        @Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at DESC")
+})
 @Getter
 @Setter
 @NoArgsConstructor

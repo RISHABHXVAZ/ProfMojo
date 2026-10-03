@@ -1,16 +1,27 @@
 package com.profmojo.services.impl;
 
-import com.profmojo.models.*;
+import com.profmojo.models.Professor;
+import com.profmojo.models.ProfessorMaster;
+import com.profmojo.models.Staff;
+import com.profmojo.models.Student;
+import com.profmojo.models.StudentMaster;
 import com.profmojo.models.dto.VerifyOtpSetPasswordRequest;
-import com.profmojo.repositories.*;
+import com.profmojo.otp.OtpStore;
+import com.profmojo.otp.StoredOtp;
+import com.profmojo.ratelimit.OtpRateLimiter;
+import com.profmojo.repositories.ProfessorMasterRepository;
+import com.profmojo.repositories.ProfessorRepository;
+import com.profmojo.repositories.StaffRepository;
+import com.profmojo.repositories.StudentMasterRepository;
+import com.profmojo.repositories.StudentRepository;
 import com.profmojo.services.EmailService;
 import com.profmojo.services.OnboardingAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.Random;
+import java.security.SecureRandom;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -18,59 +29,67 @@ public class OnboardingAuthServiceImpl implements OnboardingAuthService {
 
     private final ProfessorMasterRepository professorMasterRepository;
     private final ProfessorRepository professorRepository;
-    private final OnboardingOtpRepository otpRepository;
+    private final OtpStore otpStore;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final StudentMasterRepository studentMasterRepository;
     private final StudentRepository studentRepository;
     private final StaffRepository staffRepository;
+    private final OtpRateLimiter otpRateLimiter;
+    private final com.profmojo.metrics.AppMetricsService appMetricsService;
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Duration OTP_TTL = Duration.ofSeconds(300);
 
     @Override
     public void sendProfessorOtp(String userId) {
+        try {
+            ProfessorMaster master = professorMasterRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Invalid Professor ID"));
 
-        // userId == profId
-        ProfessorMaster master = professorMasterRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Invalid Professor ID"));
+            otpRateLimiter.resetVerifyAttempts("PROFESSOR", userId);
 
+            String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
 
-        // Prevent duplicate OTPs
-        otpRepository.deleteById(userId);
+            otpStore.saveOtp("PROFESSOR", userId, otp, OTP_TTL);
 
-        String otp = String.valueOf(100000 + new Random().nextInt(900000));
-
-        OnboardingOtp entity = new OnboardingOtp();
-        entity.setUserId(userId);
-        entity.setRole("PROFESSOR");
-        entity.setOtp(otp);
-        entity.setExpiry(LocalDateTime.now().plusMinutes(5));
-
-        otpRepository.save(entity);
-
-        emailService.send(
-                master.getEmail(),
-                "ProfMojo OTP",
-                "Your OTP is: " + otp + " (valid for 5 minutes)"
-        );
+            emailService.send(
+                    master.getEmail(),
+                    "ProfMojo OTP",
+                    "Your OTP is: " + otp + " (valid for 5 minutes)"
+            );
+            appMetricsService.incrementOtpRequest("onboarding", "success");
+        } catch (Exception e) {
+            appMetricsService.incrementOtpRequest("onboarding", "failed");
+            throw e;
+        }
     }
-
 
     @Override
     public void verifyProfessorOtpAndSetPassword(VerifyOtpSetPasswordRequest req) {
+        String userId = req.getUserId();
 
-        String userId = req.getUserId(); // clarity
+        otpRateLimiter.checkVerifyAttemptLimit("PROFESSOR", userId);
 
-        OnboardingOtp otp = otpRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("OTP not found"));
+        StoredOtp otp = otpStore.findOtp("PROFESSOR", userId)
+                .orElseThrow(() -> {
+                    appMetricsService.incrementOtpVerification("onboarding", "invalid");
+                    return new RuntimeException("OTP not found");
+                });
 
-        if (!"PROFESSOR".equals(otp.getRole())) {
+        if (!"PROFESSOR".equalsIgnoreCase(otp.role())) {
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP role");
         }
 
-        if (otp.getExpiry().isBefore(LocalDateTime.now())) {
+        if (otp.isExpired()) {
+            appMetricsService.incrementOtpVerification("onboarding", "expired");
             throw new RuntimeException("OTP expired");
         }
 
-        if (!otp.getOtp().equals(req.getOtp())) {
+        if (!otp.otp().equals(req.getOtp())) {
+            otpRateLimiter.recordFailedVerifyAttempt("PROFESSOR", userId);
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP");
         }
 
@@ -87,62 +106,70 @@ public class OnboardingAuthServiceImpl implements OnboardingAuthService {
                 .build();
 
         professorRepository.save(professor);
-        otpRepository.deleteById(userId);
+
+        otpStore.deleteOtp("PROFESSOR", userId);
+        otpRateLimiter.resetVerifyAttempts("PROFESSOR", userId);
+        appMetricsService.incrementOtpVerification("onboarding", "success");
     }
 
     @Override
     public void sendStudentOtp(String userId) {
+        try {
+            if (userId == null || userId.isBlank()) {
+                throw new RuntimeException("Registration number is required");
+            }
 
-        if (userId == null || userId.isBlank()) {
-            throw new RuntimeException("Registration number is required");
+            StudentMaster student = studentMasterRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Invalid Registration Number"));
+
+            otpRateLimiter.resetVerifyAttempts("STUDENT", userId);
+
+            String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
+
+            otpStore.saveOtp("STUDENT", userId, otp, OTP_TTL);
+
+            emailService.send(
+                    student.getEmail(),
+                    "ProfMojo OTP",
+                    "Your OTP is: " + otp + " (valid for 5 minutes)"
+            );
+            appMetricsService.incrementOtpRequest("onboarding", "success");
+        } catch (Exception e) {
+            appMetricsService.incrementOtpRequest("onboarding", "failed");
+            throw e;
         }
-
-        StudentMaster student = studentMasterRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Invalid Registration Number"));
-
-        String otp = String.valueOf(100000 + new Random().nextInt(900000));
-
-        OnboardingOtp entity = new OnboardingOtp();
-        entity.setUserId(userId);
-        entity.setRole("STUDENT");
-        entity.setOtp(otp);
-        entity.setExpiry(LocalDateTime.now().plusMinutes(5));
-
-        otpRepository.save(entity);
-
-        emailService.send(
-                student.getEmail(),
-                "ProfMojo OTP",
-                "Your OTP is: " + otp + " (valid for 5 minutes)"
-        );
     }
-
-
-
-
 
     @Override
     public void verifyStudentOtpAndSetPassword(VerifyOtpSetPasswordRequest req) {
+        String userId = req.getUserId();
 
-        OnboardingOtp otpEntity = otpRepository.findById(req.getUserId())
-                .orElseThrow(() -> new RuntimeException("Invalid OTP"));
+        otpRateLimiter.checkVerifyAttemptLimit("STUDENT", userId);
 
-        if (!"STUDENT".equals(otpEntity.getRole())) {
+        StoredOtp otp = otpStore.findOtp("STUDENT", userId)
+                .orElseThrow(() -> {
+                    appMetricsService.incrementOtpVerification("onboarding", "invalid");
+                    return new RuntimeException("Invalid OTP");
+                });
+
+        if (!"STUDENT".equalsIgnoreCase(otp.role())) {
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP role");
         }
 
-        if (otpEntity.getExpiry().isBefore(LocalDateTime.now())) {
+        if (otp.isExpired()) {
+            appMetricsService.incrementOtpVerification("onboarding", "expired");
             throw new RuntimeException("OTP expired");
         }
 
-        if (!otpEntity.getOtp().equals(req.getOtp())) {
+        if (!otp.otp().equals(req.getOtp())) {
+            otpRateLimiter.recordFailedVerifyAttempt("STUDENT", userId);
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP");
         }
 
-
-        StudentMaster master = studentMasterRepository.findById(req.getUserId())
+        StudentMaster master = studentMasterRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Invalid Registration Number"));
-
 
         Student student = Student.builder()
                 .regNo(master.getRegNo())
@@ -153,64 +180,72 @@ public class OnboardingAuthServiceImpl implements OnboardingAuthService {
                 .build();
 
         studentRepository.save(student);
-        otpRepository.deleteById(req.getUserId());
+
+        otpStore.deleteOtp("STUDENT", userId);
+        otpRateLimiter.resetVerifyAttempts("STUDENT", userId);
+        appMetricsService.incrementOtpVerification("onboarding", "success");
     }
 
     @Override
     public void sendStaffOtp(String staffId) {
-        Staff staff = staffRepository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("Invalid Staff ID"));
+        try {
+            Staff staff = staffRepository.findById(staffId)
+                    .orElseThrow(() -> new RuntimeException("Invalid Staff ID"));
 
-        otpRepository.deleteById(staffId);
+            otpRateLimiter.resetVerifyAttempts("STAFF", staffId);
 
-        String otp = String.valueOf(100000 + new Random().nextInt(900000));
+            String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
 
-        OnboardingOtp entity = new OnboardingOtp();
-        entity.setUserId(staffId);
-        entity.setRole("STAFF");
-        entity.setOtp(otp);
-        entity.setExpiry(LocalDateTime.now().plusMinutes(5));
+            otpStore.saveOtp("STAFF", staffId, otp, OTP_TTL);
 
-        otpRepository.save(entity);
-
-        emailService.send(
-                staff.getEmail(),
-                "ProfMojo Staff OTP",
-                "Your OTP is: " + otp + " (valid for 5 minutes)"
-        );
+            emailService.send(
+                    staff.getEmail(),
+                    "ProfMojo Staff OTP",
+                    "Your OTP is: " + otp + " (valid for 5 minutes)"
+            );
+            appMetricsService.incrementOtpRequest("onboarding", "success");
+        } catch (Exception e) {
+            appMetricsService.incrementOtpRequest("onboarding", "failed");
+            throw e;
+        }
     }
-
 
     @Override
     public void verifyStaffOtpAndSetPassword(VerifyOtpSetPasswordRequest req) {
-
         String staffId = req.getUserId();
 
-        OnboardingOtp otp = otpRepository.findById(staffId)
-                .orElseThrow(() -> new RuntimeException("OTP not found"));
+        otpRateLimiter.checkVerifyAttemptLimit("STAFF", staffId);
 
-        if (!"STAFF".equals(otp.getRole())) {
+        StoredOtp otp = otpStore.findOtp("STAFF", staffId)
+                .orElseThrow(() -> {
+                    appMetricsService.incrementOtpVerification("onboarding", "invalid");
+                    return new RuntimeException("OTP not found");
+                });
+
+        if (!"STAFF".equalsIgnoreCase(otp.role())) {
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP role");
         }
 
-        if (otp.getExpiry().isBefore(LocalDateTime.now())) {
+        if (otp.isExpired()) {
+            appMetricsService.incrementOtpVerification("onboarding", "expired");
             throw new RuntimeException("OTP expired");
         }
 
-        if (!otp.getOtp().equals(req.getOtp())) {
+        if (!otp.otp().equals(req.getOtp())) {
+            otpRateLimiter.recordFailedVerifyAttempt("STAFF", staffId);
+            appMetricsService.incrementOtpVerification("onboarding", "invalid");
             throw new RuntimeException("Invalid OTP");
         }
 
         Staff staff = staffRepository.findById(staffId)
                 .orElseThrow(() -> new RuntimeException("Staff not found"));
 
-
         staff.setPassword(passwordEncoder.encode(req.getPassword()));
         staffRepository.save(staff);
 
-        otpRepository.deleteById(staffId);
+        otpStore.deleteOtp("STAFF", staffId);
+        otpRateLimiter.resetVerifyAttempts("STAFF", staffId);
+        appMetricsService.incrementOtpVerification("onboarding", "success");
     }
-
-
-
 }
