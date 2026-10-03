@@ -89,6 +89,9 @@ ProfMojo resolves both challenges through a single, secure, role-based platform 
 
 ## Architecture
 
+![ProfMojo Production Architecture](docs/architecture.png)
+*Production architecture of ProfMojo v1.0.0*
+
 ProfMojo is built as a modular multi-tier architecture containerized with Docker Compose. All asynchronous notification delivery operates via backend event persistence and client-side REST polling.
 
 ```mermaid
