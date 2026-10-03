@@ -97,41 +97,36 @@ ProfMojo is built as a modular multi-tier architecture containerized with Docker
 ```mermaid
 flowchart TD
     subgraph Client["Client Tier"]
-        UI["React 19 + Vite SPA<br/>(TailwindCSS, Lucide, Recharts)"]
+        UI["React 19 + Vite SPA (Axios, REST Polling)"]
     end
 
-    subgraph Gateway["Application Layer (Spring Boot 4.0.0)"]
-        Filter["CorrelationIdFilter<br/>& JwtAuthenticationFilter"]
-        Controllers["REST Controllers<br/>(Academic & Operations)"]
-        Services["Domain Services<br/>(Attendance, Amenity, Auth)"]
-        Schedulers["SLA Monitor & Task Schedulers"]
-        MailExecutor["Bounded Async Mail Executor<br/>(ThreadPoolTaskExecutor)"]
-        Actuator["Spring Boot Actuator<br/>(/actuator/prometheus)"]
+    subgraph App["Application Tier (Spring Boot 4.0.0)"]
+        Security["Security and Filters (Correlation ID, JWT)"]
+        Controllers["REST Controllers (Academic, Operations, Notifications)"]
+        Services["Domain Services (Attendance, Amenity, Auth, Notice)"]
+        AsyncTasks["Schedulers and Async Mail Executor"]
+        Actuator["Spring Boot Actuator"]
     end
 
-    subgraph Data["Data & In-Memory Tier"]
-        PG[("PostgreSQL 15<br/>Relational Data, Indexes, Notifications")]
-        Redis[("Redis 7 (Alpine)<br/>OTP Store, Rate Limiting, Token Blacklist")]
+    subgraph Data["Data and Cache Tier"]
+        Postgres["PostgreSQL 15 (Relational Data, Notifications, Indexes)"]
+        Redis["Redis 7 (OTP Store, Rate Limiting, Token Blacklist)"]
     end
 
-    subgraph External["Monitoring & External"]
-        Prometheus["Prometheus Server<br/>(:9090)"]
+    subgraph External["External and Observability"]
+        Prometheus["Prometheus Server (:9090)"]
         SMTP["Campus SMTP Gateway"]
     end
 
-    UI -->|"HTTP / REST API (:8080)"| Filter
-    Filter --> Controllers
+    UI -->|"HTTP REST and Notification Polling (:8080)"| Security
+    Security --> Controllers
     Controllers --> Services
-    Services -->|"JPA / Hibernate"| PG
-    Services -->|"Atomic Lua / Spring Data Redis"| Redis
-    Services --> MailExecutor
-    MailExecutor -.->|"Async SMTP"| SMTP
-    Schedulers -->|"Check Deadlines"| PG
+    Services -->|"JPA / Hibernate"| Postgres
+    Services -->|"Atomic Lua / Redis"| Redis
+    Services --> AsyncTasks
+    AsyncTasks -.->|"Async SMTP"| SMTP
+    AsyncTasks -->|"SLA Deadline Checks"| Postgres
     Actuator -->|"Metrics Scrape"| Prometheus
-
-    %% Notification Flow Highlight
-    Services -->|"1. Persist Event"| PG
-    UI -->|"2. REST Polling (/api/notifications/*)"| Controllers
 ```
 
 ---
