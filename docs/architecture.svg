@@ -1,0 +1,551 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" style="background:#f8fafc; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <!-- Drop Shadow Filters -->
+    <filter id="cardShadow" x="-4%" y="-3%" width="108%" height="108%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.06"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.04"/>
+    </filter>
+    <filter id="panelShadow" x="-2%" y="-2%" width="104%" height="104%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+
+    <!-- Gradients -->
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <linearGradient id="clientGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+
+    <linearGradient id="appGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <linearGradient id="dataGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+
+    <linearGradient id="redisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#b91c1c"/>
+    </linearGradient>
+
+    <linearGradient id="obsGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+
+    <!-- Marker Arrows -->
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#0284c7"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#4f46e5"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#d97706"/>
+    </marker>
+    <marker id="arrowSlate" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M 1 1 L 7 4 L 1 7 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- ==================== TOP HEADER ==================== -->
+  <g id="header">
+    <rect x="40" y="24" width="1840" height="80" rx="14" fill="url(#headerGrad)" filter="url(#panelShadow)"/>
+    <text x="70" y="60" fill="#ffffff" font-size="24" font-weight="700" letter-spacing="-0.5">ProfMojo v1.0.0 — System Architecture</text>
+    <text x="70" y="86" fill="#94a3b8" font-size="14" font-weight="400">Production Modular Monolith • Spring Boot 4.0.0 (Java 17) • React 19 SPA • PostgreSQL 15 • Redis 7 • Docker Compose</text>
+    
+    <!-- Badges in Header -->
+    <g transform="translate(1320, 44)">
+      <!-- Badge 1: Single Monolith -->
+      <rect x="0" y="0" width="150" height="32" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="16" cy="16" r="4" fill="#10b981"/>
+      <text x="28" y="20" fill="#e2e8f0" font-size="11" font-weight="600">Docker Monolith</text>
+
+      <!-- Badge 2: REST Polling -->
+      <rect x="160" y="0" width="180" height="32" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="176" cy="16" r="4" fill="#38bdf8"/>
+      <text x="188" y="20" fill="#e2e8f0" font-size="11" font-weight="600">REST Polling (No WS)</text>
+
+      <!-- Badge 3: Row Locks -->
+      <rect x="350" y="0" width="160" height="32" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+      <circle cx="366" cy="16" r="4" fill="#a78bfa"/>
+      <text x="378" y="20" fill="#e2e8f0" font-size="11" font-weight="600">Row Locks (SKIP LOCKED)</text>
+    </g>
+  </g>
+
+  <!-- ==================== TIER 1: CLIENT (REACT 19) ==================== -->
+  <g id="tier-client" transform="translate(40, 126)">
+    <rect x="0" y="0" width="350" height="720" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+    
+    <!-- Client Header -->
+    <rect x="0" y="0" width="350" height="60" rx="14" fill="url(#clientGrad)"/>
+    <rect x="0" y="46" width="350" height="14" fill="#0369a1"/>
+    <text x="24" y="36" fill="#ffffff" font-size="17" font-weight="700">CLIENT TIER</text>
+    <text x="24" y="52" fill="#e0f2fe" font-size="12" font-weight="500">React 19 + Vite Single Page Application</text>
+    
+    <!-- Role-based Views Container -->
+    <rect x="20" y="80" width="310" height="290" rx="10" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1"/>
+    <text x="36" y="106" fill="#0369a1" font-size="13" font-weight="700" letter-spacing="0.5">ROLE-BASED USER INTERFACES</text>
+    
+    <!-- Role Item: Professor -->
+    <rect x="32" y="120" width="286" height="50" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+    <circle cx="52" cy="145" r="10" fill="#0284c7"/>
+    <text x="49" y="149" fill="#ffffff" font-size="11" font-weight="700">P</text>
+    <text x="70" y="139" fill="#0f172a" font-size="12" font-weight="600">Professor Portal</text>
+    <text x="70" y="156" fill="#64748b" font-size="11">Roster, Attendance Pills, SLA Amenity Request</text>
+
+    <!-- Role Item: Student -->
+    <rect x="32" y="178" width="286" height="50" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+    <circle cx="52" cy="203" r="10" fill="#0284c7"/>
+    <text x="49" y="207" fill="#ffffff" font-size="11" font-weight="700">S</text>
+    <text x="70" y="197" fill="#0f172a" font-size="12" font-weight="600">Student Portal</text>
+    <text x="70" y="214" fill="#64748b" font-size="11">Attendance Overview (&lt;75% Warning), Notices</text>
+
+    <!-- Role Item: Staff -->
+    <rect x="32" y="236" width="286" height="50" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+    <circle cx="52" cy="261" r="10" fill="#0284c7"/>
+    <text x="49" y="265" fill="#ffffff" font-size="11" font-weight="700">W</text>
+    <text x="70" y="255" fill="#0f172a" font-size="12" font-weight="600">Staff Portal</text>
+    <text x="70" y="272" fill="#64748b" font-size="11">Task Queue, Availability Toggle, 4-Digit Code</text>
+
+    <!-- Role Item: Admin -->
+    <rect x="32" y="294" width="286" height="50" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+    <circle cx="52" cy="319" r="10" fill="#0284c7"/>
+    <text x="49" y="323" fill="#ffffff" font-size="11" font-weight="700">A</text>
+    <text x="70" y="313" fill="#0f172a" font-size="12" font-weight="600">Department Admin Console</text>
+    <text x="70" y="330" fill="#64748b" font-size="11">Queue Dispatch, SLA Monitors, Analytics</text>
+
+    <!-- UI State & Libraries -->
+    <rect x="20" y="388" width="310" height="96" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="36" y="412" fill="#475569" font-size="12" font-weight="700">FRONTEND COMPONENT STACK</text>
+    <text x="36" y="432" fill="#334155" font-size="11">• React Router 7 (Protected Role Routes)</text>
+    <text x="36" y="450" fill="#334155" font-size="11">• Tailwind CSS &amp; Lucide Icons</text>
+    <text x="36" y="468" fill="#334155" font-size="11">• Recharts (Staff Star Ratings &amp; Delivery Trends)</text>
+
+    <!-- Communication Client Box -->
+    <rect x="20" y="500" width="310" height="196" rx="10" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="36" y="526" fill="#0369a1" font-size="13" font-weight="700">COMMUNICATION ENGINE</text>
+
+    <!-- Axios Client -->
+    <rect x="32" y="540" width="286" height="66" rx="8" fill="#ffffff" stroke="#bae6fd" stroke-width="1"/>
+    <text x="46" y="562" fill="#0f172a" font-size="12" font-weight="600">Axios HTTP Client</text>
+    <text x="46" y="580" fill="#64748b" font-size="11">• Base URL: VITE_API_BASE_URL (:8080)</text>
+    <text x="46" y="596" fill="#64748b" font-size="11">• Auth Interceptor: Bearer JWT</text>
+
+    <!-- In-App Notification Poller -->
+    <rect x="32" y="614" width="286" height="68" rx="8" fill="#ffffff" stroke="#bae6fd" stroke-width="1"/>
+    <circle cx="48" cy="636" r="5" fill="#0284c7"/>
+    <text x="60" y="640" fill="#0f172a" font-size="12" font-weight="600">In-App REST Notification Poller</text>
+    <text x="60" y="658" fill="#0369a1" font-size="11" font-weight="600">GET /api/notifications/* (Periodic Poll)</text>
+    <text x="60" y="674" fill="#64748b" font-size="10.5">Strict REST polling • Zero WebSocket overhead</text>
+  </g>
+
+  <!-- ==================== TIER 2: APPLICATION (SPRING BOOT 4.0.0) ==================== -->
+  <g id="tier-app" transform="translate(420, 126)">
+    <rect x="0" y="0" width="850" height="720" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+    
+    <!-- Application Header -->
+    <rect x="0" y="0" width="850" height="60" rx="14" fill="url(#appGrad)"/>
+    <rect x="0" y="46" width="850" height="14" fill="#047857"/>
+    <text x="28" y="36" fill="#ffffff" font-size="17" font-weight="700">APPLICATION TIER (MODULAR MONOLITH)</text>
+    <text x="28" y="52" fill="#d1fae5" font-size="12" font-weight="500">Spring Boot 4.0.0 • Java 17 • Port 8080</text>
+    
+    <!-- Layer 1: Security & Cross-Cutting -->
+    <g transform="translate(24, 76)">
+      <rect x="0" y="0" width="802" height="96" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#047857" font-size="13" font-weight="700" letter-spacing="0.5">1. SECURITY &amp; CROSS-CUTTING INFRASTRUCTURE</text>
+      
+      <!-- Filter 1: Correlation ID -->
+      <rect x="16" y="36" width="248" height="48" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="28" y="56" fill="#0f172a" font-size="12" font-weight="600">CorrelationIdFilter</text>
+      <text x="28" y="73" fill="#64748b" font-size="11">X-Correlation-ID &amp; SLF4J MDC Logging</text>
+
+      <!-- Filter 2: Rate Limiting -->
+      <rect x="276" y="36" width="248" height="48" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="288" y="56" fill="#0f172a" font-size="12" font-weight="600">RateLimitingFilter</text>
+      <text x="288" y="73" fill="#64748b" font-size="11">IP (3/min) &amp; User (2/5min) Atomic Lua</text>
+
+      <!-- Filter 3: JWT & JTI -->
+      <rect x="536" y="36" width="250" height="48" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="548" y="56" fill="#0f172a" font-size="12" font-weight="600">JwtAuthenticationFilter</text>
+      <text x="548" y="73" fill="#64748b" font-size="11">HMAC-SHA256 &amp; Redis JTI Revocation</text>
+    </g>
+
+    <!-- Layer 2: REST Controllers -->
+    <g transform="translate(24, 186)">
+      <rect x="0" y="0" width="802" height="106" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#334155" font-size="13" font-weight="700" letter-spacing="0.5">2. REST CONTROLLERS (HTTP API BOUNDARY)</text>
+      
+      <!-- Controller Chips -->
+      <rect x="16" y="36" width="186" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="26" y="55" fill="#0f172a" font-size="11" font-weight="600">AuthController</text>
+
+      <rect x="210" y="36" width="186" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="220" y="55" fill="#0f172a" font-size="11" font-weight="600">Class &amp; Enrollment</text>
+
+      <rect x="404" y="36" width="186" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="414" y="55" fill="#0f172a" font-size="11" font-weight="600">AttendanceController</text>
+
+      <rect x="598" y="36" width="188" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="608" y="55" fill="#0f172a" font-size="11" font-weight="600">NoticeController</text>
+
+      <rect x="16" y="70" width="250" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="26" y="89" fill="#0f172a" font-size="11" font-weight="600">AmenityRequestController</text>
+
+      <rect x="276" y="70" width="250" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="286" y="89" fill="#0f172a" font-size="11" font-weight="600">NotificationController (Polling)</text>
+
+      <rect x="536" y="70" width="250" height="28" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="546" y="89" fill="#0f172a" font-size="11" font-weight="600">Admin &amp; Staff Operations</text>
+    </g>
+
+    <!-- Layer 3: Domain Services -->
+    <g transform="translate(24, 306)">
+      <rect x="0" y="0" width="802" height="116" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#166534" font-size="13" font-weight="700" letter-spacing="0.5">3. CORE DOMAIN SERVICES LAYER</text>
+      
+      <!-- Service Box 1: Academic -->
+      <rect x="16" y="36" width="252" height="66" rx="8" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+      <text x="28" y="56" fill="#0f172a" font-size="12" font-weight="600">Academic &amp; Attendance</text>
+      <text x="28" y="74" fill="#64748b" font-size="11">ClassService, AttendanceService</text>
+      <text x="28" y="90" fill="#64748b" font-size="10.5">Undo window (5s), 75% calculation</text>
+
+      <!-- Service Box 2: Amenity Workflow -->
+      <rect x="276" y="36" width="252" height="66" rx="8" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+      <text x="288" y="56" fill="#0f172a" font-size="12" font-weight="600">Amenity Operations</text>
+      <text x="288" y="74" fill="#64748b" font-size="11">AmenityRequestServiceImpl</text>
+      <text x="288" y="90" fill="#166534" font-size="10.5" font-weight="600">FOR UPDATE SKIP LOCKED Row Locks</text>
+
+      <!-- Service Box 3: Notice & Notification -->
+      <rect x="536" y="36" width="250" height="66" rx="8" fill="#ffffff" stroke="#bbf7d0" stroke-width="1"/>
+      <text x="548" y="56" fill="#0f172a" font-size="12" font-weight="600">Notice &amp; Notifications</text>
+      <text x="548" y="74" fill="#64748b" font-size="11">NoticeService, NotificationService</text>
+      <text x="548" y="90" fill="#64748b" font-size="10.5">DB Event Persistence for Polling</text>
+    </g>
+
+    <!-- Layer 4: Scheduling & Async Background Tasks -->
+    <g transform="translate(24, 436)">
+      <rect x="0" y="0" width="802" height="126" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#047857" font-size="13" font-weight="700" letter-spacing="0.5">4. SCHEDULING &amp; ASYNC BACKGROUND WORK</text>
+      
+      <!-- Sched 1: SLA Monitor -->
+      <rect x="16" y="36" width="380" height="74" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <circle cx="36" cy="56" r="6" fill="#059669"/>
+      <text x="50" y="60" fill="#0f172a" font-size="12" font-weight="600">AmenitySlaMonitor (Scheduled Task)</text>
+      <text x="50" y="78" fill="#64748b" font-size="11">• Scans assignmentDeadline (2 min SLA)</text>
+      <text x="50" y="94" fill="#64748b" font-size="11">• Scans deliveryDeadline (5 min SLA) &amp; flags breach</text>
+
+      <!-- Sched 2: Bounded Email Executor -->
+      <rect x="406" y="36" width="380" height="74" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <circle cx="426" cy="56" r="6" fill="#059669"/>
+      <text x="440" y="60" fill="#0f172a" font-size="12" font-weight="600">mailTaskExecutor (Bounded Async)</text>
+      <text x="440" y="78" fill="#64748b" font-size="11">• ThreadPool: core=2, max=5, queue=50</text>
+      <text x="440" y="94" fill="#dc2626" font-size="11" font-weight="600">• AbortPolicy on saturation (Fail-fast bounded memory)</text>
+    </g>
+
+    <!-- Layer 5: Persistence & ORM -->
+    <g transform="translate(24, 576)">
+      <rect x="0" y="0" width="802" height="120" rx="10" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.2"/>
+      <text x="20" y="24" fill="#334155" font-size="13" font-weight="700" letter-spacing="0.5">5. PERSISTENCE &amp; CONNECTION MANAGEMENT</text>
+      
+      <!-- Spring Data JPA -->
+      <rect x="16" y="36" width="380" height="68" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="30" y="58" fill="#0f172a" font-size="12" font-weight="600">Spring Data JPA &amp; Hibernate 6</text>
+      <text x="30" y="76" fill="#64748b" font-size="11">• Repositories: User, Class, Enrollment, Staff, Amenity</text>
+      <text x="30" y="92" fill="#64748b" font-size="11">• Optimized Queries: JOIN FETCH, Projection DTOs</text>
+
+      <!-- HikariCP -->
+      <rect x="406" y="36" width="380" height="68" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="420" y="58" fill="#0f172a" font-size="12" font-weight="600">HikariCP High-Performance Pool</text>
+      <text x="420" y="76" fill="#64748b" font-size="11">• PostgreSQL JDBC driver with connection pooling</text>
+      <text x="420" y="92" fill="#64748b" font-size="11">• Exported pool metrics to Micrometer &amp; Prometheus</text>
+    </g>
+  </g>
+
+  <!-- ==================== TIER 3: DATA & IN-MEMORY (POSTGRESQL & REDIS) ==================== -->
+  <g id="tier-data" transform="translate(1300, 126)">
+    <!-- PostgreSQL Container -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="580" height="344" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <rect x="0" y="0" width="580" height="52" rx="14" fill="url(#dataGrad)"/>
+      <rect x="0" y="40" width="580" height="12" fill="#4338ca"/>
+      <text x="24" y="32" fill="#ffffff" font-size="16" font-weight="700">POSTGRESQL 15 (RELATIONAL DATA)</text>
+      <text x="430" y="32" fill="#e0e7ff" font-size="12" font-weight="600">Port 5432 (Host 5433)</text>
+      
+      <!-- PostgreSQL Entities Matrix -->
+      <g transform="translate(20, 68)">
+        <rect x="0" y="0" width="260" height="140" rx="8" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+        <text x="14" y="22" fill="#4338ca" font-size="12" font-weight="700">APPLICATION DATA TABLES</text>
+        <text x="14" y="44" fill="#334155" font-size="11">• admin, professor, student, staff</text>
+        <text x="14" y="64" fill="#334155" font-size="11">• class_rooms, class_enrollment</text>
+        <text x="14" y="84" fill="#334155" font-size="11">• attendance, onboarding_otp</text>
+        <text x="14" y="104" fill="#334155" font-size="11">• notice, notice_class_mapping</text>
+        <text x="14" y="124" fill="#334155" font-size="11">• amenity_request, notifications</text>
+
+        <rect x="280" y="0" width="260" height="140" rx="8" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+        <text x="294" y="22" fill="#4338ca" font-size="12" font-weight="700">CONCURRENCY &amp; INDEXES</text>
+        <text x="294" y="44" fill="#4338ca" font-size="11" font-weight="600">• FOR UPDATE SKIP LOCKED row locking</text>
+        <text x="294" y="64" fill="#334155" font-size="11">• idx_amenity_fifo_queue (dept, status)</text>
+        <text x="294" y="84" fill="#334155" font-size="11">• idx_amenity_sla_active (partial SLA)</text>
+        <text x="294" y="104" fill="#334155" font-size="11">• idx_notifications_recipient_created</text>
+        <text x="294" y="124" fill="#334155" font-size="11">• idx_enrollment_student (reg_no)</text>
+      </g>
+
+      <!-- PostgreSQL Concurrency Highlight Bar -->
+      <rect x="20" y="224" width="540" height="100" rx="8" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1"/>
+      <text x="34" y="248" fill="#3730a3" font-size="12" font-weight="700">CONCURRENT DISPATCH CONCURRENCY CONTROL</text>
+      <text x="34" y="270" fill="#1e1b4b" font-family="monospace" font-size="11">SELECT s FROM Staff s WHERE s.available = true</text>
+      <text x="34" y="288" fill="#1e1b4b" font-family="monospace" font-size="11">  AND s.department = :dept FOR UPDATE SKIP LOCKED</text>
+      <text x="34" y="310" fill="#4338ca" font-size="11">Guarantees zero double-booking under concurrent administrator/dispatcher assignments.</text>
+    </g>
+
+    <!-- Redis Container -->
+    <g transform="translate(0, 364)">
+      <rect x="0" y="0" width="580" height="196" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <rect x="0" y="0" width="580" height="46" rx="14" fill="url(#redisGrad)"/>
+      <rect x="0" y="34" width="580" height="12" fill="#b91c1c"/>
+      <text x="24" y="28" fill="#ffffff" font-size="15" font-weight="700">REDIS 7 (IN-MEMORY CACHE &amp; SECURITY)</text>
+      <text x="460" y="28" fill="#fee2e2" font-size="12" font-weight="600">Port 6379</text>
+      
+      <!-- Redis Use Cases Grid -->
+      <g transform="translate(18, 58)">
+        <!-- Card 1: OTP Storage -->
+        <g transform="translate(0, 0)">
+          <rect x="0" y="0" width="174" height="122" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+          <text x="12" y="22" fill="#b91c1c" font-size="11.5" font-weight="700">1. OTP STORAGE</text>
+          <text x="12" y="44" fill="#334155" font-size="10.5">• 5-Minute TTL keys</text>
+          <text x="12" y="62" fill="#334155" font-size="10.5">• Rapid verification</text>
+          <text x="12" y="80" fill="#334155" font-size="10.5">• Transparent failover</text>
+          <text x="12" y="98" fill="#334155" font-size="10.5">  to PostgreSQL table</text>
+        </g>
+
+        <!-- Card 2: Lua Rate Limiting -->
+        <g transform="translate(184, 0)">
+          <rect x="0" y="0" width="176" height="122" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+          <text x="12" y="22" fill="#b91c1c" font-size="11.5" font-weight="700">2. ATOMIC RATE LIMIT</text>
+          <text x="12" y="44" fill="#334155" font-size="10.5">• Atomic Redis Lua</text>
+          <text x="12" y="62" fill="#334155" font-size="10.5">• IP: 3 req / 60 sec</text>
+          <text x="12" y="80" fill="#334155" font-size="10.5">• User: 2 req / 300 sec</text>
+          <text x="12" y="98" fill="#334155" font-size="10.5">• Zero distributed lock</text>
+        </g>
+
+        <!-- Card 3: JTI Blacklist -->
+        <g transform="translate(370, 0)">
+          <rect x="0" y="0" width="174" height="122" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1"/>
+          <text x="12" y="22" fill="#b91c1c" font-size="11.5" font-weight="700">3. JTI REVOCATION</text>
+          <text x="12" y="44" fill="#334155" font-size="10.5">• UUID jti claim blacklist</text>
+          <text x="12" y="62" fill="#334155" font-size="10.5">• Immediate token logout</text>
+          <text x="12" y="80" fill="#334155" font-size="10.5">• TTL synchronized to</text>
+          <text x="12" y="98" fill="#334155" font-size="10.5">  JWT expiration</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- Observability & External Container -->
+    <g transform="translate(0, 580)">
+      <rect x="0" y="0" width="580" height="140" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+      <rect x="0" y="0" width="580" height="42" rx="14" fill="url(#obsGrad)"/>
+      <rect x="0" y="30" width="580" height="12" fill="#b45309"/>
+      <text x="24" y="26" fill="#ffffff" font-size="14.5" font-weight="700">OBSERVABILITY &amp; EXTERNAL INFRASTRUCTURE</text>
+      
+      <g transform="translate(18, 52)">
+        <!-- Prometheus -->
+        <g transform="translate(0, 0)">
+          <rect x="0" y="0" width="262" height="74" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+          <text x="14" y="22" fill="#92400e" font-size="12" font-weight="700">Prometheus Server (:9090)</text>
+          <text x="14" y="42" fill="#334155" font-size="11">• Scrapes /actuator/prometheus</text>
+          <text x="14" y="60" fill="#334155" font-size="11">• Telemetry on HikariCP, SLA &amp; HTTP</text>
+        </g>
+
+        <!-- SMTP -->
+        <g transform="translate(278, 0)">
+          <rect x="0" y="0" width="266" height="74" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+          <text x="14" y="22" fill="#92400e" font-size="12" font-weight="700">Campus SMTP Gateway</text>
+          <text x="14" y="42" fill="#334155" font-size="11">• Bounded async mail delivery</text>
+          <text x="14" y="60" fill="#334155" font-size="11">• OTP dispatch &amp; SLA breach alert</text>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== FLOW CONNECTORS (MAIN TIERS) ==================== -->
+  <!-- Client to App: HTTP REST -->
+  <path d="M 390 350 L 420 350" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrowBlue)" fill="none"/>
+  <rect x="365" y="326" width="80" height="20" rx="4" fill="#0284c7"/>
+  <text x="372" y="340" fill="#ffffff" font-size="10" font-weight="700">REST API</text>
+
+  <!-- App to Client: Notification Polling -->
+  <path d="M 420 740 L 390 740" stroke="#0284c7" stroke-width="2.5" stroke-dasharray="4,3" marker-end="url(#arrowBlue)" fill="none"/>
+  <rect x="362" y="750" width="86" height="20" rx="4" fill="#0369a1"/>
+  <text x="368" y="764" fill="#ffffff" font-size="10" font-weight="700">POLL (200)</text>
+
+  <!-- App to PostgreSQL -->
+  <path d="M 1270 270 L 1300 270" stroke="#4f46e5" stroke-width="2.5" marker-end="url(#arrowPurple)" fill="none"/>
+  <rect x="1245" y="246" width="80" height="20" rx="4" fill="#4f46e5"/>
+  <text x="1257" y="260" fill="#ffffff" font-size="10" font-weight="700">JPA / JDBC</text>
+
+  <!-- App to Redis -->
+  <path d="M 1270 480 L 1300 480" stroke="#dc2626" stroke-width="2.5" marker-end="url(#arrowRed)" fill="none"/>
+  <rect x="1247" y="456" width="76" height="20" rx="4" fill="#dc2626"/>
+  <text x="1255" y="470" fill="#ffffff" font-size="10" font-weight="700">LUA / RESP</text>
+
+  <!-- App to Observability / SMTP -->
+  <path d="M 1270 660 L 1300 660" stroke="#d97706" stroke-width="2.5" marker-end="url(#arrowAmber)" fill="none"/>
+  <rect x="1245" y="636" width="80" height="20" rx="4" fill="#d97706"/>
+  <text x="1253" y="650" fill="#ffffff" font-size="10" font-weight="700">SCRAPE/MAIL</text>
+
+  <!-- ==================== BOTTOM WORKFLOW PANELS ==================== -->
+  
+  <!-- Panel 1: SLA-Governed Amenity Logistics Workflow -->
+  <g id="workflow-amenity" transform="translate(40, 866)">
+    <rect x="0" y="0" width="1020" height="174" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="1020" height="38" rx="14" fill="#f1f5f9"/>
+    <rect x="0" y="26" width="1020" height="12" fill="#f1f5f9"/>
+    <text x="24" y="25" fill="#0f172a" font-size="13.5" font-weight="700" letter-spacing="0.5">FIFO AMENITY LOGISTICS &amp; DUAL SLA GOVERNANCE WORKFLOW</text>
+    
+    <!-- Steps Pipeline -->
+    <g transform="translate(20, 52)">
+      <!-- Step 1: Professor Request -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="170" height="100" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1"/>
+        <text x="12" y="22" fill="#0284c7" font-size="11" font-weight="700">1. FACULTY REQUEST</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">Raises Amenity</text>
+        <text x="12" y="58" fill="#64748b" font-size="10">Classroom item selected</text>
+        <rect x="12" y="68" width="66" height="20" rx="4" fill="#0284c7"/>
+        <text x="18" y="82" fill="#ffffff" font-size="9.5" font-weight="700">PENDING</text>
+      </g>
+
+      <!-- Arrow 1 -> 2 -->
+      <path d="M 175 50 L 195 50" stroke="#64748b" stroke-width="2" marker-end="url(#arrowSlate)"/>
+
+      <!-- Step 2: FIFO Queue -->
+      <g transform="translate(200, 0)">
+        <rect x="0" y="0" width="170" height="100" rx="8" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="12" y="22" fill="#475569" font-size="11" font-weight="700">2. DEPT FIFO QUEUE</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">Prioritized Arrival</text>
+        <text x="12" y="58" fill="#64748b" font-size="10">Ordered by created_at</text>
+        <rect x="12" y="68" width="64" height="20" rx="4" fill="#64748b"/>
+        <text x="18" y="82" fill="#ffffff" font-size="9.5" font-weight="700">QUEUED</text>
+      </g>
+
+      <!-- Arrow 2 -> 3 -->
+      <path d="M 375 50 L 395 50" stroke="#059669" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+      <!-- Step 3: Atomic Staff Assignment -->
+      <g transform="translate(400, 0)">
+        <rect x="0" y="0" width="200" height="100" rx="8" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2"/>
+        <text x="12" y="22" fill="#047857" font-size="11" font-weight="700">3. ATOMIC ASSIGNMENT</text>
+        <text x="12" y="40" fill="#0f172a" font-size="10.5" font-weight="600">FOR UPDATE SKIP LOCKED</text>
+        <text x="12" y="56" fill="#047857" font-size="10" font-weight="700">Assignment SLA: 2 Min</text>
+        <rect x="12" y="68" width="76" height="20" rx="4" fill="#059669"/>
+        <text x="18" y="82" fill="#ffffff" font-size="9.5" font-weight="700">ASSIGNED</text>
+      </g>
+
+      <!-- Arrow 3 -> 4 -->
+      <path d="M 605 50 L 625 50" stroke="#d97706" stroke-width="2" marker-end="url(#arrowAmber)"/>
+
+      <!-- Step 4: Dispatch & Delivery SLA -->
+      <g transform="translate(630, 0)">
+        <rect x="0" y="0" width="170" height="100" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+        <text x="12" y="22" fill="#b45309" font-size="11" font-weight="700">4. PHYSICAL DISPATCH</text>
+        <text x="12" y="40" fill="#0f172a" font-size="11" font-weight="600">Delivery in Progress</text>
+        <text x="12" y="56" fill="#b45309" font-size="10" font-weight="700">Delivery SLA: 5 Min</text>
+        <text x="12" y="80" fill="#64748b" font-size="10">Active SLA countdown</text>
+      </g>
+
+      <!-- Arrow 4 -> 5 -->
+      <path d="M 805 50 L 825 50" stroke="#4f46e5" stroke-width="2" marker-end="url(#arrowPurple)"/>
+
+      <!-- Step 5: 4-Digit Code & Delivery -->
+      <g transform="translate(830, 0)">
+        <rect x="0" y="0" width="165" height="100" rx="8" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+        <text x="10" y="22" fill="#4338ca" font-size="11" font-weight="700">5. VERIFICATION</text>
+        <text x="10" y="40" fill="#0f172a" font-size="10.5" font-weight="600">4-Digit Auth Code</text>
+        <text x="10" y="56" fill="#64748b" font-size="10">Given by Professor</text>
+        <rect x="10" y="68" width="80" height="20" rx="4" fill="#4338ca"/>
+        <text x="16" y="82" fill="#ffffff" font-size="9.5" font-weight="700">DELIVERED</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Panel 2: Resilient Notification Architecture -->
+  <g id="workflow-notifications" transform="translate(1080, 866)">
+    <rect x="0" y="0" width="800" height="174" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="800" height="38" rx="14" fill="#f1f5f9"/>
+    <rect x="0" y="26" width="800" height="12" fill="#f1f5f9"/>
+    <text x="24" y="25" fill="#0f172a" font-size="13.5" font-weight="700" letter-spacing="0.5">IN-APP NOTIFICATIONS: POSTGRESQL PERSISTENCE + REST POLLING</text>
+    <rect x="620" y="8" width="160" height="22" rx="4" fill="#fee2e2" stroke="#fca5a5" stroke-width="1"/>
+    <text x="632" y="23" fill="#b91c1c" font-size="10.5" font-weight="700">NO WEBSOCKETS / STOMP</text>
+    
+    <!-- Notification Flow Steps -->
+    <g transform="translate(20, 52)">
+      <!-- Box A: Business Event -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="168" height="100" rx="8" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+        <text x="12" y="22" fill="#475569" font-size="11" font-weight="700">STEP 1: DOMAIN EVENT</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">Lifecycle Trigger</text>
+        <text x="12" y="60" fill="#64748b" font-size="10.5">• SLA Breach occurred</text>
+        <text x="12" y="76" fill="#64748b" font-size="10.5">• Amenity assigned</text>
+        <text x="12" y="92" fill="#64748b" font-size="10.5">• Notice published</text>
+      </g>
+
+      <!-- Arrow A -> B -->
+      <path d="M 174 50 L 194 50" stroke="#4f46e5" stroke-width="2" marker-end="url(#arrowPurple)"/>
+
+      <!-- Box B: PostgreSQL Record -->
+      <g transform="translate(198, 0)">
+        <rect x="0" y="0" width="176" height="100" rx="8" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+        <text x="12" y="22" fill="#4338ca" font-size="11" font-weight="700">STEP 2: PERSISTENCE</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">PostgreSQL Store</text>
+        <text x="12" y="60" fill="#64748b" font-size="10.5">• Persisted in notifications</text>
+        <text x="12" y="76" fill="#64748b" font-size="10.5">• Indexed by recipient</text>
+        <text x="12" y="92" fill="#64748b" font-size="10.5">• Immutable audit trail</text>
+      </g>
+
+      <!-- Arrow B -> C -->
+      <path d="M 378 50 L 398 50" stroke="#0284c7" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+      <!-- Box C: REST Polling -->
+      <g transform="translate(402, 0)">
+        <rect x="0" y="0" width="170" height="100" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1"/>
+        <text x="12" y="22" fill="#0284c7" font-size="11" font-weight="700">STEP 3: REST POLL</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">GET /api/notifications</text>
+        <text x="12" y="60" fill="#64748b" font-size="10.5">• Periodic background poll</text>
+        <text x="12" y="76" fill="#64748b" font-size="10.5">• Unread count badge</text>
+        <text x="12" y="92" fill="#64748b" font-size="10.5">• Light HTTP overhead</text>
+      </g>
+
+      <!-- Arrow C -> D -->
+      <path d="M 576 50 L 596 50" stroke="#059669" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+      <!-- Box D: User Interface -->
+      <g transform="translate(600, 0)">
+        <rect x="0" y="0" width="160" height="100" rx="8" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1"/>
+        <text x="12" y="22" fill="#047857" font-size="11" font-weight="700">STEP 4: RENDER</text>
+        <text x="12" y="42" fill="#0f172a" font-size="11" font-weight="600">Client-Side UI</text>
+        <text x="12" y="60" fill="#64748b" font-size="10.5">• Bell badge counter</text>
+        <text x="12" y="76" fill="#64748b" font-size="10.5">• Slide-over notifications</text>
+        <text x="12" y="92" fill="#64748b" font-size="10.5">• Mark as read action</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ==================== FOOTER ==================== -->
+  <g id="footer" transform="translate(40, 1052)">
+    <text x="0" y="16" fill="#94a3b8" font-size="11.5" font-weight="500">ProfMojo v1.0.0 Architecture • Production-Audited Deployment Specification • Source: github.com/RISHABHXVAZ/ProfMojo</text>
+    <text x="1840" y="16" text-anchor="end" fill="#94a3b8" font-size="11.5" font-weight="500">Pure Docker Compose Stack • Monolithic Architecture • Java 17 / React 19 / PostgreSQL 15 / Redis 7</text>
+  </g>
+</svg>
