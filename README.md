@@ -38,6 +38,21 @@ ProfMojo is an enterprise-grade campus operations and facility management platfo
 
 ---
 
+## Demo
+
+ProfMojo is provided as a GitHub-based portfolio project with recorded demonstrations of the running application rather than a public deployment.
+
+The recorded demonstrations cover the primary application workflows:
+- **Attendance management**
+- **Missing amenity / SLA-driven workflow**
+- **Notice system**
+
+These walk-throughs demonstrate the application workflow across the role-based platform.
+
+[🎥 Watch ProfMojo Demo Videos](https://drive.google.com/drive/folders/11lZ-dvimKZ13rbO4XM5W9msQhwbTkVYn)
+
+---
+
 ## What is ProfMojo?
 
 Modern educational institutions frequently suffer from operational fragmentation:
