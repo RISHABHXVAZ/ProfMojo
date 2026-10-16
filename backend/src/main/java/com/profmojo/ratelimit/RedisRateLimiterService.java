@@ -69,10 +69,10 @@ public class RedisRateLimiterService implements RateLimiter {
 
             return RateLimitResult.allowed();
         } catch (Exception ex) {
-            // Controlled fail-open: allow request to proceed if Redis is degraded or down
-            log.warn("Redis unavailable during rate limit check for key [{}]: {}. Failing open.",
+            log.error("Redis unavailable during rate limit acquire for key [{}]: {}. Failing closed.",
                     maskKey(key), ex.getMessage());
-            return RateLimitResult.allowed();
+            throw new com.profmojo.exception.SecurityInfrastructureUnavailableException(
+                    "Security infrastructure unavailable: unable to enforce rate limits", ex);
         }
     }
 
@@ -97,7 +97,9 @@ public class RedisRateLimiterService implements RateLimiter {
                 return Long.parseLong(val) >= limit;
             }
         } catch (Exception ex) {
-            log.warn("Redis unavailable while checking rate limit key [{}]: {}. Failing open.", maskKey(key), ex.getMessage());
+            log.error("Redis unavailable while checking rate limit key [{}]: {}. Failing closed.", maskKey(key), ex.getMessage());
+            throw new com.profmojo.exception.SecurityInfrastructureUnavailableException(
+                    "Security infrastructure unavailable: unable to verify rate limit state", ex);
         }
         return false;
     }

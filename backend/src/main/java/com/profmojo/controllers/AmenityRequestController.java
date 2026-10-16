@@ -92,8 +92,12 @@ public class AmenityRequestController {
                 return ResponseEntity.ok(Map.of("isSlaBreached", false, "canReRequest", false));
             }
 
-            long minutesPassed = Duration.between(request.getCreatedAt(), LocalDateTime.now()).toMinutes();
-            boolean isSlaBreached = minutesPassed >= 2;
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime deadline = request.getAssignmentDeadline() != null
+                    ? request.getAssignmentDeadline()
+                    : (request.getCreatedAt() != null ? request.getCreatedAt().plusMinutes(2) : null);
+            boolean isSlaBreached = Boolean.TRUE.equals(request.getAssignmentSlaBreached())
+                    || (deadline != null && !now.isBefore(deadline));
 
             return ResponseEntity.ok(Map.of("isSlaBreached", isSlaBreached, "canReRequest", isSlaBreached));
         } catch (Exception e) {

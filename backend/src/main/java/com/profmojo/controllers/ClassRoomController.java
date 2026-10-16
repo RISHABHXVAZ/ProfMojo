@@ -48,7 +48,10 @@ public class ClassRoomController {
     }
 
     @GetMapping("/{classCode}/students")
-    public List<ClassEnrollment> getStudentsOfClass(@PathVariable String classCode) {
-        return classRoomService.getStudentsOfClass(classCode);
+    public List<ClassEnrollment> getStudentsOfClass(
+            @PathVariable String classCode,
+            @AuthenticationPrincipal Professor professor
+    ) {
+        return classRoomService.getStudentsOfClass(classCode, professor);
     }
 }

@@ -99,10 +99,32 @@ public interface AmenityRequestRepository
             @Param("status") String status
     );
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT ar FROM AmenityRequest ar WHERE ar.id = :id")
+    Optional<AmenityRequest> findByIdForUpdate(@Param("id") Long id);
+
     @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE AmenityRequest ar SET ar.slaBreached = true, ar.deliverySlaBreached = true WHERE ar.status = :status AND ar.slaDeadline < :now AND ar.slaBreached = false")
     int markBreachedDeliverySlaRequests(
             @Param("status") RequestStatus status,
             @Param("now") LocalDateTime now
     );
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @Query("""
+        UPDATE AmenityRequest ar
+           SET ar.assignmentSlaBreached = true
+         WHERE ar.status = :status
+           AND (ar.assignmentDeadline <= :now OR (ar.assignmentDeadline IS NULL AND ar.createdAt <= :fallbackTime))
+           AND (ar.assignmentSlaBreached = false OR ar.assignmentSlaBreached IS NULL)
+        """)
+    int markBreachedAssignmentSlaRequests(
+            @Param("status") RequestStatus status,
+            @Param("now") LocalDateTime now,
+            @Param("fallbackTime") LocalDateTime fallbackTime
+    );
+
+    default int markBreachedAssignmentSlaRequests(RequestStatus status, LocalDateTime now) {
+        return markBreachedAssignmentSlaRequests(status, now, now.minusMinutes(2));
+    }
 }

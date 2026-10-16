@@ -60,6 +60,39 @@ public class GlobalExceptionHandler {
                 .body(body);
     }
 
+    @ExceptionHandler(DeliveryLockoutException.class)
+    public ResponseEntity<Map<String, Object>> handleDeliveryLockout(
+            DeliveryLockoutException ex, WebRequest request) {
+        log.warn("Delivery lockout for path [{}]: {}", getPath(request), ex.getMessage());
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        body.put("error", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase());
+        body.put("message", ex.getMessage());
+        body.put("retryAfter", ex.getRetryAfterSeconds());
+        body.put("path", getPath(request));
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(org.springframework.http.HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
+
+    @ExceptionHandler(SecurityInfrastructureUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurityInfrastructureUnavailable(
+            SecurityInfrastructureUnavailableException ex, WebRequest request) {
+        log.error("Security infrastructure unavailable for path [{}]: {}", getPath(request), ex.getMessage());
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        body.put("error", HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase());
+        body.put("message", ex.getMessage());
+        body.put("path", getPath(request));
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex, WebRequest request) {
         log.warn("Access denied: {}", ex.getMessage());
@@ -70,6 +103,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex, WebRequest request) {
         log.error("Application exception: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage() != null ? ex.getMessage() : "An error occurred", request);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex, WebRequest request) {
+        log.warn("Resource or route not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
     @ExceptionHandler(Exception.class)

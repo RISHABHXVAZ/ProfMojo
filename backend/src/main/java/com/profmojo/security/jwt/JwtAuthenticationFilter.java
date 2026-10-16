@@ -65,16 +65,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             // 3. Check Redis token blacklist
-            if (tokenBlacklistService.isRevoked(jti)) {
+            try {
+                if (tokenBlacklistService.isRevoked(jti)) {
+                    String requestUri = request.getRequestURI();
+                    boolean isLogoutRequest = requestUri != null && requestUri.endsWith("/logout");
+                    if (!isLogoutRequest) {
+                        SecurityContextHolder.clearContext();
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"error\":\"Token has been revoked\"}");
+                        return;
+                    }
+                }
+            } catch (com.profmojo.exception.SecurityInfrastructureUnavailableException ex) {
                 String requestUri = request.getRequestURI();
-                boolean isLogoutRequest = requestUri != null && requestUri.endsWith("/logout");
-                if (!isLogoutRequest) {
+                if (isPublicEndpoint(requestUri)) {
                     SecurityContextHolder.clearContext();
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"Token has been revoked\"}");
+                    filterChain.doFilter(request, response);
                     return;
                 }
+                SecurityContextHolder.clearContext();
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"status\":503,\"error\":\"Service Unavailable\",\"message\":\"Authentication service temporarily unavailable\"}");
+                return;
             }
 
             // 4. Role resolution and DB lookups (only for valid, non-revoked tokens)
@@ -147,5 +161,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicEndpoint(String uri) {
+        if (uri == null) return false;
+        return uri.startsWith("/actuator/health") ||
+               uri.startsWith("/actuator/info") ||
+               uri.startsWith("/api/students/login") ||
+               uri.startsWith("/api/students/check-id/") ||
+               uri.startsWith("/api/professors/login") ||
+               uri.startsWith("/api/professors/register") ||
+               uri.startsWith("/api/professors/check-id/") ||
+               uri.startsWith("/api/admin/auth/send-otp") ||
+               uri.startsWith("/api/admin/auth/verify-otp") ||
+               uri.startsWith("/api/staff/auth/login") ||
+               uri.startsWith("/api/onboarding/");
     }
 }

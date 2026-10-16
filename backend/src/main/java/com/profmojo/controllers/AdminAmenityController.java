@@ -35,9 +35,15 @@ public class AdminAmenityController {
 
     // Helper method to get department from authentication
     private String getDepartmentFromAuth(Authentication authentication) {
+        if (authentication == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Unauthenticated admin");
+        }
         String secretKey = authentication.getName();
         DepartmentSecret secret = departmentSecretRepository.findBySecretKey(secretKey)
-                .orElseThrow(() -> new RuntimeException("Secret not found for key: " + secretKey));
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Secret not found for key: " + secretKey));
+        if (!secret.isActive()) {
+            throw new org.springframework.security.access.AccessDeniedException("Secret key is disabled");
+        }
         return secret.getDepartment();
     }
 
@@ -66,69 +72,9 @@ public class AdminAmenityController {
             Authentication authentication) {
 
         String adminDepartment = getDepartmentFromAuth(authentication);
-        String adminId = authentication.getName();
 
-        // 1️⃣ Assign staff (make sure this generates confirmation code)
-        AmenityRequest request = adminAmenityService.assignStaff(requestId, staffId);
-
-        // 2️⃣ Generate 4-digit confirmation code
-        String confirmationCode = String.format("%04d", new Random().nextInt(10000));
-        request.setDeliveryConfirmationCode(confirmationCode);
-        request.setConfirmationCodeExpiry(LocalDateTime.now().plusHours(2));
-
-        // Save the updated request
-        request = amenityRequestRepository.save(request);
-
-        // 3️⃣ SAVE notification for STAFF
-        Notification staffNotif = Notification.builder()
-                .recipientId(staffId)
-                .recipientRole("STAFF")
-                .message("You have been assigned to Room " + request.getClassRoom() +
-                        ". Confirmation Code: " + confirmationCode)
-                .type("info")
-                .eventType("TASK_ASSIGNED")
-                .notificationKey("TASK_ASSIGNED-" + request.getId() + "-" + staffId)
-                .entityId(request.getId())
-                .isRead(false)
-                .isArchived(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        saveNotificationIfNotExists(staffNotif);
-
-        // 4️⃣ SAVE notification for PROFESSOR (with confirmation code)
-        Notification profNotif = Notification.builder()
-                .recipientId(request.getProfessorId())
-                .recipientRole("PROFESSOR")
-                .message("Your request #" + request.getId() + " has been assigned to " +
-                        request.getAssignedStaff().getName() +
-                        ". Please share this confirmation code with staff: " + confirmationCode)
-                .type("success")
-                .eventType("REQUEST_ASSIGNED")
-                .notificationKey("REQUEST_ASSIGNED-" + request.getId() + "-" + request.getProfessorId())
-                .entityId(request.getId())
-                .isRead(false)
-                .isArchived(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        saveNotificationIfNotExists(profNotif);
-
-        // 5️⃣ SAVE ADMIN NOTIFICATION
-        Notification adminNotif = Notification.builder()
-                .recipientId(adminId)
-                .recipientRole("ADMIN")
-                .department(adminDepartment)
-                .message("Staff " + request.getAssignedStaff().getName() +
-                        " assigned to Room " + request.getClassRoom() +
-                        ". Confirmation Code: " + confirmationCode)
-                .type("success")
-                .eventType("STAFF_ASSIGNED")
-                .notificationKey("STAFF_ASSIGNED-" + request.getId() + "-" + adminDepartment)
-                .entityId(request.getId())
-                .isRead(false)
-                .isArchived(false)
-                .createdAt(LocalDateTime.now())
-                .build();
-        saveNotificationIfNotExists(adminNotif);
+        // Assign staff (department-isolated, concurrency-safe atomic assignment with secure code generation)
+        AmenityRequest request = adminAmenityService.assignStaff(requestId, staffId, adminDepartment);
 
         return AmenityResponseDTO.fromEntity(request);
     }
@@ -146,8 +92,12 @@ public class AdminAmenityController {
     }
 
     @PutMapping("/{requestId}/queue")
-    public AmenityResponseDTO addToQueue(@PathVariable Long requestId) {
-        return AmenityResponseDTO.fromEntity(adminAmenityService.addToQueue(requestId));
+    public AmenityResponseDTO addToQueue(
+            @PathVariable Long requestId,
+            Authentication authentication
+    ) {
+        String adminDepartment = getDepartmentFromAuth(authentication);
+        return AmenityResponseDTO.fromEntity(adminAmenityService.addToQueue(requestId, adminDepartment));
     }
 
     @GetMapping("/queue")

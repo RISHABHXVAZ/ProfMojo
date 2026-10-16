@@ -22,10 +22,20 @@ public class AmenitySlaMonitor {
     @Transactional
     public void monitorSla() {
         try {
-            int breached = repo.markBreachedDeliverySlaRequests(RequestStatus.ASSIGNED, LocalDateTime.now());
-            if (breached > 0) {
-                appMetricsService.incrementSlaBreaches("delivery", breached);
-                log.warn("SLA Monitor: Marked {} overdue amenity requests as breached", breached);
+            LocalDateTime now = LocalDateTime.now();
+
+            // 1️⃣ Monitor Delivery SLA for ASSIGNED requests
+            int deliveryBreached = repo.markBreachedDeliverySlaRequests(RequestStatus.ASSIGNED, now);
+            if (deliveryBreached > 0) {
+                appMetricsService.incrementSlaBreaches("delivery", deliveryBreached);
+                log.warn("SLA Monitor: Marked {} overdue assigned requests as delivery SLA breached", deliveryBreached);
+            }
+
+            // 2️⃣ Monitor Assignment SLA for PENDING requests
+            int assignmentBreached = repo.markBreachedAssignmentSlaRequests(RequestStatus.PENDING, now);
+            if (assignmentBreached > 0) {
+                appMetricsService.incrementSlaBreaches("assignment", assignmentBreached);
+                log.warn("SLA Monitor: Marked {} unassigned requests as assignment SLA breached", assignmentBreached);
             }
         } catch (Exception e) {
             log.error("Error occurred while checking SLA breaches: {}", e.getMessage(), e);

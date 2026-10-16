@@ -161,21 +161,23 @@ Entity relationships across classes, enrollments, attendance records, and amenit
 - Applied `@BatchSize` and JPA `JOIN FETCH` directives across notice-to-class mappings.
 - Reduced database round-trips from $O(N)$ query loops down to single-query index lookups.
 
-### 3. Resilient Multi-Tier OTP Store
+### 3. Resilient Multi-Tier OTP Store with Composite Identity
 To ensure critical authentication flows (such as admin login and password verification) succeed even during temporary cache restarts:
 - Primary OTP generation writes to Redis with a 5-minute TTL.
 - In the event of a Redis connection exception, the authentication engine transparently fails over to PostgreSQL's `onboarding_otp` table without dropping user requests.
+- Storage collision safety is strictly guaranteed via an `@IdClass(OnboardingOtpId.class)` composite primary key on `(role, user_id)` and a unique constraint `uk_onboarding_otp_role_user`, preventing cross-role OTP overwrites across students, professors, staff, and admins.
 
-### 4. Atomic Rate Limiting via Redis Lua Scripts
+### 4. Atomic Rate Limiting with Fail-Closed Outage Handling
 Authentication and sensitive OTP endpoints are safeguarded against brute-force attacks using atomic Redis Lua scripts evaluating dual dimensions:
 - **IP Dimension**: Max 3 requests per 60-second window.
 - **User Dimension**: Max 2 requests per 300-second window.
-Executing checks via Lua ensures atomic read-increment-expire operations without application-level distributed locks.
+- **Fail-Closed Security**: Under Redis outage or connection failure, brute-force-sensitive operations (OTP delivery and verification attempts) fail closed with HTTP 503 Service Unavailable, preventing authentication bypass while preserving Phase 2 delivery confirmation rate-limit lockouts (HTTP 429).
 
-### 5. Stateless JWT Revocation with JTI Blacklisting
+### 5. Stateless JWT Revocation with JTI Blacklisting & Redis Outage Fail-Closed
 Standard JWTs cannot be revoked before expiration without maintaining state. ProfMojo assigns a unique UUID `jti` (JWT ID) claim to every minted token. Upon logout:
-- The token's `jti` is inserted into Redis with an exact TTL matching the token's remaining lifespan.
-- `JwtAuthenticationFilter` validates token signatures and checks Redis revocation in sub-millisecond memory lookups.
+- The token's `jti` is inserted into Redis with an exact TTL matching the token's remaining lifespan; write failures during logout fail closed with HTTP 503.
+- `JwtAuthenticationFilter` validates token signatures and verifies Redis revocation in sub-millisecond memory lookups.
+- Protected API endpoints fail closed with HTTP 503 Service Unavailable if Redis is unreachable during token verification, ensuring revoked credentials cannot access protected resources while public endpoints (`/api/*/login`, `/api/onboarding/**`) remain operational.
 
 ### 6. Bounded Asynchronous Email Pipeline
 Email notifications for OTP delivery and facility updates are executed on a dedicated `mailTaskExecutor`:
@@ -254,7 +256,7 @@ ProfMojo enforces strict test discipline validated through automated unit, integ
 ======================================================
 TEST RESULTS SUMMARY
 ======================================================
-Tests Run:       149
+Tests Run:       261
 Failures:        0
 Errors:          0
 Skipped:         0
@@ -265,9 +267,10 @@ Live Docker E2E: 10/10 Flows Verified
 ```
 
 ### Verified Test Categories
-- **Concurrency Test Suites**: Validated multi-threaded staff assignment under high contention with zero duplicate assignments.
-- **Security & RBAC Suites**: Verified unauthorized endpoint rejections, expired token handling, and JTI blacklist filtering.
-- **Rate Limiting Suites**: Validated Redis Lua token bucket behavior across IP and user dimensions.
+- **Concurrency & State Transition Suites**: Validated multi-threaded staff assignment under high contention with zero duplicate assignments, pessimistic locking, and SLA breach monitors.
+- **Security & RBAC Suites**: Verified unauthorized endpoint rejections, expired token handling, JTI blacklist filtering, and role-based isolation.
+- **Infrastructure Resilience Suites**: Verified Redis outage fail-closed policies for JWT blacklisting and rate limiting (HTTP 503), composite OTP identity collision prevention, and database migration determinism.
+- **Rate Limiting Suites**: Validated Redis Lua token bucket behavior across IP and user dimensions, plus delivery confirmation lockout (HTTP 429).
 - **Repository & Query Tests**: Verified custom JPQL queries, composite indexes, and batch fetch limits.
 - **Docker E2E Suites**: 10 comprehensive multi-role integration flows executed against live PostgreSQL, Redis, backend, and frontend containers.
 
@@ -325,24 +328,76 @@ Launch all services using Docker Compose:
 docker compose up --build
 ```
 
-### 4. Service Ports
-Once the containers report healthy:
+### 4. Service Access & Local URLs
 
-| Service | URL | Notes |
+All client and API requests are routed through the production Nginx container on port `5173`. The backend container runs securely within the internal Docker bridge network without direct host port exposure.
+
+| Service | Local URL | Description |
 |---|---|---|
-| **Frontend Web App** | [http://localhost:5173](http://localhost:5173) | Single-page application |
-| **Backend REST API** | [http://localhost:8080](http://localhost:8080) | Spring Boot application |
-| **Actuator Health** | [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health) | Health & readiness checks |
-| **Prometheus Dashboard** | [http://localhost:9090](http://localhost:9090) | Metrics & system scrape targets |
-| **PostgreSQL Database** | `localhost:5433` | Host port mapped to internal `5432` |
+| **Frontend Web Application** | [http://localhost:5173](http://localhost:5173) | Single-page application served via Nginx |
+| **Backend REST API (Proxy)** | [http://localhost:5173/api/](http://localhost:5173/api/) | Reverse-proxied by Nginx to internal backend |
+| **Health Check (Public)** | [http://localhost:5173/actuator/health](http://localhost:5173/actuator/health) | Liveness & readiness probes |
+| **Prometheus Dashboard** | [http://localhost:9090](http://localhost:9090) | System metrics (scrapes backend:8080 internally) |
+| **PostgreSQL Database** | `localhost:5433` | Host port mapped to internal database `5432` |
 
-To stop the containers:
+> [!NOTE]
+> Restricted Actuator endpoints (such as `/actuator/prometheus` and `/actuator/env`) return HTTP 403 Forbidden to external clients through Nginx, while Prometheus scrapes internal metrics directly over the Docker bridge network.
+
+---
+
+## Database Management & Safe Migration
+
+- **Fresh Installations**: When launching Docker Compose with an uninitialized volume, PostgreSQL automatically applies `db-init/init.sql` and `db-init/02-indexes.sql`, provisioning core tables, production B-tree indexes, and the composite `onboarding_otp` table on `(role, user_id)`.
+- **Existing Persistent Databases**: When starting against an existing database volume, the Spring Boot backend's `OnboardingOtpSchemaMigrator` detects the current schema, safely updates any legacy single-column primary keys to composite `(role, user_id)`, ensures unique constraints, and preserves all existing rows and valid OTP records.
+- **Data Preservation**:
+  - To stop services while preserving database and cache data:
+    ```bash
+    docker compose down
+    ```
+  - **Never** pass `-v` to `docker compose down` unless you explicitly wish to destroy persistent database and Redis volumes.
+
+---
+
+## Running Automated Tests
+
+### Backend Test Suite
+The backend uses JUnit 5, Mockito, MockMvc, and Testcontainers. Ensure Docker Desktop is running:
 ```bash
-docker compose down
+# Windows
+cd backend
+.\mvnw.cmd clean test
+
+# Linux / macOS
+cd backend
+./mvnw clean test
 ```
+*Current test suite: 261 passing tests across 44 test classes (0 failures, 0 errors, 0 skipped).*
+
+### Frontend Build Validation
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+---
+
+## Sample Data & Account Onboarding
+
+1. **Initial Admin Setup**: In your `.env` file, configure `ADMIN_DEPARTMENT_SEEDS` (e.g. `CSE:admin@example.com:secretkey123`). The backend seeds the department secret on boot. Admins log in by entering their department secret to receive an OTP.
+2. **Professor & Student Workflows**: Faculty and students can be onboarded via the self-service flow (`/api/onboarding/*`) using their campus identifier and email OTP verification.
+3. **Mail Handling**: When `MAIL_USERNAME` and `MAIL_PASSWORD` are omitted in `.env`, the system uses an asynchronous logger fallback that writes generated OTPs directly to container logs (`docker compose logs -f backend`).
+
+---
+
+## Troubleshooting & Known Limitations
+
+- **Docker Desktop**: Docker Desktop must be running with Linux containers enabled.
+- **Port Conflicts**: Ensure ports `5173`, `5433`, and `9090` are not in use by other local applications.
+- **Portfolio Scope**: ProfMojo is designed and audited as a self-contained local demonstration and portfolio project, not a managed cloud service. In a hosted public deployment, HTTPS should be terminated by an external reverse proxy (e.g. ALB, Traefik, or Cloudflare) with trusted SSL certificates.
 
 ---
 
 ## Project Status
 
-**ProfMojo v1.0.0** is an engineering-complete, production-audited portfolio release. All backend test suites, security configurations, database indexes, and end-to-end containerized workflows have been fully validated.
+**ProfMojo v1.0.0** is an engineering-complete portfolio project. Concurrency controls, SLA monitors, defensive error propagation, composite schema resilience, and containerized local orchestration have been fully implemented and verified.

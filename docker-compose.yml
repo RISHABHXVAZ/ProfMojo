@@ -5,16 +5,16 @@ services:
     image: postgres:15
     container_name: profmojo-db
     environment:
-      POSTGRES_DB: profmojo
-      POSTGRES_USER: profmojo
-      POSTGRES_PASSWORD: profmojo
+      POSTGRES_DB: ${DB_NAME:-profmojo}
+      POSTGRES_USER: ${DB_USERNAME:-profmojo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable must be set in .env}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db-init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U profmojo -d profmojo"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-profmojo} -d ${DB_NAME:-profmojo}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,9 +22,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: profmojo-redis
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}", "--appendonly", "yes"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD environment variable must be set in .env}
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 5s
@@ -35,18 +37,17 @@ services:
   backend:
     build: ./backend
     container_name: profmojo-backend
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      # Database connection inside Docker network
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/profmojo
-      SPRING_DATASOURCE_USERNAME: profmojo
-      SPRING_DATASOURCE_PASSWORD: profmojo
+      SPRING_DATASOURCE_URL: ${DB_URL:-jdbc:postgresql://postgres:5432/profmojo}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-profmojo}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable must be set in .env}
       SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -56,6 +57,7 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
 
       TZ: Asia/Kolkata
       JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Kolkata -Djava.net.preferIPv4Stack=true"
@@ -67,9 +69,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:8080
+      VITE_API_BASE_URL: /api
     depends_on:
       - backend
+    restart: always
 
   prometheus:
     image: prom/prometheus:v2.54.1
@@ -87,3 +90,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

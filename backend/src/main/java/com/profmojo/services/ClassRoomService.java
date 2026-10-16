@@ -14,7 +14,8 @@ public interface ClassRoomService {
 
     List<ClassRoom> getMyClasses(Professor professor);
 
-    List<ClassEnrollment> getStudentsOfClass(String classCode);
+    List<ClassEnrollment> getStudentsOfClass(String classCode, Professor professor);
+
 
     void joinClass(String classCode, Student student);
 

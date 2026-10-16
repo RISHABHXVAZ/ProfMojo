@@ -170,8 +170,8 @@ class NotificationControllerTest {
     }
 
     @Test
-    @DisplayName("markAsRead: Non-owner cannot mark notification as read")
-    void markAsRead_Unauthorized_Returns400() {
+    @DisplayName("markAsRead: Non-owner cannot mark notification as read (403 Forbidden)")
+    void markAsRead_Unauthorized_Returns403() {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 professor, null, List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
         );
@@ -186,7 +186,21 @@ class NotificationControllerTest {
         when(notificationRepository.findById(20L)).thenReturn(Optional.of(n));
 
         ResponseEntity<?> resp = controller.markAsRead(20L, auth);
-        assertEquals(400, resp.getStatusCode().value());
+        assertEquals(403, resp.getStatusCode().value());
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("markAsRead: Non-existent notification returns 404 Not Found")
+    void markAsRead_NotFound_Returns404() {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                professor, null, List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
+        );
+
+        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ResponseEntity<?> resp = controller.markAsRead(999L, auth);
+        assertEquals(404, resp.getStatusCode().value());
         verify(notificationRepository, never()).save(any());
     }
 

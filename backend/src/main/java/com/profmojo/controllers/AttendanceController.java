@@ -22,8 +22,15 @@ public class AttendanceController {
     private final AttendanceService attendanceService;
 
     @PostMapping("/mark")
-    public ResponseEntity<?> markAttendance(@RequestBody AttendanceRequest request) {
+    public ResponseEntity<?> markAttendance(
+            @RequestBody AttendanceRequest request,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
+    ) {
+        if (professor == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body("Unauthenticated");
+        }
         attendanceService.markAttendance(
+                professor,
                 request.getClassCode(),
                 request.getStudentRegNo(),
                 request.isPresent(),
@@ -33,39 +40,49 @@ public class AttendanceController {
     }
 
     @GetMapping("/{classCode}/today")
-    public List<Attendance> todayAttendance(@PathVariable String classCode) {
-        return attendanceService.getAttendanceForClassToday(classCode);
+    public List<Attendance> todayAttendance(
+            @PathVariable String classCode,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
+    ) {
+        return attendanceService.getAttendanceForClassToday(classCode, professor);
     }
 
     @GetMapping("/{classCode}/date")
     public List<Attendance> attendanceByDate(
             @PathVariable String classCode,
-            @RequestParam String date
+            @RequestParam String date,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
     ) {
         return attendanceService.getAttendanceForClassByDate(
                 classCode,
-                LocalDate.parse(date)
+                LocalDate.parse(date),
+                professor
         );
     }
 
     @GetMapping("/{classCode}/student/{regNo}")
     public List<Attendance> studentAttendance(
             @PathVariable String classCode,
-            @PathVariable String regNo
+            @PathVariable String regNo,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
     ) {
-        return attendanceService.getStudentAttendanceHistory(classCode, regNo);
+        return attendanceService.getStudentAttendanceHistory(classCode, regNo, professor);
     }
 
     @GetMapping("/{classCode}/summary")
-    public AttendanceSummaryDTO getSummary(@PathVariable String classCode) {
-        return attendanceService.getAttendanceSummary(classCode);
+    public AttendanceSummaryDTO getSummary(
+            @PathVariable String classCode,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
+    ) {
+        return attendanceService.getAttendanceSummary(classCode, professor);
     }
 
     @GetMapping("/{classCode}/students/summary")
     public List<AttendanceStudentSummaryDTO> getStudentWiseSummary(
-            @PathVariable String classCode
+            @PathVariable String classCode,
+            @AuthenticationPrincipal com.profmojo.models.Professor professor
     ) {
-        return attendanceService.getStudentAttendanceSummary(classCode);
+        return attendanceService.getStudentAttendanceSummary(classCode, professor);
     }
 
     @GetMapping("/student/my-attendance")

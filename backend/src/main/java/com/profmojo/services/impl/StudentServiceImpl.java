@@ -32,20 +32,6 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
-    public Student register(Student student) {
-        if (!masterRepo.existsByRegNo(student.getRegNo())) {
-            throw new RuntimeException("Registration number not found in master records!");
-        }
-
-        if (studentRepo.existsByRegNo(student.getRegNo())) {
-            throw new RuntimeException("Student already registered!");
-        }
-
-        student.setPassword(encoder.encode(student.getPassword()));
-        return studentRepo.save(student);
-    }
-
-    @Override
     public String login(String regNo, String password) {
         Student student = studentRepo.findById(regNo)
                 .orElseThrow(() -> new RuntimeException("Invalid registration number!"));

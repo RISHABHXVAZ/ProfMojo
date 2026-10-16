@@ -46,7 +46,6 @@ public class SecurityConfig {
                         // 🔓 PUBLIC ENDPOINTS (No authentication needed)
                         .requestMatchers(
                                 "/api/students/login",
-                                "/api/students/register",
                                 "/api/students/check-id/**",
                                 "/api/students/logout",
                                 "/api/professors/login",

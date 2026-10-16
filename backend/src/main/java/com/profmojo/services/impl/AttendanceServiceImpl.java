@@ -22,9 +22,40 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRepository attendanceRepo;
     private final ClassRoomRepository classRoomRepo;
     private final StudentClassRepository studentClassRepo;
+    private final ClassEnrollmentRepository classEnrollmentRepo;
+
+    private ClassRoom validateProfessorOwnership(String classCode, Professor professor) {
+        if (professor == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthenticated: Professor identity is required"
+            );
+        }
+
+        ClassRoom classRoom = classRoomRepo.findByClassCode(classCode)
+                .orElseThrow(() -> new IllegalArgumentException("Class not found: " + classCode));
+
+        if (classRoom.getProfessor() == null || !classRoom.getProfessor().getProfId().equals(professor.getProfId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthorized: You do not own class " + classCode
+            );
+        }
+        return classRoom;
+    }
+
+    private void validateStudentInClass(String classCode, String studentRegNo) {
+        boolean enrolled = classEnrollmentRepo.existsByClassCodeAndStudent_RegNo(classCode, studentRegNo)
+                || studentClassRepo.existsByStudentRegNoAndClassCode(studentRegNo, classCode);
+        if (!enrolled) {
+            throw new IllegalArgumentException(
+                    "Student " + studentRegNo + " is not enrolled in class " + classCode
+            );
+        }
+    }
 
     @Override
-    public void markAttendance(String classCode, String studentRegNo, boolean present, LocalDate date) {
+    public void markAttendance(Professor professor, String classCode, String studentRegNo, boolean present, LocalDate date) {
+        validateProfessorOwnership(classCode, professor);
+        validateStudentInClass(classCode, studentRegNo);
 
         Attendance attendance = attendanceRepo
                 .findByClassCodeAndStudentRegNoAndAttendanceDate(
@@ -42,16 +73,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendanceRepo.save(attendance);
     }
 
-
-
-
-
     @Override
-    public List<Attendance> getAttendanceForClassToday(String classCode) {
-
-        // optional safety check (recommended)
-        classRoomRepo.findByClassCode(classCode)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+    public List<Attendance> getAttendanceForClassToday(String classCode, Professor professor) {
+        validateProfessorOwnership(classCode, professor);
 
         LocalDate today = LocalDate.now();
 
@@ -59,10 +83,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
-    public List<Attendance> getAttendanceForClassByDate(String classCode, LocalDate date) {
-
-        classRoomRepo.findByClassCode(classCode)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+    public List<Attendance> getAttendanceForClassByDate(String classCode, LocalDate date, Professor professor) {
+        validateProfessorOwnership(classCode, professor);
 
         return attendanceRepo.findByClassCodeAndAttendanceDate(classCode, date);
     }
@@ -70,8 +92,12 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     public List<Attendance> getStudentAttendanceHistory(
             String classCode,
-            String studentRegNo
+            String studentRegNo,
+            Professor professor
     ) {
+        validateProfessorOwnership(classCode, professor);
+        validateStudentInClass(classCode, studentRegNo);
+
         return attendanceRepo
                 .findByClassCodeAndStudentRegNoOrderByAttendanceDateAsc(
                         classCode,
@@ -80,7 +106,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
-    public AttendanceSummaryDTO getAttendanceSummary(String classCode) {
+    public AttendanceSummaryDTO getAttendanceSummary(String classCode, Professor professor) {
+        validateProfessorOwnership(classCode, professor);
 
         long totalLectures = attendanceRepo.countTotalLectures(classCode);
         Double avg = attendanceRepo.getAverageAttendance(classCode);
@@ -88,17 +115,17 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .findLowAttendanceStudents(classCode)
                 .size();
 
-
         return new AttendanceSummaryDTO(
                 totalLectures,
                 avg != null ? Math.round(avg * 10.0) / 10.0 : 0,
                 lowCount != 0 ? lowCount : 0
         );
-
     }
 
     @Override
-    public List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode) {
+    public List<AttendanceStudentSummaryDTO> getStudentAttendanceSummary(String classCode, Professor professor) {
+        validateProfessorOwnership(classCode, professor);
+
         return attendanceRepo.getStudentAttendanceSummary(classCode);
     }
 

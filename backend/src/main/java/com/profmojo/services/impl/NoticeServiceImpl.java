@@ -6,6 +6,7 @@ import com.profmojo.repositories.*;
 import com.profmojo.services.NoticeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -21,7 +22,29 @@ public class NoticeServiceImpl implements NoticeService {
     private final NoticeClassMappingRepository mappingRepo;
     private final ClassRoomRepository classRoomRepo;
 
+    @Transactional
+    @Override
     public void createNotice(CreateNoticeRequest req, Professor professor) {
+        if (professor == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Unauthenticated professor");
+        }
+
+        if (req.getClassCodes() == null || req.getClassCodes().isEmpty()) {
+            throw new IllegalArgumentException("At least one class code is required to create a notice");
+        }
+
+        // Transactionally verify that all class codes belong to the authenticated professor
+        for (String classCode : req.getClassCodes()) {
+            ClassRoom classRoom = classRoomRepo.findByClassCode(classCode)
+                    .orElseThrow(() -> new IllegalArgumentException("Class not found: " + classCode));
+
+            if (classRoom.getProfessor() == null || !classRoom.getProfessor().getProfId().equals(professor.getProfId())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Unauthorized: You do not own class " + classCode
+                );
+            }
+        }
+
         Notice notice = new Notice();
         notice.setTitle(req.getTitle());
         notice.setMessage(req.getMessage());

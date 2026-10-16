@@ -65,8 +65,8 @@ class AdminAmenityServiceTest {
     @Test
     @DisplayName("assignStaff: Successfully assigns available staff and updates status to ASSIGNED")
     void assignStaff_AvailableStaff_Success() {
-        when(requestRepo.findById(100L)).thenReturn(Optional.of(testRequest));
-        when(staffRepo.findById("STAFF01")).thenReturn(Optional.of(availableStaff));
+        when(requestRepo.findByIdForUpdate(100L)).thenReturn(Optional.of(testRequest));
+        when(staffRepo.findByIdForUpdate("STAFF01")).thenReturn(Optional.of(availableStaff));
         when(staffRepo.save(any(Staff.class))).thenAnswer(i -> i.getArgument(0));
         when(requestRepo.save(any(AmenityRequest.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -86,8 +86,8 @@ class AdminAmenityServiceTest {
     @Test
     @DisplayName("assignStaff: Unavailable staff throws RuntimeException")
     void assignStaff_UnavailableStaff_ThrowsException() {
-        when(requestRepo.findById(100L)).thenReturn(Optional.of(testRequest));
-        when(staffRepo.findById("STAFF02")).thenReturn(Optional.of(busyStaff));
+        when(requestRepo.findByIdForUpdate(100L)).thenReturn(Optional.of(testRequest));
+        when(staffRepo.findByIdForUpdate("STAFF02")).thenReturn(Optional.of(busyStaff));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> amenityService.assignStaff(100L, "STAFF02"));
         assertEquals("Staff is not available", ex.getMessage());
@@ -98,7 +98,7 @@ class AdminAmenityServiceTest {
     @Test
     @DisplayName("addToQueue: Pending request successfully transitions to QUEUED and sends notification")
     void addToQueue_PendingRequest_QueuesAndNotifies() {
-        when(requestRepo.findById(100L)).thenReturn(Optional.of(testRequest));
+        when(requestRepo.findByIdForUpdate(100L)).thenReturn(Optional.of(testRequest));
         when(requestRepo.save(any(AmenityRequest.class))).thenAnswer(i -> i.getArgument(0));
 
         AmenityRequest queued = amenityService.addToQueue(100L);
@@ -119,7 +119,7 @@ class AdminAmenityServiceTest {
     @DisplayName("addToQueue: Non-pending request throws RuntimeException")
     void addToQueue_NonPendingRequest_ThrowsException() {
         testRequest.setStatus(RequestStatus.ASSIGNED);
-        when(requestRepo.findById(100L)).thenReturn(Optional.of(testRequest));
+        when(requestRepo.findByIdForUpdate(100L)).thenReturn(Optional.of(testRequest));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> amenityService.addToQueue(100L));
         assertEquals("Only pending requests can be queued", ex.getMessage());
@@ -140,6 +140,7 @@ class AdminAmenityServiceTest {
 
         when(requestRepo.findOldestQueuedForUpdate("CSE", RequestStatus.QUEUED.name()))
                 .thenReturn(Optional.of(queuedRequest));
+        when(staffRepo.findByIdForUpdate("STAFF01")).thenReturn(Optional.of(availableStaff));
 
         amenityService.tryAssignQueuedRequest(availableStaff);
 

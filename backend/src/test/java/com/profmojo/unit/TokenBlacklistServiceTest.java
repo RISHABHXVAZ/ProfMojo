@@ -106,23 +106,28 @@ class TokenBlacklistServiceTest {
     }
 
     @Test
-    @DisplayName("redisDown_FailOpen: Returns false when Redis throws connection exception during check")
-    void redisDown_FailOpen_ReturnsFalse() {
+    @DisplayName("redisDown_FailClosed: Throws SecurityInfrastructureUnavailableException when Redis throws connection exception during check")
+    void redisDown_FailClosed_ThrowsSecurityInfrastructureUnavailableException() {
         String jti = "any-jti";
         when(stringRedisTemplate.hasKey(anyString()))
                 .thenThrow(new RedisConnectionFailureException("Connection refused"));
 
-        // Must fail-open and return false
-        assertFalse(blacklistService.isRevoked(jti));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.profmojo.exception.SecurityInfrastructureUnavailableException.class,
+                () -> blacklistService.isRevoked(jti)
+        );
     }
 
     @Test
-    @DisplayName("redisDown_FailOpen: Revoke handles Redis exception without throwing")
-    void redisDown_Revoke_HandlesExceptionGracefully() {
+    @DisplayName("redisDown_FailClosed: Revoke throws SecurityInfrastructureUnavailableException when Redis write fails")
+    void redisDown_Revoke_ThrowsSecurityInfrastructureUnavailableException() {
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
         doThrow(new RedisConnectionFailureException("Connection refused"))
                 .when(valueOperations).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
 
-        assertDoesNotThrow(() -> blacklistService.revokeJti("test-jti", 100));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.profmojo.exception.SecurityInfrastructureUnavailableException.class,
+                () -> blacklistService.revokeJti("test-jti", 100)
+        );
     }
 }

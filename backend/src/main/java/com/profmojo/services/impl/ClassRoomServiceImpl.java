@@ -44,7 +44,21 @@ public class ClassRoomServiceImpl implements ClassRoomService {
     }
 
     @Override
-    public List<ClassEnrollment> getStudentsOfClass(String classCode) {
+    public List<ClassEnrollment> getStudentsOfClass(String classCode, Professor professor) {
+        if (professor == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthenticated: Professor identity is required"
+            );
+        }
+
+        ClassRoom classRoom = classRoomRepo.findByClassCode(classCode)
+                .orElseThrow(() -> new IllegalArgumentException("Class not found: " + classCode));
+
+        if (classRoom.getProfessor() == null || !classRoom.getProfessor().getProfId().equals(professor.getProfId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthorized: You do not own class " + classCode
+            );
+        }
 
         // ✅ Fetch purely from enrollment table
         return classEnrollmentRepo.findByClassCode(classCode);
@@ -75,15 +89,21 @@ public class ClassRoomServiceImpl implements ClassRoomService {
     @Transactional
     @Override
     public void deleteClass(String classCode, Professor professor) {
+        if (professor == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthenticated: Professor identity is required"
+            );
+        }
 
         ClassRoom classRoom = classRoomRepo
                 .findByClassCode(classCode)
-                .orElseThrow(() -> new RuntimeException("Class not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Class not found: " + classCode));
 
         // 🔐 SECURITY CHECK
-        if (!classRoom.getProfessor().getProfId()
-                .equals(professor.getProfId())) {
-            throw new RuntimeException("Unauthorized");
+        if (classRoom.getProfessor() == null || !classRoom.getProfessor().getProfId().equals(professor.getProfId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Unauthorized: You do not own class " + classCode
+            );
         }
 
         // 1️⃣ Delete attendance

@@ -1,5 +1,6 @@
 package com.profmojo.security.jwt;
 
+import com.profmojo.exception.SecurityInfrastructureUnavailableException;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,34 +29,36 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
         }
 
         String cleanToken = token.startsWith("Bearer ") ? token.substring(7).trim() : token.trim();
+        Claims claims;
         try {
-            Claims claims = jwtUtil.extractAllClaims(cleanToken);
-            String jti = claims.getId();
-            Date expiration = claims.getExpiration();
-            String role = claims.get("role", String.class);
-
-            if (jti == null || jti.isBlank()) {
-                log.warn("Cannot revoke token: missing JTI claim");
-                return;
-            }
-
-            if (expiration == null) {
-                log.warn("Cannot revoke token: missing expiration claim");
-                return;
-            }
-
-            long remainingSeconds = (expiration.getTime() - System.currentTimeMillis()) / 1000;
-            if (remainingSeconds <= 0) {
-                // Token has already expired naturally; no Redis blacklist entry needed
-                return;
-            }
-
-            revokeJti(jti, remainingSeconds);
-            appMetricsService.incrementTokenRevoked(role);
-
+            claims = jwtUtil.extractAllClaims(cleanToken);
         } catch (Exception e) {
             log.warn("Error parsing token for revocation: {}", e.getMessage());
+            return;
         }
+
+        String jti = claims.getId();
+        Date expiration = claims.getExpiration();
+        String role = claims.get("role", String.class);
+
+        if (jti == null || jti.isBlank()) {
+            log.warn("Cannot revoke token: missing JTI claim");
+            return;
+        }
+
+        if (expiration == null) {
+            log.warn("Cannot revoke token: missing expiration claim");
+            return;
+        }
+
+        long remainingSeconds = (expiration.getTime() - System.currentTimeMillis()) / 1000;
+        if (remainingSeconds <= 0) {
+            // Token has already expired naturally; no Redis blacklist entry needed
+            return;
+        }
+
+        revokeJti(jti, remainingSeconds);
+        appMetricsService.incrementTokenRevoked(role);
     }
 
     @Override
@@ -69,7 +72,9 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
             stringRedisTemplate.opsForValue().set(redisKey, REVOKED_VALUE, remainingTtlSeconds, TimeUnit.SECONDS);
             log.info("Token JTI revoked successfully in Redis with TTL {}s", remainingTtlSeconds);
         } catch (Exception e) {
-            log.warn("Redis unavailable while attempting to revoke token; proceeding. Reason: {}", e.getMessage());
+            log.error("Redis unavailable while attempting to revoke token: {}. Revocation write failed.", e.getMessage());
+            throw new SecurityInfrastructureUnavailableException(
+                    "Security infrastructure unavailable: unable to persist token revocation", e);
         }
     }
 
@@ -88,9 +93,9 @@ public class RedisTokenBlacklistService implements TokenBlacklistService {
             }
             return false;
         } catch (Exception e) {
-            // Controlled FAIL-OPEN: Log safe warning without leaking token or payload, and allow validated token
-            log.warn("Redis unavailable during JWT revocation check; allowing validated token to continue.");
-            return false;
+            log.error("Redis unavailable during JWT revocation check: {}. Failing closed.", e.getMessage());
+            throw new SecurityInfrastructureUnavailableException(
+                    "Security infrastructure unavailable: unable to verify token revocation status", e);
         }
     }
 }

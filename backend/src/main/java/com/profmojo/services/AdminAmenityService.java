@@ -10,7 +10,11 @@ public interface AdminAmenityService {
 
     List<AmenityResponseDTO> getPendingRequests(String department);
 
-    AmenityRequest assignStaff(Long requestId, String staffId);
+    AmenityRequest assignStaff(Long requestId, String staffId, String department);
+
+    default AmenityRequest assignStaff(Long requestId, String staffId) {
+        return assignStaff(requestId, staffId, null);
+    }
 
     List<AmenityResponseDTO> getOngoingRequests(String department);
 
@@ -19,7 +23,12 @@ public interface AdminAmenityService {
     List<Staff> getAllStaff(String department);
     List<Staff> getAvailableStaff(String department);
 
-    AmenityRequest addToQueue(Long requestId);
+    AmenityRequest addToQueue(Long requestId, String department);
+
+    default AmenityRequest addToQueue(Long requestId) {
+        return addToQueue(requestId, null);
+    }
+
     List<AmenityResponseDTO> getQueuedRequests(String department);
 
     void tryAssignQueuedRequest(Staff staff);

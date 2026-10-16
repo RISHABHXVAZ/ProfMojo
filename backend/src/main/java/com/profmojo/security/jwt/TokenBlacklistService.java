@@ -1,7 +1,13 @@
 package com.profmojo.security.jwt;
 
+import com.profmojo.exception.SecurityInfrastructureUnavailableException;
+
 /**
  * Service abstraction for managing JWT revocation and denylisting in Redis.
+ * Enforces a fail-closed outage policy for security-sensitive operations:
+ * when the revocation store cannot be reached, methods throw
+ * {@link SecurityInfrastructureUnavailableException} to prevent accepting revoked tokens
+ * or silently ignoring failed revocation writes.
  */
 public interface TokenBlacklistService {
 
@@ -10,6 +16,7 @@ public interface TokenBlacklistService {
      * and storing its JTI in the Redis denylist.
      *
      * @param token the JWT string (with or without 'Bearer ' prefix)
+     * @throws SecurityInfrastructureUnavailableException if the backing store is unreachable
      */
     void revokeToken(String token);
 
@@ -18,15 +25,18 @@ public interface TokenBlacklistService {
      *
      * @param jti the unique JWT identifier
      * @param remainingTtlSeconds remaining validity period in seconds
+     * @throws SecurityInfrastructureUnavailableException if the backing store is unreachable
      */
     void revokeJti(String jti, long remainingTtlSeconds);
 
     /**
      * Checks if a JTI has been revoked.
-     * Implements controlled fail-open: returns false and logs a WARN if Redis is unreachable.
+     * Implements fail-closed policy: throws {@link SecurityInfrastructureUnavailableException}
+     * if the revocation store is unreachable.
      *
      * @param jti the unique JWT identifier
-     * @return true if explicitly blacklisted, false otherwise
+     * @return true if explicitly blacklisted, false if verified active in the store
+     * @throws SecurityInfrastructureUnavailableException if the backing store is unreachable
      */
     boolean isRevoked(String jti);
 }

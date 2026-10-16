@@ -30,12 +30,6 @@ public class StudentController {
         return ResponseEntity.ok(Map.of("canRegister", available));
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Student student) {
-        Student saved = studentService.register(student);
-        return ResponseEntity.ok(saved);
-    }
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> request) {
         String token = studentService.login(

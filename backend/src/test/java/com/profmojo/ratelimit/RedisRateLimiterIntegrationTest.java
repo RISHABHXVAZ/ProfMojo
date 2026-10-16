@@ -158,17 +158,16 @@ class RedisRateLimiterIntegrationTest extends BasePostgresContainerTest {
     }
 
     @Test
-    @DisplayName("7. Redis failure triggers fail-open behavior (controlled graceful degradation)")
-    void redisFailure_triggersFailOpenBehavior() {
+    @DisplayName("7. Redis failure triggers fail-closed policy (SecurityInfrastructureUnavailableException)")
+    void redisFailure_triggersFailClosedPolicy() {
         // Service with simulated failing RedisTemplate
         RedisRateLimiterService failingService = new RedisRateLimiterService(null);
 
-        // When Redis client is null or fails, tryAcquire must fail-open and return allowed=true
-        RateLimitResult result = failingService.tryAcquire("profmojo:ratelimit:test:failopen", 3, 60);
-
-        assertThat(result.isAllowed())
-                .as("Must fail open when Redis encounters an exception")
-                .isTrue();
+        // When Redis client is null or fails, tryAcquire must fail-closed and throw SecurityInfrastructureUnavailableException
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.profmojo.exception.SecurityInfrastructureUnavailableException.class,
+                () -> failingService.tryAcquire("profmojo:ratelimit:test:failclosed", 3, 60)
+        );
     }
 
     @Test

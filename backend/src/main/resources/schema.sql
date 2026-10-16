@@ -20,3 +20,15 @@ CREATE INDEX IF NOT EXISTS idx_enrollment_student
 -- 5. Amenity request items collection table
 CREATE INDEX IF NOT EXISTS idx_amenity_items_req_id
     ON amenity_request_items (amenity_request_id);
+
+-- Phase 3 Database Hardening: Onboarding OTP composite table & uniqueness constraint
+CREATE TABLE IF NOT EXISTS onboarding_otp (
+    role VARCHAR(255) NOT NULL DEFAULT 'UNKNOWN',
+    user_id VARCHAR(255) NOT NULL,
+    otp VARCHAR(255) NOT NULL,
+    expiry TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    CONSTRAINT pk_onboarding_otp PRIMARY KEY (role, user_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_onboarding_otp_role_user
+    ON onboarding_otp (role, user_id);

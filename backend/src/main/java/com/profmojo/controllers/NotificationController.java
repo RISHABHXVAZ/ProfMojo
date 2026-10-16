@@ -51,13 +51,14 @@ public class NotificationController {
         String secretKey = resolveUserId(authentication);
         if (secretKey == null) return null;
         return departmentSecretRepository.findBySecretKey(secretKey)
+                .filter(DepartmentSecret::isActive)
                 .map(DepartmentSecret::getDepartment)
-                .orElse(secretKey);
+                .orElse(null);
     }
 
     private boolean isAuthorizedForNotification(Notification n, String userId, boolean isAdmin, String adminDept) {
         if (isAdmin && "ADMIN".equalsIgnoreCase(n.getRecipientRole())) {
-            return adminDept == null || adminDept.equalsIgnoreCase(n.getDepartment());
+            return adminDept != null && adminDept.equalsIgnoreCase(n.getDepartment());
         }
         return n.getRecipientId() != null && n.getRecipientId().equals(userId);
     }
@@ -72,12 +73,22 @@ public class NotificationController {
             return ResponseEntity.status(401).build();
         }
 
-        String targetDepartment = (department != null && !department.isBlank())
-                ? department
-                : getDepartmentFromAdminAuth(authentication);
+        String adminDept = getDepartmentFromAdminAuth(authentication);
+        if (adminDept == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Admin department could not be resolved or secret is inactive"));
+        }
+
+        // Reject attempts to query a foreign department
+        if (department != null && !department.isBlank()) {
+            if (!adminDept.equalsIgnoreCase(department.trim())) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Unauthorized: Cannot access notifications for another department"));
+            }
+        }
 
         List<Notification> notifications = notificationRepository
-                .findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", targetDepartment);
+                .findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", adminDept);
 
         long unreadCount = notifications.stream().filter(n -> !Boolean.TRUE.equals(n.getIsRead())).count();
 
@@ -135,16 +146,26 @@ public class NotificationController {
         String userId = resolveUserId(authentication);
         boolean isAdmin = isAdmin(authentication);
         String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
+        if (isAdmin && adminDept == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Admin department could not be resolved or secret is inactive"));
+        }
 
-        return notificationRepository.findById(id)
-                .filter(n -> isAuthorizedForNotification(n, userId, isAdmin, adminDept))
-                .map(notification -> {
-                    notification.setIsRead(true);
-                    notification.setReadAt(LocalDateTime.now());
-                    notificationRepository.save(notification);
-                    return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
-                })
-                .orElse(ResponseEntity.badRequest().body(Map.of("error", "Notification not found")));
+        Notification notification = notificationRepository.findById(id).orElse(null);
+        if (notification == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Notification not found"));
+        }
+
+        if (!isAuthorizedForNotification(notification, userId, isAdmin, adminDept)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Unauthorized: You do not have permission to modify this notification"));
+        }
+
+        notification.setIsRead(true);
+        notification.setReadAt(LocalDateTime.now());
+        notificationRepository.save(notification);
+        return ResponseEntity.ok(Map.of("message", "Notification marked as read"));
     }
 
     // 📌 MARK ALL AS READ
@@ -157,6 +178,10 @@ public class NotificationController {
         String userId = resolveUserId(authentication);
         boolean isAdmin = isAdmin(authentication);
         String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
+        if (isAdmin && adminDept == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Admin department could not be resolved or secret is inactive"));
+        }
 
         List<Notification> notifications;
         if (isAdmin) {
@@ -191,13 +216,23 @@ public class NotificationController {
         String userId = resolveUserId(authentication);
         boolean isAdmin = isAdmin(authentication);
         String adminDept = isAdmin ? getDepartmentFromAdminAuth(authentication) : null;
+        if (isAdmin && adminDept == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Admin department could not be resolved or secret is inactive"));
+        }
 
-        return notificationRepository.findById(id)
-                .filter(n -> isAuthorizedForNotification(n, userId, isAdmin, adminDept))
-                .map(notification -> {
-                    notificationRepository.delete(notification);
-                    return ResponseEntity.ok(Map.of("message", "Notification deleted"));
-                })
-                .orElse(ResponseEntity.badRequest().body(Map.of("error", "Notification not found")));
+        Notification notification = notificationRepository.findById(id).orElse(null);
+        if (notification == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Notification not found"));
+        }
+
+        if (!isAuthorizedForNotification(notification, userId, isAdmin, adminDept)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Unauthorized: You do not have permission to delete this notification"));
+        }
+
+        notificationRepository.delete(notification);
+        return ResponseEntity.ok(Map.of("message", "Notification deleted"));
     }
 }

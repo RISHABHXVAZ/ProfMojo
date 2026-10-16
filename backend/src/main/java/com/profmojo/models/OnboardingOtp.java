@@ -1,12 +1,18 @@
 package com.profmojo.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Table(
+        name = "onboarding_otp",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_onboarding_otp_role_user", columnNames = {"role", "user_id"})
+        }
+)
+@IdClass(OnboardingOtpId.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,11 +20,16 @@ import java.time.LocalDateTime;
 public class OnboardingOtp {
 
     @Id
-    private String userId;
-
+    @Column(name = "role", nullable = false)
     private String role;
 
+    @Id
+    @Column(name = "user_id", nullable = false)
+    private String userId;
+
+    @Column(nullable = false)
     private String otp;
 
+    @Column(nullable = false)
     private LocalDateTime expiry;
 }

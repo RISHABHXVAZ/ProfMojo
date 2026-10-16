@@ -333,7 +333,7 @@ class RedisOtpIntegrationTest extends BasePostgresContainerTest {
         compositeStore.saveOtp("PROFESSOR", "FALLBACK_PROF", "998877", Duration.ofSeconds(300));
 
         // Verify stored in PostgreSQL
-        var pgOtp = onboardingOtpRepo.findById("FALLBACK_PROF");
+        var pgOtp = onboardingOtpRepo.findByRoleIgnoreCaseAndUserId("PROFESSOR", "FALLBACK_PROF");
         assertTrue(pgOtp.isPresent(), "OTP must be stored in PostgreSQL when Redis fails");
         assertEquals("998877", pgOtp.get().getOtp());
         assertEquals("PROFESSOR", pgOtp.get().getRole());
@@ -383,7 +383,7 @@ class RedisOtpIntegrationTest extends BasePostgresContainerTest {
 
         // Deleting removes it from PostgreSQL
         otpStore.deleteOtp("ADMIN", adminSecret);
-        assertFalse(onboardingOtpRepo.existsById(adminSecret));
+        assertFalse(onboardingOtpRepo.existsByRoleIgnoreCaseAndUserId("ADMIN", adminSecret));
     }
 
     // =========================================================================
