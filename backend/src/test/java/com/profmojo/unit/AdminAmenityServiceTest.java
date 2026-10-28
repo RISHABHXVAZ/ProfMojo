@@ -5,7 +5,7 @@ import com.profmojo.models.Notification;
 import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
-import com.profmojo.repositories.NotificationRepository;
+import com.profmojo.services.NotificationService;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.services.impl.AdminAmenityServiceImpl;
 import com.profmojo.testutil.TestDataFactory;
@@ -36,7 +36,7 @@ class AdminAmenityServiceTest {
     private StaffRepository staffRepo;
 
     @Mock
-    private NotificationRepository notificationRepository;
+    private NotificationService notificationService;
 
     @Mock
     private com.profmojo.metrics.AppMetricsService appMetricsService;
@@ -104,15 +104,17 @@ class AdminAmenityServiceTest {
         AmenityRequest queued = amenityService.addToQueue(100L);
 
         assertEquals(RequestStatus.QUEUED, queued.getStatus());
-        assertNotNull(queued.getDeliveryConfirmationCode());
-        assertNotNull(queued.getConfirmationCodeExpiry());
+        assertNull(queued.getDeliveryConfirmationCode());
+        assertNull(queued.getConfirmationCodeExpiry());
 
         ArgumentCaptor<Notification> notifCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(notifCaptor.capture());
+        verify(notificationService).saveNotificationIfNotExists(notifCaptor.capture());
         Notification notification = notifCaptor.getValue();
         assertEquals("PROF01", notification.getRecipientId());
         assertEquals("PROFESSOR", notification.getRecipientRole());
         assertEquals("REQUEST_QUEUED", notification.getEventType());
+        assertTrue(notification.getMessage().contains("A confirmation code will be sent when staff is assigned"));
+        assertFalse(notification.getMessage().contains("Staff Confirmation Code:"));
     }
 
     @Test
@@ -124,7 +126,7 @@ class AdminAmenityServiceTest {
         RuntimeException ex = assertThrows(RuntimeException.class, () -> amenityService.addToQueue(100L));
         assertEquals("Only pending requests can be queued", ex.getMessage());
 
-        verify(notificationRepository, never()).save(any());
+        verify(notificationService, never()).saveNotificationIfNotExists(any());
     }
 
     @Test

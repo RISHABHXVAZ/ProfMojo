@@ -2,10 +2,34 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import "./ProfessorDashboard.css";
 import { useNavigate } from "react-router-dom";
-import { Flag, AlertTriangle, UserX, Key, Copy } from "lucide-react";
+import { Flag, AlertTriangle, UserX, Key, Copy, Bell, CheckCircle, AlertCircle, X, Check, Trash2 } from "lucide-react";
+import { useNotifications } from "../hooks/useNotification";
 
 export default function ProfessorDashboard() {
   const [activeTab, setActiveTab] = useState("attendance");
+
+  // Notification hook for Professor
+  const {
+    notifications,
+    unreadCount,
+    loading: notificationsLoading,
+    showNotificationPanel,
+    setShowNotificationPanel,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
+  } = useNotifications("PROFESSOR");
+
+  // Close notification panel when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".admin-notification-center")) {
+        setShowNotificationPanel(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [setShowNotificationPanel]);
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -589,8 +613,128 @@ export default function ProfessorDashboard() {
     return acc;
   }, {});
 
+    // Notification Panel Component (matching AdminDashboard)
+  const NotificationPanel = () => (
+    <div
+      className="admin-notification-panel"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="admin-notification-header">
+        <h3>Notifications {unreadCount > 0 && `(${unreadCount})`}</h3>
+        <div className="admin-notification-actions">
+          {unreadCount > 0 && (
+            <button
+              className="admin-notification-clear-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                markAllAsRead();
+              }}
+              title="Mark all as read"
+            >
+              Mark all as read
+            </button>
+          )}
+          <button
+            className="admin-notification-close-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowNotificationPanel(false);
+            }}
+            title="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-notification-list">
+        {notifications.length === 0 ? (
+          <div className="admin-notification-empty">
+            <Bell size={32} />
+            <p>No notifications</p>
+            <span>All caught up!</span>
+          </div>
+        ) : (
+          notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`admin-notification-item ${notification.type || "info"} ${!notification.isRead ? "unread" : ""}`}
+              onClick={() => {
+                if (!notification.isRead) {
+                  markAsRead(notification.id);
+                }
+              }}
+            >
+              <div className="admin-notification-icon">
+                {notification.type === "success" && <CheckCircle size={18} />}
+                {notification.type === "error" && <AlertCircle size={18} />}
+                {notification.type === "warning" && <AlertCircle size={18} />}
+                {(!notification.type || notification.type === "info") && <Bell size={18} />}
+              </div>
+              <div className="admin-notification-content">
+                <p className="admin-notification-message">{notification.message}</p>
+                <span className="admin-notification-time">
+                  {notification.createdAt
+                    ? new Date(notification.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Recently"}
+                </span>
+              </div>
+              <div className="admin-notification-actions">
+                {!notification.isRead && (
+                  <button
+                    className="admin-notification-mark-read"
+                    title="Mark as read"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAsRead(notification.id);
+                    }}
+                  >
+                    <Check size={14} />
+                  </button>
+                )}
+                <button
+                  className="admin-notification-dismiss"
+                  title="Delete notification"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteNotification(notification.id);
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="prof-dashboard">
+      {/* Notification Area */}
+      <div className="admin-notification-center">
+        <div
+          className="admin-notification-bell"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowNotificationPanel((prev) => {
+              if (!prev && unreadCount > 0) markAllAsRead();
+              return !prev;
+            });
+          }}
+          title="Notifications"
+        >
+          <Bell size={22} />
+          {unreadCount > 0 && (
+            <span className="admin-notification-counter">{unreadCount}</span>
+          )}
+        </div>
+        {showNotificationPanel && <NotificationPanel />}
+      </div>
       {/* ================= SIDEBAR ================= */}
       <div className="sidebar">
         <h2 className="sidebar-logo">ProfMojo</h2>

@@ -72,6 +72,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/students/**").hasRole("STUDENT")
 
                         // 🔔 NOTIFICATION ENDPOINTS (Role-based)
+                        .requestMatchers(HttpMethod.GET, "/api/notifications/stream").permitAll()
                         .requestMatchers("/api/notifications/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/notifications/staff/**").hasRole("STAFF")
                         .requestMatchers("/api/notifications/professor/**").hasRole("PROFESSOR")

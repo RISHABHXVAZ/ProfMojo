@@ -4,34 +4,21 @@ import com.profmojo.models.*;
 import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.repositories.AmenityRequestRepository;
 import com.profmojo.repositories.DepartmentSecretRepository;
-import com.profmojo.repositories.NotificationRepository;
 import com.profmojo.services.AdminAmenityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
 
 @RestController
 @RequestMapping("/api/admin/amenities")
 @RequiredArgsConstructor
-
 public class AdminAmenityController {
 
     private final AdminAmenityService adminAmenityService;
-    private final NotificationRepository notificationRepository;
     private final DepartmentSecretRepository departmentSecretRepository;
     private final AmenityRequestRepository amenityRequestRepository;
-
-    private void saveNotificationIfNotExists(Notification notif) {
-        if (notif.getNotificationKey() != null &&
-                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
-            return;
-        }
-        notificationRepository.save(notif);
-    }
 
     // Helper method to get department from authentication
     private String getDepartmentFromAuth(Authentication authentication) {

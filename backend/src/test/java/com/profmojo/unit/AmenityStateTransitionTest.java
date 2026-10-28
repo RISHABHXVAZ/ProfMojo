@@ -4,7 +4,7 @@ import com.profmojo.models.AmenityRequest;
 import com.profmojo.models.Staff;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
-import com.profmojo.repositories.NotificationRepository;
+import com.profmojo.services.NotificationService;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.services.AdminAmenityService;
 import com.profmojo.services.impl.AdminAmenityServiceImpl;
@@ -35,7 +35,7 @@ class AmenityStateTransitionTest {
 
     @Mock private AmenityRequestRepository requestRepo;
     @Mock private StaffRepository staffRepo;
-    @Mock private NotificationRepository notificationRepo;
+    @Mock private NotificationService notificationService;
     @Mock private AdminAmenityService adminAmenityService;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private com.profmojo.metrics.AppMetricsService appMetricsService;
@@ -51,7 +51,7 @@ class AmenityStateTransitionTest {
         amenityRequestService = new AmenityRequestServiceImpl(
                 requestRepo,
                 staffRepo,
-                notificationRepo,
+                notificationService,
                 adminAmenityService,
                 redisTemplate
         );

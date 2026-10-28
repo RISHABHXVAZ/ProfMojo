@@ -8,15 +8,14 @@ import com.profmojo.models.dto.AmenityRequestDTO;
 import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.dto.ReportStaffRequest;
 import com.profmojo.models.enums.RequestStatus;
-import com.profmojo.repositories.NotificationRepository;
 import com.profmojo.repositories.StaffReportRepository;
 import com.profmojo.services.AmenityRequestService;
+import com.profmojo.services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -27,16 +26,8 @@ import java.util.Map;
 public class AmenityRequestController {
 
     private final AmenityRequestService amenityRequestService;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final StaffReportRepository staffReportRepository;
-
-    private void saveNotificationIfNotExists(Notification notif) {
-        if (notif.getNotificationKey() != null &&
-                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
-            return;
-        }
-        notificationRepository.save(notif);
-    }
 
     @PostMapping("/request")
     public ResponseEntity<?> raiseRequest(
@@ -65,7 +56,7 @@ public class AmenityRequestController {
                 .build();
 
         // 2. SAVE TO DATABASE ONLY (No WebSocket, deduplicated)
-        saveNotificationIfNotExists(notif);
+        notificationService.saveNotificationIfNotExists(notif);
     }
 
     @GetMapping("/my")
@@ -130,7 +121,7 @@ public class AmenityRequestController {
                     .isArchived(false)
                     .createdAt(LocalDateTime.now())
                     .build();
-            saveNotificationIfNotExists(notif);
+            notificationService.saveNotificationIfNotExists(notif);
 
             return ResponseEntity.ok(Map.of("message", "New request raised", "newRequestId", newRequest.getId()));
         } catch (Exception e) {
@@ -181,7 +172,7 @@ public class AmenityRequestController {
                     .createdAt(LocalDateTime.now())
                     .isRead(false)
                     .build();
-            saveNotificationIfNotExists(adminNotif);
+            notificationService.saveNotificationIfNotExists(adminNotif);
 
             return ResponseEntity.ok(Map.of("message", "Staff reported successfully"));
 

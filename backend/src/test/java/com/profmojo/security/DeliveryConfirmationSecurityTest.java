@@ -54,6 +54,7 @@ class DeliveryConfirmationSecurityTest extends BasePostgresContainerTest {
     @Autowired private AmenityRequestRepository requestRepo;
     @Autowired private StaffRepository staffRepo;
     @Autowired private NotificationRepository notifRepo;
+    @Autowired private com.profmojo.services.NotificationService notificationService;
     @Autowired private StringRedisTemplate redisTemplate;
     @Autowired private StaffAmenityController staffAmenityController;
     @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -218,7 +219,7 @@ class DeliveryConfirmationSecurityTest extends BasePostgresContainerTest {
         when(faultyRedis.hasKey(anyString())).thenThrow(new RedisConnectionFailureException("Redis connection refused"));
 
         AmenityRequestServiceImpl serviceWithFaultyRedis = new AmenityRequestServiceImpl(
-                requestRepo, staffRepo, notifRepo, adminAmenityService, faultyRedis
+                requestRepo, staffRepo, notificationService, adminAmenityService, faultyRedis
         );
 
         // Service invocation throws SecurityInfrastructureUnavailableException
@@ -258,7 +259,7 @@ class DeliveryConfirmationSecurityTest extends BasePostgresContainerTest {
         when(ops.increment(anyString())).thenThrow(new RedisConnectionFailureException("Redis write timeout"));
 
         AmenityRequestServiceImpl serviceWithFaultyRedis = new AmenityRequestServiceImpl(
-                requestRepo, staffRepo, notifRepo, adminAmenityService, faultyRedis
+                requestRepo, staffRepo, notificationService, adminAmenityService, faultyRedis
         );
 
         // Attempting with wrong code throws SecurityInfrastructureUnavailableException rather than IllegalArgumentException
@@ -288,7 +289,7 @@ class DeliveryConfirmationSecurityTest extends BasePostgresContainerTest {
         AmenityRequest assigned = adminAmenityService.assignStaff(request.getId(), staff.getStaffId(), "CSE");
 
         AmenityRequestServiceImpl serviceWithNullRedis = new AmenityRequestServiceImpl(
-                requestRepo, staffRepo, notifRepo, adminAmenityService, null
+                requestRepo, staffRepo, notificationService, adminAmenityService, null
         );
 
         assertThrows(SecurityInfrastructureUnavailableException.class, () ->

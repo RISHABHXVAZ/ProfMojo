@@ -27,11 +27,16 @@ public class AppMetricsService {
     private final AmenityRequestRepository amenityRequestRepository;
 
     private final AtomicLong queuedAmenityRequestsCount = new AtomicLong(0);
+    private final AtomicLong activeSseConnections = new AtomicLong(0);
 
     @PostConstruct
     public void init() {
         Gauge.builder("profmojo.amenity.requests.queued", queuedAmenityRequestsCount, AtomicLong::get)
                 .description("Number of queued amenity requests waiting for staff assignment")
+                .register(meterRegistry);
+
+        Gauge.builder("profmojo.notifications.sse.active_connections", activeSseConnections, AtomicLong::get)
+                .description("Number of active SSE notification connections")
                 .register(meterRegistry);
 
         refreshQueueDepth();
@@ -89,6 +94,42 @@ public class AppMetricsService {
         meterRegistry.counter("profmojo.email.delivery",
                 "status", normalize(status)
         ).increment();
+    }
+
+    public void incrementNotificationsCreated(String role) {
+        meterRegistry.counter("profmojo.notifications.created",
+                "role", normalize(role)
+        ).increment();
+    }
+
+    public void incrementNotificationsCreated() {
+        incrementNotificationsCreated("all");
+    }
+
+    public void incrementNotificationDuplicatesSkipped(String role) {
+        meterRegistry.counter("profmojo.notifications.duplicates_skipped",
+                "role", normalize(role)
+        ).increment();
+    }
+
+    public void incrementNotificationDuplicatesSkipped() {
+        incrementNotificationDuplicatesSkipped("all");
+    }
+
+    public void incrementActiveSseConnections() {
+        activeSseConnections.incrementAndGet();
+    }
+
+    public void decrementActiveSseConnections() {
+        activeSseConnections.updateAndGet(c -> Math.max(0, c - 1));
+    }
+
+    public void setActiveSseConnections(long count) {
+        activeSseConnections.set(Math.max(0, count));
+    }
+
+    public long getActiveSseConnections() {
+        return activeSseConnections.get();
     }
 
     private String normalize(String value) {

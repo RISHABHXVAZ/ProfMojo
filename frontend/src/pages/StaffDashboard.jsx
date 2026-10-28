@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
-import { Bell, X, CheckCircle, AlertCircle, Key } from "lucide-react";
+import { Bell, X, CheckCircle, AlertCircle, Key, Check, Trash2 } from "lucide-react";
+import { useNotifications } from "../hooks/useNotification";
 import "./StaffDashboard.css";
 
 export default function StaffDashboard() {
@@ -13,10 +14,18 @@ export default function StaffDashboard() {
     const [activeTab, setActiveTab] = useState("tasks");
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     
-    // Notification state
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
-    const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+    // Use notifications hook
+    const {
+        notifications,
+        unreadCount,
+        showNotificationPanel,
+        setShowNotificationPanel,
+        markAsRead,
+        markAllAsRead,
+        deleteNotification,
+        toast,
+        dismissToast
+    } = useNotifications("STAFF");
     
     // NEW: Confirmation code modal state
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -26,17 +35,6 @@ export default function StaffDashboard() {
 
     const token = localStorage.getItem("token");
     const navigate = useNavigate();
-
-    // Fetch notifications from backend
-    const fetchNotifications = async () => {
-        try {
-            const res = await api.get("/notifications/staff");
-            setNotifications(res.data.notifications || []);
-            setUnreadCount(res.data.unreadCount || 0);
-        } catch (err) {
-            console.error("Failed to fetch notifications", err);
-        }
-    };
 
     // Add this useEffect to close notification panel when clicking outside
     useEffect(() => {
@@ -164,7 +162,7 @@ export default function StaffDashboard() {
         level === "gold" ? "Gold" :
         level === "silver" ? "Silver" : "Bronze";
 
-    // Notification Panel Component (Read-only)
+    // Notification Panel Component (Interactive with Mark as Read)
     const NotificationPanel = () => (
         <div 
             className="staff-notification-panel"
@@ -172,15 +170,31 @@ export default function StaffDashboard() {
         >
             <div className="staff-notification-header">
                 <h3>Notifications {unreadCount > 0 && `(${unreadCount})`}</h3>
-                <button 
-                    className="staff-notification-close-btn" 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setShowNotificationPanel(false);
-                    }}
-                >
-                    <X size={18} />
-                </button>
+                <div className="staff-notification-header-actions">
+                    {unreadCount > 0 && (
+                        <button
+                            className="staff-notification-clear-btn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                markAllAsRead();
+                            }}
+                            title="Mark all as read"
+                        >
+                            <Check size={14} />
+                            Mark all read
+                        </button>
+                    )}
+                    <button 
+                        className="staff-notification-close-btn" 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowNotificationPanel(false);
+                        }}
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             </div>
 
             <div className="staff-notification-list">
@@ -194,13 +208,19 @@ export default function StaffDashboard() {
                     notifications.map(notification => (
                         <div 
                             key={notification.id} 
-                            className={`staff-notification-item ${notification.type}`}
+                            className={`staff-notification-item ${notification.type || "info"} ${!notification.isRead ? "unread" : ""}`}
+                            onClick={() => {
+                                if (!notification.isRead) {
+                                    markAsRead(notification.id);
+                                }
+                            }}
+                            style={{ cursor: !notification.isRead ? 'pointer' : 'default' }}
                         >
                             <div className="staff-notification-icon">
                                 {notification.type === 'success' && <CheckCircle size={18} />}
                                 {notification.type === 'error' && <AlertCircle size={18} />}
                                 {notification.type === 'warning' && <AlertCircle size={18} />}
-                                {notification.type === 'info' && <Bell size={18} />}
+                                {(!notification.type || notification.type === 'info') && <Bell size={18} />}
                             </div>
                             <div className="staff-notification-content">
                                 <p className="staff-notification-message">{notification.message || notification.msg}</p>
@@ -214,6 +234,30 @@ export default function StaffDashboard() {
                                     }
                                 </span>
                             </div>
+                            <div className="staff-notification-actions" onClick={(e) => e.stopPropagation()}>
+                                {!notification.isRead && (
+                                    <button
+                                        className="staff-notification-mark-read-btn"
+                                        title="Mark as read"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            markAsRead(notification.id);
+                                        }}
+                                    >
+                                        <Check size={14} />
+                                    </button>
+                                )}
+                                <button
+                                    className="staff-notification-delete-btn"
+                                    title="Delete notification"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNotification(notification.id);
+                                    }}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
                     ))
                 )}
@@ -224,11 +268,9 @@ export default function StaffDashboard() {
     useEffect(() => {
         fetchAssignedRequests();
         fetchProfile();
-        fetchNotifications();
         
-        // Set up polling for notifications
+        // Set up polling for assigned requests
         const pollInterval = setInterval(() => {
-            fetchNotifications();
             fetchAssignedRequests();
         }, 10000); // Poll every 10 seconds
         
@@ -275,6 +317,27 @@ export default function StaffDashboard() {
                     </div>
                 )}
             </div>
+
+            {/* Notification Toast */}
+            {toast && (
+                <div className="staff-toast-container">
+                    <div className={`staff-toast ${toast.type || "info"}`}>
+                        <Bell size={18} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontWeight: 500, fontSize: "14px" }}>{toast.message}</p>
+                            {toast.time && <span style={{ fontSize: "11px", color: "#6b7280" }}>{toast.time}</span>}
+                        </div>
+                        <button 
+                            onClick={dismissToast} 
+                            className="staff-notification-close-btn"
+                            title="Close"
+                            style={{ padding: "2px" }}
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="staff-sidebar">
                 <h2 className="staff-sidebar-logo">ProfMojo</h2>

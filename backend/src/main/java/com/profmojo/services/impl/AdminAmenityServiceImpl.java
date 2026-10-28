@@ -6,17 +6,15 @@ import com.profmojo.models.Staff;
 import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
-import com.profmojo.repositories.NotificationRepository;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.services.AdminAmenityService;
+import com.profmojo.services.NotificationService;
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -24,16 +22,8 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
 
     private final AmenityRequestRepository requestRepo;
     private final StaffRepository staffRepo;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final com.profmojo.metrics.AppMetricsService appMetricsService;
-
-    private void saveNotificationIfNotExists(Notification notif) {
-        if (notif.getNotificationKey() != null &&
-                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
-            return;
-        }
-        notificationRepository.save(notif);
-    }
 
     @Override
     @Transactional
@@ -107,7 +97,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(staffNotif);
+        notificationService.saveNotificationIfNotExists(staffNotif);
 
         Notification profNotif = Notification.builder()
                 .recipientId(savedRequest.getProfessorId())
@@ -123,7 +113,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(profNotif);
+        notificationService.saveNotificationIfNotExists(profNotif);
 
         if (department != null) {
             Notification adminNotif = Notification.builder()
@@ -139,7 +129,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                     .isArchived(false)
                     .createdAt(now)
                     .build();
-            saveNotificationIfNotExists(adminNotif);
+            notificationService.saveNotificationIfNotExists(adminNotif);
         }
 
         return savedRequest;
@@ -180,13 +170,11 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
 
     @Override
     public List<Staff> getAllStaff(String department) {
-        // Change from findAll() to filter by department
         return staffRepo.findByDepartment(department);
     }
 
     @Override
     public List<Staff> getAvailableStaff(String department) {
-        // Change from findByAvailableTrue() to filter by department
         return staffRepo.findByDepartmentAndAvailableTrue(department);
     }
 
@@ -206,11 +194,6 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
             throw new RuntimeException("Only pending requests can be queued");
         }
 
-        // Generate secure confirmation code for queued request
-        String staffConfirmationCode = com.profmojo.util.SecureCodeGenerator.generate4DigitCode();
-        request.setDeliveryConfirmationCode(staffConfirmationCode);
-        request.setConfirmationCodeExpiry(LocalDateTime.now().plusHours(24));
-
         request.setStatus(RequestStatus.QUEUED);
 
         // Save notification for professor
@@ -218,8 +201,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .recipientId(request.getProfessorId())
                 .recipientRole("PROFESSOR")
                 .message("Your amenity request for " + request.getClassRoom() +
-                        " has been queued. Staff Confirmation Code: " + staffConfirmationCode +
-                        " (use this to verify staff identity)")
+                        " has been queued. A confirmation code will be sent when staff is assigned.")
                 .type("info")
                 .eventType("REQUEST_QUEUED")
                 .notificationKey("REQUEST_QUEUED-" + request.getId() + "-" + request.getProfessorId())
@@ -228,7 +210,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(LocalDateTime.now())
                 .build();
-        saveNotificationIfNotExists(notification);
+        notificationService.saveNotificationIfNotExists(notification);
 
         AmenityRequest saved = requestRepo.save(request);
         appMetricsService.refreshQueueDepth();
@@ -318,7 +300,7 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(staffNotif);
+        notificationService.saveNotificationIfNotExists(staffNotif);
 
         Notification profNotif = Notification.builder()
                 .recipientId(req.getProfessorId())
@@ -334,6 +316,6 @@ public class AdminAmenityServiceImpl implements AdminAmenityService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(profNotif);
+        notificationService.saveNotificationIfNotExists(profNotif);
     }
 }

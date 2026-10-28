@@ -4,6 +4,7 @@ import com.profmojo.controllers.NotificationController;
 import com.profmojo.controllers.StaffAmenityController;
 import com.profmojo.models.*;
 import com.profmojo.models.dto.AmenityRequestDTO;
+import com.profmojo.models.dto.NotificationResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.*;
 import com.profmojo.services.AdminAmenityService;
@@ -165,7 +166,7 @@ class NotificationIntegrationTest extends BasePostgresContainerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> cseBody = (Map<String, Object>) cseResponse.getBody();
         @SuppressWarnings("unchecked")
-        List<Notification> cseList = (List<Notification>) cseBody.get("notifications");
+        List<NotificationResponseDTO> cseList = (List<NotificationResponseDTO>) cseBody.get("notifications");
         assertEquals(1, cseList.size());
         assertEquals("New request in CSE Lab 1", cseList.get(0).getMessage());
 
@@ -179,7 +180,7 @@ class NotificationIntegrationTest extends BasePostgresContainerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> eceBody = (Map<String, Object>) eceResponse.getBody();
         @SuppressWarnings("unchecked")
-        List<Notification> eceList = (List<Notification>) eceBody.get("notifications");
+        List<NotificationResponseDTO> eceList = (List<NotificationResponseDTO>) eceBody.get("notifications");
         assertEquals(1, eceList.size());
         assertEquals("New request in ECE Circuit Lab", eceList.get(0).getMessage());
     }
@@ -209,7 +210,7 @@ class NotificationIntegrationTest extends BasePostgresContainerTest {
         Map<String, Object> body = (Map<String, Object>) resp.getBody();
         assertEquals(1L, body.get("unreadCount"));
         @SuppressWarnings("unchecked")
-        List<Notification> list = (List<Notification>) body.get("notifications");
+        List<NotificationResponseDTO> list = (List<NotificationResponseDTO>) body.get("notifications");
         assertEquals(1, list.size());
         assertEquals("Notification for Prof Lovelace", list.get(0).getMessage());
     }
@@ -239,7 +240,7 @@ class NotificationIntegrationTest extends BasePostgresContainerTest {
         Map<String, Object> body = (Map<String, Object>) resp.getBody();
         assertEquals(1L, body.get("unreadCount"));
         @SuppressWarnings("unchecked")
-        List<Notification> list = (List<Notification>) body.get("notifications");
+        List<NotificationResponseDTO> list = (List<NotificationResponseDTO>) body.get("notifications");
         assertEquals(1, list.size());
         assertEquals("Notification for Staff Turing", list.get(0).getMessage());
     }

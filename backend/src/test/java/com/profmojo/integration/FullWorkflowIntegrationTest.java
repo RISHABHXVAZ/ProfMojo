@@ -95,7 +95,7 @@ class FullWorkflowIntegrationTest extends BasePostgresContainerTest {
         // 5. Admin adds request to Queue
         AmenityRequest queued = adminAmenityService.addToQueue(raisedRequest.getId());
         assertEquals(RequestStatus.QUEUED, queued.getStatus());
-        assertNotNull(queued.getDeliveryConfirmationCode());
+        assertNull(queued.getDeliveryConfirmationCode());
 
         // Verify Notification was persisted for Professor
         List<Notification> notifs = notifRepo.findByRecipientId("IT_PROF_01");

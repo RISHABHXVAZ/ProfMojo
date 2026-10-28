@@ -5,8 +5,9 @@ import com.profmojo.models.DepartmentSecret;
 import com.profmojo.models.Notification;
 import com.profmojo.models.Professor;
 import com.profmojo.models.Staff;
+import com.profmojo.models.dto.NotificationResponseDTO;
 import com.profmojo.repositories.DepartmentSecretRepository;
-import com.profmojo.repositories.NotificationRepository;
+import com.profmojo.services.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,10 +33,13 @@ import static org.mockito.Mockito.*;
 class NotificationControllerTest {
 
     @Mock
-    private NotificationRepository notificationRepository;
+    private NotificationService notificationService;
 
     @Mock
     private DepartmentSecretRepository departmentSecretRepository;
+
+    @Mock
+    private com.profmojo.services.NotificationSseService notificationSseService;
 
     @InjectMocks
     private NotificationController controller;
@@ -66,7 +70,7 @@ class NotificationControllerTest {
     }
 
     @Test
-    @DisplayName("getAdminNotifications: Resolves department from secret when not passed")
+    @DisplayName("getAdminNotifications: Resolves department and returns NotificationResponseDTO list")
     void getAdmin_ResolvesDeptFromSecret() {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 "SECRET_KEY", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
@@ -82,9 +86,13 @@ class NotificationControllerTest {
                 .recipientRole("ADMIN")
                 .department("CSE")
                 .message("Test")
+                .type("info")
+                .eventType("TEST_EVENT")
+                .entityId(100L)
                 .isRead(false)
+                .createdAt(LocalDateTime.now())
                 .build();
-        when(notificationRepository.findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", "CSE"))
+        when(notificationService.getAdminNotifications("CSE"))
                 .thenReturn(List.of(n));
 
         ResponseEntity<?> resp = controller.getAdminNotifications(auth, null);
@@ -92,10 +100,23 @@ class NotificationControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) resp.getBody();
         assertEquals(1L, body.get("unreadCount"));
+
+        @SuppressWarnings("unchecked")
+        List<NotificationResponseDTO> list = (List<NotificationResponseDTO>) body.get("notifications");
+        assertEquals(1, list.size());
+        NotificationResponseDTO dto = list.get(0);
+        assertEquals(1L, dto.getId());
+        assertEquals("Test", dto.getMessage());
+        assertEquals("info", dto.getType());
+        assertEquals("TEST_EVENT", dto.getEventType());
+        assertEquals(100L, dto.getEntityId());
+        assertEquals("CSE", dto.getDepartment());
+        assertFalse(dto.getIsRead());
+        verify(notificationService).getAdminNotifications("CSE");
     }
 
     @Test
-    @DisplayName("getProfessorNotifications: Resolves profId from Professor principal")
+    @DisplayName("getProfessorNotifications: Resolves profId and returns NotificationResponseDTO list")
     void getProfessor_ResolvesProfIdFromPrincipal() {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 professor, null, List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
@@ -106,9 +127,14 @@ class NotificationControllerTest {
                 .recipientId("PROF_TEST")
                 .recipientRole("PROFESSOR")
                 .message("Prof note")
+                .type("success")
+                .eventType("REQUEST_ASSIGNED")
+                .entityId(200L)
+                .department("CSE")
                 .isRead(false)
+                .createdAt(LocalDateTime.now())
                 .build();
-        when(notificationRepository.findTop50ByRecipientIdOrderByCreatedAtDesc("PROF_TEST"))
+        when(notificationService.getNotificationHistory("PROF_TEST"))
                 .thenReturn(List.of(n));
 
         ResponseEntity<?> resp = controller.getProfessorNotifications(auth);
@@ -116,10 +142,18 @@ class NotificationControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) resp.getBody();
         assertEquals(1L, body.get("unreadCount"));
+
+        @SuppressWarnings("unchecked")
+        List<NotificationResponseDTO> list = (List<NotificationResponseDTO>) body.get("notifications");
+        assertEquals(1, list.size());
+        assertEquals(2L, list.get(0).getId());
+        assertEquals("Prof note", list.get(0).getMessage());
+        assertEquals("success", list.get(0).getType());
+        verify(notificationService).getNotificationHistory("PROF_TEST");
     }
 
     @Test
-    @DisplayName("getStaffNotifications: Resolves staffId from Staff principal")
+    @DisplayName("getStaffNotifications: Resolves staffId and returns NotificationResponseDTO list")
     void getStaff_ResolvesStaffIdFromPrincipal() {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 staff, null, List.of(new SimpleGrantedAuthority("ROLE_STAFF"))
@@ -130,9 +164,11 @@ class NotificationControllerTest {
                 .recipientId("STAFF_TEST")
                 .recipientRole("STAFF")
                 .message("Staff note")
+                .type("info")
                 .isRead(false)
+                .createdAt(LocalDateTime.now())
                 .build();
-        when(notificationRepository.findTop50ByRecipientIdOrderByCreatedAtDesc("STAFF_TEST"))
+        when(notificationService.getNotificationHistory("STAFF_TEST"))
                 .thenReturn(List.of(n));
 
         ResponseEntity<?> resp = controller.getStaffNotifications(auth);
@@ -140,6 +176,13 @@ class NotificationControllerTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) resp.getBody();
         assertEquals(1L, body.get("unreadCount"));
+
+        @SuppressWarnings("unchecked")
+        List<NotificationResponseDTO> list = (List<NotificationResponseDTO>) body.get("notifications");
+        assertEquals(1, list.size());
+        assertEquals(3L, list.get(0).getId());
+        assertEquals("Staff note", list.get(0).getMessage());
+        verify(notificationService).getNotificationHistory("STAFF_TEST");
     }
 
     @Test
@@ -161,12 +204,11 @@ class NotificationControllerTest {
                 .message("Admin note")
                 .isRead(false)
                 .build();
-        when(notificationRepository.findById(10L)).thenReturn(Optional.of(n));
+        when(notificationService.findById(10L)).thenReturn(Optional.of(n));
 
         ResponseEntity<?> resp = controller.markAsRead(10L, auth);
         assertEquals(200, resp.getStatusCode().value());
-        assertTrue(n.getIsRead());
-        verify(notificationRepository).save(n);
+        verify(notificationService).markAsRead(10L);
     }
 
     @Test
@@ -183,11 +225,11 @@ class NotificationControllerTest {
                 .message("Other prof note")
                 .isRead(false)
                 .build();
-        when(notificationRepository.findById(20L)).thenReturn(Optional.of(n));
+        when(notificationService.findById(20L)).thenReturn(Optional.of(n));
 
         ResponseEntity<?> resp = controller.markAsRead(20L, auth);
         assertEquals(403, resp.getStatusCode().value());
-        verify(notificationRepository, never()).save(any());
+        verify(notificationService, never()).markAsRead(anyLong());
     }
 
     @Test
@@ -197,15 +239,52 @@ class NotificationControllerTest {
                 professor, null, List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
         );
 
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationService.findById(999L)).thenReturn(Optional.empty());
 
         ResponseEntity<?> resp = controller.markAsRead(999L, auth);
         assertEquals(404, resp.getStatusCode().value());
-        verify(notificationRepository, never()).save(any());
+        verify(notificationService, never()).markAsRead(anyLong());
     }
 
     @Test
-    @DisplayName("deleteNotification: Authorized owner deletes successfully")
+    @DisplayName("markAllAsRead: Admin calls markAllAsReadForAdmin with department")
+    void markAllAsRead_Admin_CallsServiceWithDept() {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                "SECRET_KEY", null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+
+        DepartmentSecret sec = new DepartmentSecret();
+        sec.setDepartment("CSE");
+        when(departmentSecretRepository.findBySecretKey("SECRET_KEY")).thenReturn(Optional.of(sec));
+        when(notificationService.markAllAsReadForAdmin("CSE")).thenReturn(7);
+
+        ResponseEntity<?> resp = controller.markAllAsRead(auth);
+        assertEquals(200, resp.getStatusCode().value());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) resp.getBody();
+        assertEquals(7, body.get("count"));
+        verify(notificationService).markAllAsReadForAdmin("CSE");
+    }
+
+    @Test
+    @DisplayName("markAllAsRead: Non-admin user calls markAllAsRead with userId")
+    void markAllAsRead_User_CallsServiceWithUserId() {
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                professor, null, List.of(new SimpleGrantedAuthority("ROLE_PROFESSOR"))
+        );
+
+        when(notificationService.markAllAsRead("PROF_TEST")).thenReturn(3);
+
+        ResponseEntity<?> resp = controller.markAllAsRead(auth);
+        assertEquals(200, resp.getStatusCode().value());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) resp.getBody();
+        assertEquals(3, body.get("count"));
+        verify(notificationService).markAllAsRead("PROF_TEST");
+    }
+
+    @Test
+    @DisplayName("deleteNotification: Authorized owner deletes successfully (soft delete / archive)")
     void deleteNotification_Authorized_Deletes() {
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 staff, null, List.of(new SimpleGrantedAuthority("ROLE_STAFF"))
@@ -217,10 +296,10 @@ class NotificationControllerTest {
                 .recipientRole("STAFF")
                 .message("Delete me")
                 .build();
-        when(notificationRepository.findById(30L)).thenReturn(Optional.of(n));
+        when(notificationService.findById(30L)).thenReturn(Optional.of(n));
 
         ResponseEntity<?> resp = controller.deleteNotification(30L, auth);
         assertEquals(200, resp.getStatusCode().value());
-        verify(notificationRepository).delete(n);
+        verify(notificationService).deleteNotification(30L);
     }
 }

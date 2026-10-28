@@ -103,6 +103,28 @@ public interface AmenityRequestRepository
     @Query("SELECT ar FROM AmenityRequest ar WHERE ar.id = :id")
     Optional<AmenityRequest> findByIdForUpdate(@Param("id") Long id);
 
+    @Query("SELECT ar FROM AmenityRequest ar WHERE ar.status = :status AND ar.slaDeadline < :now AND ar.slaBreached = false")
+    List<AmenityRequest> findBreachedDeliverySlaRequests(
+            @Param("status") RequestStatus status,
+            @Param("now") LocalDateTime now
+    );
+
+    @Query("""
+        SELECT ar FROM AmenityRequest ar
+         WHERE ar.status = :status
+           AND (ar.assignmentDeadline <= :now OR (ar.assignmentDeadline IS NULL AND ar.createdAt <= :fallbackTime))
+           AND (ar.assignmentSlaBreached = false OR ar.assignmentSlaBreached IS NULL)
+        """)
+    List<AmenityRequest> findBreachedAssignmentSlaRequests(
+            @Param("status") RequestStatus status,
+            @Param("now") LocalDateTime now,
+            @Param("fallbackTime") LocalDateTime fallbackTime
+    );
+
+    default List<AmenityRequest> findBreachedAssignmentSlaRequests(RequestStatus status, LocalDateTime now) {
+        return findBreachedAssignmentSlaRequests(status, now, now.minusMinutes(2));
+    }
+
     @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE AmenityRequest ar SET ar.slaBreached = true, ar.deliverySlaBreached = true WHERE ar.status = :status AND ar.slaDeadline < :now AND ar.slaBreached = false")
     int markBreachedDeliverySlaRequests(

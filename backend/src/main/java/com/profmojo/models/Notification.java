@@ -7,9 +7,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Entity
-@Table(name = "notifications", indexes = {
-        @Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at DESC")
-})
+@Table(name = "notifications",
+        indexes = {
+                @Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at DESC")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_notifications_notification_key", columnNames = "notification_key")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,7 +41,7 @@ public class Notification {
     @Column
     private String eventType;
 
-    @Column
+    @Column(name = "notification_key", unique = true)
     private String notificationKey;
 
     @Column(nullable = true)

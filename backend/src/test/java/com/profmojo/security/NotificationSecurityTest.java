@@ -4,7 +4,7 @@ import com.profmojo.controllers.NotificationController;
 import com.profmojo.models.DepartmentSecret;
 import com.profmojo.models.Notification;
 import com.profmojo.repositories.DepartmentSecretRepository;
-import com.profmojo.repositories.NotificationRepository;
+import com.profmojo.services.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,10 +28,13 @@ import static org.mockito.Mockito.*;
 class NotificationSecurityTest {
 
     @Mock
-    private NotificationRepository notificationRepository;
+    private NotificationService notificationService;
 
     @Mock
     private DepartmentSecretRepository departmentSecretRepository;
+
+    @Mock
+    private com.profmojo.services.NotificationSseService notificationSseService;
 
     @InjectMocks
     private NotificationController controller;
@@ -62,7 +65,7 @@ class NotificationSecurityTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertTrue(((String) body.get("error")).contains("Cannot access notifications for another department"));
-        verify(notificationRepository, never()).findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc(any(), any());
+        verify(notificationService, never()).getAdminNotifications(any());
     }
 
     @Test
@@ -73,7 +76,7 @@ class NotificationSecurityTest {
         ResponseEntity<?> response = controller.getAdminNotifications(adminAuth, null);
 
         assertEquals(403, response.getStatusCode().value());
-        verify(notificationRepository, never()).findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc(any(), any());
+        verify(notificationService, never()).getAdminNotifications(any());
     }
 
     @Test
@@ -89,7 +92,7 @@ class NotificationSecurityTest {
                 .isRead(false)
                 .build();
 
-        when(notificationRepository.findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", "CSE"))
+        when(notificationService.getAdminNotifications("CSE"))
                 .thenReturn(List.of(n));
 
         ResponseEntity<?> response = controller.getAdminNotifications(adminAuth, "CSE");
@@ -98,7 +101,7 @@ class NotificationSecurityTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertEquals(1L, body.get("unreadCount"));
-        verify(notificationRepository).findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc("ADMIN", "CSE");
+        verify(notificationService).getAdminNotifications("CSE");
     }
 
     @Test
@@ -114,7 +117,7 @@ class NotificationSecurityTest {
                 .isRead(false)
                 .build();
 
-        when(notificationRepository.findById(50L)).thenReturn(Optional.of(eceNotification));
+        when(notificationService.findById(50L)).thenReturn(Optional.of(eceNotification));
 
         ResponseEntity<?> response = controller.markAsRead(50L, adminAuth);
 
@@ -122,19 +125,19 @@ class NotificationSecurityTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertTrue(((String) body.get("error")).contains("Unauthorized"));
-        verify(notificationRepository, never()).save(any());
+        verify(notificationService, never()).markAsRead(anyLong());
     }
 
     @Test
     @DisplayName("markAsRead: Non-existent notification returns 404 Not Found")
     void markAsRead_NonExistentNotification_Returns404() {
         when(departmentSecretRepository.findBySecretKey("SECRET_CSE")).thenReturn(Optional.of(cseSecret));
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationService.findById(999L)).thenReturn(Optional.empty());
 
         ResponseEntity<?> response = controller.markAsRead(999L, adminAuth);
 
         assertEquals(404, response.getStatusCode().value());
-        verify(notificationRepository, never()).save(any());
+        verify(notificationService, never()).markAsRead(anyLong());
     }
 
     @Test
@@ -150,7 +153,7 @@ class NotificationSecurityTest {
                 .isRead(false)
                 .build();
 
-        when(notificationRepository.findById(60L)).thenReturn(Optional.of(eceNotification));
+        when(notificationService.findById(60L)).thenReturn(Optional.of(eceNotification));
 
         ResponseEntity<?> response = controller.deleteNotification(60L, adminAuth);
 
@@ -158,18 +161,18 @@ class NotificationSecurityTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertTrue(((String) body.get("error")).contains("Unauthorized"));
-        verify(notificationRepository, never()).delete(any());
+        verify(notificationService, never()).deleteNotification(anyLong());
     }
 
     @Test
     @DisplayName("deleteNotification: Non-existent notification returns 404 Not Found")
     void deleteNotification_NonExistentNotification_Returns404() {
         when(departmentSecretRepository.findBySecretKey("SECRET_CSE")).thenReturn(Optional.of(cseSecret));
-        when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
+        when(notificationService.findById(999L)).thenReturn(Optional.empty());
 
         ResponseEntity<?> response = controller.deleteNotification(999L, adminAuth);
 
         assertEquals(404, response.getStatusCode().value());
-        verify(notificationRepository, never()).delete(any());
+        verify(notificationService, never()).deleteNotification(anyLong());
     }
 }

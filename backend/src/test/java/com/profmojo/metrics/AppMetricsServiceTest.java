@@ -156,11 +156,76 @@ class AppMetricsServiceTest {
     }
 
     @Test
+    @DisplayName("Notification created metrics increment correctly with normalized role tag")
+    void notificationCreatedMetrics_IncrementCorrectly() {
+        appMetricsService.incrementNotificationsCreated("PROFESSOR");
+        appMetricsService.incrementNotificationsCreated("admin");
+        appMetricsService.incrementNotificationsCreated();
+
+        Counter profCounter = meterRegistry.find("profmojo.notifications.created")
+                .tag("role", "professor")
+                .counter();
+        assertNotNull(profCounter);
+        assertEquals(1.0, profCounter.count());
+
+        Counter adminCounter = meterRegistry.find("profmojo.notifications.created")
+                .tag("role", "admin")
+                .counter();
+        assertNotNull(adminCounter);
+        assertEquals(1.0, adminCounter.count());
+
+        Counter allCounter = meterRegistry.find("profmojo.notifications.created")
+                .tag("role", "all")
+                .counter();
+        assertNotNull(allCounter);
+        assertEquals(1.0, allCounter.count());
+    }
+
+    @Test
+    @DisplayName("Notification duplicates skipped metrics increment correctly with normalized role tag")
+    void notificationDuplicatesSkippedMetrics_IncrementCorrectly() {
+        appMetricsService.incrementNotificationDuplicatesSkipped("STAFF");
+        appMetricsService.incrementNotificationDuplicatesSkipped();
+
+        Counter staffCounter = meterRegistry.find("profmojo.notifications.duplicates_skipped")
+                .tag("role", "staff")
+                .counter();
+        assertNotNull(staffCounter);
+        assertEquals(1.0, staffCounter.count());
+
+        Counter allCounter = meterRegistry.find("profmojo.notifications.duplicates_skipped")
+                .tag("role", "all")
+                .counter();
+        assertNotNull(allCounter);
+        assertEquals(1.0, allCounter.count());
+    }
+
+    @Test
+    @DisplayName("Active SSE connections gauge reflects active connections correctly")
+    void activeSseConnectionsGauge_ReflectsActiveConnections() {
+        Gauge gauge = meterRegistry.find("profmojo.notifications.sse.active_connections").gauge();
+        assertNotNull(gauge, "Active SSE connections gauge should be registered");
+        assertEquals(0.0, gauge.value(), 0.001);
+
+        appMetricsService.incrementActiveSseConnections();
+        appMetricsService.incrementActiveSseConnections();
+        assertEquals(2.0, gauge.value(), 0.001);
+
+        appMetricsService.decrementActiveSseConnections();
+        assertEquals(1.0, gauge.value(), 0.001);
+
+        appMetricsService.setActiveSseConnections(5);
+        assertEquals(5.0, gauge.value(), 0.001);
+    }
+
+    @Test
     @DisplayName("Strict low-cardinality enforcement: No PII or forbidden tag keys exist")
     void strictLowCardinality_NoPiiTagsExist() {
         appMetricsService.incrementOtpRequest("admin", "success");
         appMetricsService.incrementOtpVerification("admin", "success");
         appMetricsService.incrementTokenRevoked("admin");
+        appMetricsService.incrementNotificationsCreated("admin");
+        appMetricsService.incrementNotificationDuplicatesSkipped("admin");
 
         Set<String> allowedTagKeys = Set.of("role", "status", "type");
 

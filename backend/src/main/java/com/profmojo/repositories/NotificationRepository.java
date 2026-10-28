@@ -13,11 +13,20 @@ import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
+    // Get unread notifications for specific user (excluding archived)
+    List<Notification> findByRecipientIdAndIsReadFalseAndIsArchivedFalseOrderByCreatedAtDesc(String recipientId);
+
     // Get unread notifications for specific user
     List<Notification> findByRecipientIdAndIsReadFalseOrderByCreatedAtDesc(String recipientId);
 
+    // Get all notifications for user (with limit, excluding archived)
+    List<Notification> findTop50ByRecipientIdAndIsArchivedFalseOrderByCreatedAtDesc(String recipientId);
+
     // Get all notifications for user (with limit)
     List<Notification> findTop50ByRecipientIdOrderByCreatedAtDesc(String recipientId);
+
+    // Get notifications by role and department (for admins, excluding archived)
+    List<Notification> findTop50ByRecipientRoleAndDepartmentAndIsArchivedFalseOrderByCreatedAtDesc(String role, String department);
 
     // Get notifications by role and department (for admins)
     List<Notification> findTop50ByRecipientRoleAndDepartmentOrderByCreatedAtDesc(String role, String department);
@@ -28,11 +37,20 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     // Check for duplicate notification
     Optional<Notification> findByNotificationKeyAndRecipientId(String notificationKey, String recipientId);
 
+    // Get unread count (excluding archived)
+    long countByRecipientIdAndIsReadFalseAndIsArchivedFalse(String recipientId);
+
     // Get unread count
     long countByRecipientIdAndIsReadFalse(String recipientId);
 
+    // Get notifications by role and department (excluding archived)
+    List<Notification> findByRecipientRoleAndDepartmentAndIsArchivedFalse(String role, String department);
+
     // Get notifications by role and department
     List<Notification> findByRecipientRoleAndDepartment(String role, String department);
+
+    // Get unread count by role and department (excluding archived)
+    long countByRecipientRoleAndDepartmentAndIsReadFalseAndIsArchivedFalse(String role, String department);
 
     // Get unread count by role and department
     long countByRecipientRoleAndDepartmentAndIsReadFalse(String role, String department);
@@ -46,6 +64,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Transactional
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.recipientId = :recipientId AND n.isRead = false")
     int markAllAsRead(@Param("recipientId") String recipientId, @Param("now") LocalDateTime now);
+
+    // Mark all notifications as read for admin department
+    @Modifying
+    @Transactional
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE ((n.recipientRole = :role AND n.department = :department) OR n.recipientId = :recipientId) AND n.isRead = false")
+    int markAllAsReadForAdmin(@Param("role") String role, @Param("department") String department, @Param("recipientId") String recipientId, @Param("now") LocalDateTime now);
 
     // Mark single notification as read
     @Modifying
@@ -67,4 +91,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByRecipientRole(String recipientRole);
 
     List<Notification> findByRecipientId(String userId);
+
+    List<Notification> findByRecipientIdAndIsArchivedFalse(String userId);
 }

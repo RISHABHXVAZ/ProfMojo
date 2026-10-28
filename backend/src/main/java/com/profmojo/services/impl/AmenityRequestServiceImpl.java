@@ -8,7 +8,7 @@ import com.profmojo.models.dto.AmenityRequestDTO;
 import com.profmojo.models.dto.AmenityResponseDTO;
 import com.profmojo.models.enums.RequestStatus;
 import com.profmojo.repositories.AmenityRequestRepository;
-import com.profmojo.repositories.NotificationRepository;
+import com.profmojo.services.NotificationService;
 import com.profmojo.repositories.StaffRepository;
 import com.profmojo.services.AdminAmenityService;
 import com.profmojo.services.AmenityRequestService;
@@ -32,17 +32,10 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
 
     private final AmenityRequestRepository repository;
     private final StaffRepository staffRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final AdminAmenityService adminAmenityService;
     private final StringRedisTemplate redisTemplate;
 
-    private void saveNotificationIfNotExists(Notification notif) {
-        if (notif.getNotificationKey() != null &&
-                notificationRepository.findByNotificationKey(notif.getNotificationKey()).isPresent()) {
-            return;
-        }
-        notificationRepository.save(notif);
-    }
 
     private void checkDeliveryLockout(Long requestId) {
         if (requestId == null) return;
@@ -301,7 +294,7 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(staffNotif);
+        notificationService.saveNotificationIfNotExists(staffNotif);
 
         Notification profNotif = Notification.builder()
                 .recipientId(request.getProfessorId())
@@ -315,7 +308,7 @@ public class AmenityRequestServiceImpl implements AmenityRequestService {
                 .isArchived(false)
                 .createdAt(now)
                 .build();
-        saveNotificationIfNotExists(profNotif);
+        notificationService.saveNotificationIfNotExists(profNotif);
 
         // 12. Auto-assign next queued request via atomic FIFO service
         adminAmenityService.tryAssignQueuedRequest(lockedStaff);

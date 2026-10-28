@@ -1183,6 +1183,49 @@
     opacity: 1;
 }
 
+.staff-notification-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.staff-notification-mark-read-btn {
+    background: none;
+    border: none;
+    color: #10b981;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.staff-notification-item:hover .staff-notification-mark-read-btn {
+    opacity: 1;
+}
+
+.staff-notification-mark-read-btn:hover {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.staff-notification-item.unread {
+    background-color: #f8fafc;
+    border-left: 3px solid #4f46e5;
+}
+
+.staff-toast.info {
+    border-left-color: #3b82f6;
+}
+
+.staff-toast.warning {
+    border-left-color: #f59e0b;
+}
+
 .staff-notification-delete-btn:hover {
     background: #f3f4f6;
     color: #ef4444;
